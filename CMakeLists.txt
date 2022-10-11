@@ -11,6 +11,7 @@ set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(libs/spdlog)
 add_subdirectory(libs/cryptopp)
 add_subdirectory(libs/cxxopts)
+add_subdirectory(test)
 
 include_directories(src)
 add_executable(krapi main.cpp src/Utils/ErrorOr.h)

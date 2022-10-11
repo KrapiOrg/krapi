@@ -19,3 +19,9 @@
 [submodule "libs/cxxopts"]
 	path = libs/cxxopts
 	url = https://github.com/jarro2783/cxxopts
+[submodule "test/gtest/lib"]
+	path = test/gtest/lib
+	url = https://github.com/google/googletest
+[submodule "test/lib"]
+	path = test/lib
+	url = https://github.com/google/googletest
