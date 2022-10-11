@@ -10,6 +10,7 @@ add_subdirectory(libs/fmt)
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(libs/spdlog)
 add_subdirectory(libs/cryptopp)
+add_subdirectory(libs/cxxopts)
 
 include_directories(src)
 add_executable(krapi main.cpp src/Utils/ErrorOr.h)
@@ -19,4 +20,5 @@ target_link_libraries(krapi PRIVATE
         fmt
         spdlog
         cryptopp
+        cxxopts
         )
