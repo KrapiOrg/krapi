@@ -10,3 +10,9 @@
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = https://github.com/fmtlib/fmt
+[submodule "libs/cryptopp-cmake"]
+	path = libs/cryptopp-cmake
+	url = https://github.com/abdes/cryptopp-cmake
+[submodule "libs/cryptopp"]
+	path = libs/cryptopp
+	url = https://github.com/abdes/cryptopp-cmake

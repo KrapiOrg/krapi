@@ -9,6 +9,7 @@ add_subdirectory(libs/json)
 add_subdirectory(libs/fmt)
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(libs/spdlog)
+add_subdirectory(libs/cryptopp)
 
 include_directories(src)
 add_executable(krapi main.cpp src/Utils/ErrorOr.h)
@@ -17,4 +18,5 @@ target_link_libraries(krapi PRIVATE
         nlohmann_json
         fmt
         spdlog
+        cryptopp
         )
