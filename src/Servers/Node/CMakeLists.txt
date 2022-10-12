@@ -13,4 +13,6 @@ target_link_libraries(node PRIVATE
         spdlog
         cryptopp
         cxxopts
+        krapi_models
+        utils
         )
