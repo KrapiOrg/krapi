@@ -3,6 +3,7 @@ project(krapi)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# set up libraries
 set(USE_TLS 1)
 add_subdirectory(libs/websockets)
 add_subdirectory(libs/json)
@@ -13,13 +14,11 @@ add_subdirectory(libs/cryptopp)
 add_subdirectory(libs/cxxopts)
 add_subdirectory(test)
 
-include_directories(src)
-add_executable(krapi main.cpp src/Utils/ErrorOr.h)
-target_link_libraries(krapi PRIVATE
-        ixwebsocket
-        nlohmann_json
-        fmt
-        spdlog
-        cryptopp
-        cxxopts
-        )
+# General Includes
+include_directories(src/Utils)
+include_directories(src/Models)
+
+include(src/Utils/CMakeLists.txt)
+include(src/Servers/TransactionPool/CMakeLists.txt)
+include(src/Servers/Node/CMakeLists.txt)
+include(src/Models/CMakeLists.txt)
