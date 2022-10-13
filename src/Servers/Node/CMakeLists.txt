@@ -25,5 +25,5 @@ target_link_libraries(node PRIVATE
         cryptopp
         cxxopts
         krapi_models
-        utils
+        sutils
         )

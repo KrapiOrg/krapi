@@ -16,9 +16,13 @@ add_subdirectory(test)
 
 # General Includes
 include_directories(src/Utils)
+include_directories(src/Servers/ServerUtils)
 include_directories(src/Models)
 
 include(src/Utils/CMakeLists.txt)
+include(src/Servers/ServerUtils/CMakeLists.txt)
+include(src/Servers/Discovery/CMakeLists.txt)
 include(src/Servers/TransactionPool/CMakeLists.txt)
 include(src/Servers/Node/CMakeLists.txt)
+include(src/Servers/ClientSimulator/CMakeLists.txt)
 include(src/Models/CMakeLists.txt)
