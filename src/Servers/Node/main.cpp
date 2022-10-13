@@ -2,11 +2,35 @@
 // Created by mythi on 12/10/22.
 //
 #include <fstream>
+#include <tuple>
 #include "cxxopts.hpp"
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "fmt/core.h"
 #include "spdlog/spdlog.h"
 #include "nlohmann/json.hpp"
+#include "NetworkManager.h"
+#include "Server.h"
+
+
+std::tuple<int, std::string, std::vector<std::string>> parse_config_file(std::string_view path) {
+
+    int port;
+    std::string host;
+    std::vector<std::string> network_uris;
+    std::ifstream config_file(path.data());
+
+    if (!config_file.is_open()) {
+        spdlog::error("Failed to open configuration file {}", path);
+        exit(1);
+    }
+
+    auto parsed_config_file = nlohmann::json::parse(config_file);
+    parsed_config_file["server_port"].get_to(port);
+    parsed_config_file["server_host"].get_to(host);
+    parsed_config_file["connect_to"].get_to(network_uris);
+
+    return std::make_tuple(port, host, network_uris);
+}
 
 int main(int argc, const char **argv) {
 
@@ -17,72 +41,14 @@ int main(int argc, const char **argv) {
              cxxopts::value<std::string>()->default_value("config.json")
             );
     auto parsed_args = options.parse(argc, argv);
+    auto config_path = parsed_args["config"].as<std::string>();
 
-    int port;
-    std::vector<std::string> connect_to;
+    auto [server_port, server_host, network_uris] = parse_config_file(config_path);
 
-    // Parse json_file supplied by args
-    {
-        auto config_path = parsed_args["config"].as<std::string>();
-        std::ifstream config_file(config_path);
+    krapi::NetworkManager network_manager{network_uris};
+    network_manager.start();
 
-        if (!config_file.is_open()) {
-            spdlog::error("Failed to open configuration file {}", config_path);
-            return 1;
-        }
-        auto parsed_config_file = nlohmann::json::parse(config_file);
-        parsed_config_file["server_port"].get_to(port);
-        parsed_config_file["connect_to"].get_to(connect_to);
-    }
-
-
-    ix::WebSocketServer server(port, "127.0.0.1");
-
-    spdlog::info("Launching node server on: 127.0.0.1:{}", port);
-    server.setOnClientMessageCallback(
-            [](
-                    const std::shared_ptr<ix::ConnectionState> &connectionState,
-                    ix::WebSocket &webSocket,
-                    const ix::WebSocketMessagePtr &msg
-            ) {
-                spdlog::info("Remote ip: {}", connectionState->getRemoteIp());
-
-                if (msg->type == ix::WebSocketMessageType::Open) {
-                    spdlog::info("New connection");
-                    spdlog::info("id: {}", connectionState->getId());
-                    spdlog::info("Uri: {}", msg->openInfo.uri);
-                    spdlog::info("Headers:");
-                    for (auto it: msg->openInfo.headers) {
-                        spdlog::info("\t {},{}", it.first, it.second);
-                    }
-                } else if (msg->type == ix::WebSocketMessageType::Message) {
-                    spdlog::info("Received: {}", msg->str);
-                    webSocket.send(msg->str, msg->binary);
-                }
-            }
-    );
-    auto res = server.listen();
-    if (!res.first) {
-        spdlog::error(res.second);
-        return 1;
-    }
-
+    krapi::Server server{server_port, server_host};
     server.start();
-
-    std::vector<std::shared_ptr<ix::WebSocket>> me_as_a_client_sockets;
-
-    for (const auto &uri: connect_to) {
-        auto socket = std::make_shared<ix::WebSocket>();
-
-        socket->setUrl(fmt::format("ws://{}", uri));
-        socket->setOnMessageCallback([&uri](const ix::WebSocketMessagePtr &message) {
-            if (message->type == ix::WebSocketMessageType::Open) {
-                spdlog::warn("Connected to server on port {}", uri);
-            }
-        });
-        socket->start();
-        me_as_a_client_sockets.push_back(socket);
-    }
-
     server.wait();
 }
