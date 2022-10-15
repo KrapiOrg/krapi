@@ -24,4 +24,6 @@ namespace krapi {
 
         return m_type;
     }
+
+    MessageBase::~MessageBase() = default;
 }

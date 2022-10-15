@@ -3,7 +3,7 @@
 //
 #include "ixwebsocket/IXWebSocket.h"
 #include "spdlog/spdlog.h"
-#include "Message/DiscoverTxPools.h"
+#include "Message/DiscoverTxPoolsMsg.h"
 #include "Response/Response.h"
 #include "Overload.h"
 #include "Response/JsonToResponseConverter.h"
@@ -17,8 +17,8 @@ int main() {
             [&discovery_socket](const ix::WebSocketMessagePtr &message) {
                 if (message->type == ix::WebSocketMessageType::Open) {
                     spdlog::info("Connected to discovery server");
-                    spdlog::info("Sending discovery request");
-                    discovery_socket.sendText(krapi::DiscoverTxPools{}.to_string());
+                    spdlog::info("Sending txpool discovery request");
+                    discovery_socket.sendText(krapi::DiscoverTxPoolsMsg{}.to_string());
                 } else if (message->type == ix::WebSocketMessageType::Error) {
 
                     spdlog::error("{}", message->errorInfo.reason);

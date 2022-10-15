@@ -14,7 +14,7 @@ namespace krapi {
         Response operator()(std::string_view str) {
             auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
-            if (type == "tx_discovery_response") {
+            if (type == "tx_discovery_rsp") {
                 return TxDiscoveryRsp{json["hosts"]};
             }
             return ErrorRsp{};

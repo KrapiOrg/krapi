@@ -19,10 +19,12 @@ namespace krapi {
         std::string_view type() const;
 
         [[nodiscard]]
-        virtual nlohmann::json to_json() const = 0;
+        virtual nlohmann::json to_json() const;
 
         [[nodiscard]]
         std::string to_string() const;
+
+        virtual ~ResponseBase();
     };
 }
 

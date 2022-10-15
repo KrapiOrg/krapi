@@ -14,10 +14,10 @@ namespace krapi {
         Message operator()(std::string_view str) {
             auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
-            if (type == "ack") {
+            if (type == "ack_msg") {
                 return AckMsg{};
-            } else if (type == "discover_tx_pools") {
-                return DiscoverTxPools{};
+            } else if (type == "discover_tx_pools_msg") {
+                return DiscoverTxPoolsMsg{};
             }
             return CreateTxMsg{};
         }

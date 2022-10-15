@@ -25,4 +25,6 @@ namespace krapi {
 
         return m_type;
     }
+
+    ResponseBase::~ResponseBase() = default;
 }

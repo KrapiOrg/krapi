@@ -9,13 +9,7 @@
 
 namespace krapi {
     struct CreateTxMsg : public MessageBase {
-        explicit CreateTxMsg() : MessageBase("create_tx") {}
-
-        [[nodiscard]]
-        nlohmann::json to_json() const override {
-
-            return MessageBase::to_json();
-        }
+        explicit CreateTxMsg() : MessageBase("create_tx_msg") {}
     };
 }
 
