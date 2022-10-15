@@ -11,8 +11,8 @@
 namespace krapi {
     struct JsonToResponseConverter {
 
-        Response operator()(const nlohmann::json &json) {
-
+        Response operator()(std::string_view str) {
+            auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
             if (type == "tx_discovery_response") {
                 return TxDiscoveryRsp{json["hosts"]};

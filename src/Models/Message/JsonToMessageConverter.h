@@ -11,8 +11,8 @@
 namespace krapi {
     struct JsonToMessageConverter {
 
-        Message operator()(const nlohmann::json &json) {
-
+        Message operator()(std::string_view str) {
+            auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
             if (type == "ack") {
                 return AckMessage{};

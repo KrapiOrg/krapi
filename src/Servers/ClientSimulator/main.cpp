@@ -23,12 +23,16 @@ int main() {
 
                     spdlog::error("{}", message->errorInfo.reason);
                 } else if (message->type == ix::WebSocketMessageType::Message) {
-                    auto msg = std::invoke(krapi::JsonToResponseConverter{}, nlohmann::json::parse(message->str));
-                    auto msg_str = std::visit(Overload{
-                            [](auto) { return std::string{}; },
-                            [](const krapi::TxDiscoveryRsp &rsp) { return rsp.to_string(); }
-                    }, msg);
-                    spdlog::info("Discovered {}", msg_str);
+                    auto msg = std::invoke(krapi::JsonToResponseConverter{}, message->str);
+                    std::visit(
+                            Overload{
+                                    [](auto) {},
+                                    [](const krapi::TxDiscoveryRsp &rsp)  {
+                                        spdlog::info("Discovered {}", rsp.to_string());
+                                    }
+                            },
+                            msg
+                    );
                 }
             }
     );

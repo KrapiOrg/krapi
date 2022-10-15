@@ -39,8 +39,7 @@ int main(int argc, const char **argv) {
 
                 } else if (msg->type == ix::WebSocketMessageType::Message) {
                     spdlog::warn("Recivied msg {}", msg->str);
-                    auto json = nlohmann::json::parse(msg->str);
-                    auto message = std::invoke(krapi::JsonToMessageConverter{}, json);
+                    auto message = std::invoke(krapi::JsonToMessageConverter{}, msg->str);
                     auto response = std::visit<nlohmann::json>(
                             Overload{
                                     [](auto) {
