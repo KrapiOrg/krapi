@@ -3,7 +3,7 @@
 	url = https://github.com/machinezone/IXWebSocket
 [submodule "libs/spdlog"]
 	path = libs/spdlog
-	url = https://github.com/gabime/spdlog
+	url = https://github.com/KrapiOrg/spdlog
 [submodule "libs/json"]
 	path = libs/json
 	url = https://github.com/nlohmann/json
