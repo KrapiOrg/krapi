@@ -27,7 +27,7 @@ int main() {
                     std::visit(
                             Overload{
                                     [](auto) {},
-                                    [](const krapi::TxDiscoveryRsp &rsp)  {
+                                    [](const krapi::TxPoolDiscoveryRsp &rsp)  {
                                         spdlog::info("Discovered {}", rsp.to_string());
                                     }
                             },

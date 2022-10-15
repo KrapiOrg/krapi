@@ -11,11 +11,11 @@
 #include "ResponseBase.h"
 
 namespace krapi {
-    struct TxDiscoveryRsp : public ResponseBase {
+    struct TxPoolDiscoveryRsp : public ResponseBase {
     private:
         std::vector<std::string> hosts;
     public:
-        explicit TxDiscoveryRsp(std::vector<std::string> hosts) :
+        explicit TxPoolDiscoveryRsp(std::vector<std::string> hosts) :
                 ResponseBase("tx_discovery_rsp"),
                 hosts(std::move(hosts)) {}
 

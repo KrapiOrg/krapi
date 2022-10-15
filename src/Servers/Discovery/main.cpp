@@ -47,7 +47,7 @@ int main(int argc, const char **argv) {
                                     },
                                     [&hosts](const krapi::DiscoverTxPoolsMsg &) {
                                         // TODO: instead of simply sending out a static list the Discover server should keep track of avaliable pools
-                                        return krapi::TxDiscoveryRsp{hosts}.to_json();
+                                        return krapi::TxPoolDiscoveryRsp{hosts}.to_json();
                                     }
                             }, message
                     );

@@ -7,7 +7,7 @@ set(
         ${RSPNSMDLSPRFX}/Response.h
         ${RSPNSMDLSPRFX}/ResponseBase.h
         ${RSPNSMDLSPRFX}/ResponseBase.cpp
-        ${RSPNSMDLSPRFX}/TxDiscoveryRsp.h
+        ${RSPNSMDLSPRFX}/TxPoolDiscoveryRsp.h
         ${RSPNSMDLSPRFX}/ErrorRsp.h
         ${RSPNSMDLSPRFX}/JsonToResponseConverter.h
 )
