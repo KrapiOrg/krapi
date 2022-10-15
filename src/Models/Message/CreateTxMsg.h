@@ -8,8 +8,8 @@
 #include "MessageBase.h"
 
 namespace krapi {
-    struct CreateTxMessage : public MessageBase {
-        explicit CreateTxMessage() : MessageBase("create_tx") {}
+    struct CreateTxMsg : public MessageBase {
+        explicit CreateTxMsg() : MessageBase("create_tx") {}
 
         [[nodiscard]]
         nlohmann::json to_json() const override {

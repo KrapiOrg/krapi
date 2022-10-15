@@ -8,8 +8,8 @@
 #include "MessageBase.h"
 
 namespace krapi {
-    struct AckMessage : public MessageBase {
-        explicit AckMessage() : MessageBase("ack") {}
+    struct AckMsg : public MessageBase {
+        explicit AckMsg() : MessageBase("ack") {}
 
         [[nodiscard]]
         nlohmann::json to_json() const override {

@@ -15,11 +15,11 @@ namespace krapi {
             auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
             if (type == "ack") {
-                return AckMessage{};
+                return AckMsg{};
             } else if (type == "discover_tx_pools") {
                 return DiscoverTxPools{};
             }
-            return CreateTxMessage{};
+            return CreateTxMsg{};
         }
 
     };
