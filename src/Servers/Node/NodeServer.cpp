@@ -12,7 +12,7 @@ namespace krapi {
 
     NodeServer::NodeServer(
             std::string uri,
-            std::shared_ptr<eventpp::EventQueue<NodeMessageType, void(const NodeMessage &)>> eq
+            std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> eq
     ) : m_uri(std::move(uri)),
         m_eq(std::move(eq)) {
 
@@ -24,9 +24,9 @@ namespace krapi {
         using namespace ix;
         WebSocket socket;
         socket.setUrl(fmt::format("ws://{}", m_uri));
+
         socket.setOnMessageCallback(
                 [&, this](const WebSocketMessagePtr &message) {
-                    spdlog::info("Recivied message from {}", socket.getUrl());
                     if (message->type == WebSocketMessageType::Open) {
                         spdlog::info("Opened connection to {}", socket.getUrl());
                     } else if (message->type == WebSocketMessageType::Error) {
@@ -34,20 +34,25 @@ namespace krapi {
                     } else if (message->type == WebSocketMessageType::Message) {
                         auto msg = NodeMessage{};
                         nlohmann::from_json(nlohmann::json::parse(message->str), msg);
+                        //spdlog::info("Received message {}", msg.str);
                         // Append message to queue
-                        m_eq->enqueue(msg.type, msg);
+                        m_eq->dispatch(msg.type, msg);
                     }
                 }
         );
-//        m_eq->appendListener(NodeMessageType::Stop, [&](const NodeMessage &) {
-//            socket.disableAutomaticReconnection();
-//            socket.stop();
-//        });
+        m_eq->appendListener(NodeMessageType::Stop, [&](const NodeMessage &) {
+            socket.disableAutomaticReconnection();
+            socket.stop();
+        });
+        m_eq->appendListener(NodeMessageType::Print, [&](const NodeMessage &msg) {
+            spdlog::info("{}", msg.str);
+        });
         socket.run();
     }
 
     void NodeServer::start() {
-        spdlog::warn("Starting node server for {}",m_uri);
+
+        spdlog::warn("Starting node server for {}", m_uri);
         m_thread = std::jthread(&NodeServer::server_loop, this);
 
     }
@@ -63,7 +68,7 @@ namespace krapi {
     void NodeServer::stop() {
 
         if (m_thread.joinable()) {
-            m_eq->enqueue(NodeMessageType::Stop, NodeMessage{});
+            m_eq->dispatch(NodeMessageType::Stop, NodeMessage{});
             m_thread.request_stop();
             m_thread.join();
         }

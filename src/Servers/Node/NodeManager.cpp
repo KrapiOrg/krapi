@@ -18,16 +18,17 @@ namespace krapi {
             : m_my_uri(std::move(my_uri)),
               m_network_node_hosts(std::move(network_hosts)),
               m_pool_hosts(std::move(pool_hosts)),
-              m_eq(std::make_shared<EventQueue<NodeMessageType, void(const NodeMessage &)>>()) {
-
+              m_eq(std::make_shared<EventDispatcher<NodeMessageType, void(const NodeMessage &)>>()) {
     }
 
     void NodeManager::connect_to_nodes() {
 
         spdlog::warn("Connecting to nodes!");
         for (const auto &uri: m_network_node_hosts) {
-            spdlog::info("Attempting to connect to {}", uri);
-            m_nodes.emplace_back(uri, m_eq);
+            if (uri != m_my_uri) {
+                spdlog::info("Attempting to connect to {}", uri);
+                m_nodes.emplace_back(uri, m_eq);
+            }
         }
     }
 

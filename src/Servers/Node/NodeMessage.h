@@ -16,9 +16,10 @@ namespace krapi {
 
     struct NodeMessage {
         NodeMessageType type{};
+        std::string str{};
         std::vector<std::string> black_list{};
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(NodeMessage, type, black_list)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(NodeMessage, type, str, black_list)
     };
 
 } // krapi

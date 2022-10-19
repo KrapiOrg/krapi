@@ -37,14 +37,42 @@ int main(int argc, const char **argv) {
 
     auto config = krapi::parse_node_config_file(config_path);
     auto my_uri = fmt::format("{}:{}", config.server_host, config.server_port);
-    auto url = fmt::format("http://127.0.0.1:7005");
 
-    auto client = httplib::Client(url);
+    using namespace ix;
+    WebSocketServer ws_server(config.server_port, config.server_host);
+    ws_server.setOnClientMessageCallback(
+            [](
+                    const std::shared_ptr<ConnectionState> &state,
+                    WebSocket &ws,
+                    const WebSocketMessagePtr &message
+            ) {
+                if (message->type == WebSocketMessageType::Open) {
+                    spdlog::info("{} Just connected", ws.getUrl());
+                } else if (message->type == WebSocketMessageType::Error) {
+                    spdlog::info(
+                            "REASON: {}, STATUS_CODE: {}",
+                            message->errorInfo.reason,
+                            message->errorInfo.http_status
+                    );
+                } else if (message->type == WebSocketMessageType::Message) {
+                    // handle network messages.
+                }
+            }
+    );
+    auto res = ws_server.listenAndStart();
+    if (!res) {
+        // Error handling
+        return 1;
+    }
+    ws_server.start();
+    auto discovery_url = fmt::format("http://127.0.0.1:7005");
+
+    auto client = httplib::Client(discovery_url);
 
     spdlog::info("Sending node discovery request");
-    auto dm_nodes_res = send_discovery_message(client, url, krapi::DiscoverNodesMsg{});
+    auto dm_nodes_res = send_discovery_message(client, discovery_url, krapi::DiscoverNodesMsg{});
     spdlog::info("Sending txpool discovery request");
-    auto tx_pools_res = send_discovery_message(client, url, krapi::DiscoverTxPoolsMsg{});
+    auto tx_pools_res = send_discovery_message(client, discovery_url, krapi::DiscoverTxPoolsMsg{});
 
     auto retrieve_hosts = [](const krapi::Response &rsp) {
         return std::visit(
@@ -67,6 +95,7 @@ int main(int argc, const char **argv) {
     spdlog::info("Received {} txpool uris", fmt::join(tx_pools, ","));
 
     krapi::NodeManager manager(my_uri, node_uirs, tx_pools);
+    manager.connect_to_nodes();
 
     manager.wait();
 }

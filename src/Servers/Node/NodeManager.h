@@ -12,9 +12,9 @@
 
 namespace krapi {
 
-    class NodeManager {
+    class  NodeManager {
         std::string m_my_uri;
-        std::shared_ptr<eventpp::EventQueue<NodeMessageType, void(const NodeMessage &)>> m_eq;
+        std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> m_eq;
         std::vector<NodeServer> m_nodes;
         std::vector<std::string> m_network_node_hosts;
         std::vector<std::string> m_pool_hosts;
