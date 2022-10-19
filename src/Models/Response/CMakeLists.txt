@@ -10,6 +10,7 @@ set(
         ${RSPNSMDLSPRFX}/TxPoolDiscoveryRsp.h
         ${RSPNSMDLSPRFX}/ErrorRsp.h
         ${RSPNSMDLSPRFX}/JsonToResponseConverter.h
+        ${RSPNSMDLSPRFX}/NodeDiscoveryRsp.h
 )
 add_library(rspns_models ${RSPNSSOURCES})
 target_link_libraries(rspns_models fmt nlohmann_json)

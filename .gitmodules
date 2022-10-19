@@ -25,3 +25,9 @@
 [submodule "test/lib"]
 	path = test/lib
 	url = https://github.com/google/googletest
+[submodule "libs/eventpp"]
+	path = libs/eventpp
+	url = https://github.com/wqking/eventpp
+[submodule "libs/cpp-httplib"]
+	path = libs/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib

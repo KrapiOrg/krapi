@@ -8,8 +8,9 @@
 #include <variant>
 #include "TxPoolDiscoveryRsp.h"
 #include "ErrorRsp.h"
+#include "NodeDiscoveryRsp.h"
 
 namespace krapi {
-    using Response = std::variant<TxPoolDiscoveryRsp, ErrorRsp>;
+    using Response = std::variant<TxPoolDiscoveryRsp, ErrorRsp, NodesDiscoveryRsp>;
 }
 #endif //KRAPI_MODELS_RESPONSE_H

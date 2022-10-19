@@ -11,6 +11,7 @@ set(
         ${MSGMDLSPRFX}/Message.h
         ${MSGMDLSPRFX}/MessageBase.h
         ${MSGMDLSPRFX}/MessageBase.cpp
+        ${MSGMDLSPRFX}/DiscoverNodesMsg.h
 )
 add_library(msg_models ${MDLSOURCES})
 target_link_libraries(msg_models fmt nlohmann_json)

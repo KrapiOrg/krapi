@@ -6,17 +6,28 @@
 #define KRAPI_MODELS_PARSINGUTILS_H
 
 #include <fstream>
-#include "ixwebsocket/IXWebSocketServer.h"
 #include "nlohmann/json.hpp"
 #include "spdlog/spdlog.h"
 
 
 namespace krapi {
-    std::tuple<int, std::string, std::vector<std::string>> parse_config_file(std::string_view path) {
+    struct NodeServerConfig {
+        int server_port{};
+        std::string server_host{};
+        std::string discovery_host{};
 
-        int port;
-        std::string host;
-        std::vector<std::string> hosts;
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+                NodeServerConfig,
+                server_port,
+                server_host,
+                discovery_host
+        )
+
+    };
+
+
+    NodeServerConfig parse_node_config_file(std::string_view path) {
+
         std::ifstream config_file(path.data());
 
         if (!config_file.is_open()) {
@@ -24,13 +35,43 @@ namespace krapi {
             exit(1);
         }
 
-        auto parsed_config_file = nlohmann::json::parse(config_file);
-        parsed_config_file["server_port"].get_to(port);
-        parsed_config_file["server_host"].get_to(host);
-        parsed_config_file["hosts"].get_to(hosts);
+        NodeServerConfig config;
+        nlohmann::from_json(nlohmann::json::parse(config_file), config);
 
-        return std::make_tuple(port, host, hosts);
+
+        return config;
     }
 
+    struct DiscoveryServerConfig {
+        int server_port{};
+        std::string server_host{};
+        std::vector<std::string> node_hosts{};
+        std::vector<std::string> pool_hosts{};
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+                DiscoveryServerConfig,
+                server_port,
+                server_host,
+                node_hosts,
+                pool_hosts
+        )
+
+    };
+
+    DiscoveryServerConfig parse_discovery_config_file(std::string_view path) {
+
+
+        std::ifstream config_file(path.data());
+
+        if (!config_file.is_open()) {
+            spdlog::error("Failed to open configuration file {}", path);
+            exit(1);
+        }
+
+        DiscoveryServerConfig config;
+        nlohmann::from_json(nlohmann::json::parse(config_file), config);
+
+        return config;
+    }
 }
 #endif //KRAPI_MODELS_PARSINGUTILS_H

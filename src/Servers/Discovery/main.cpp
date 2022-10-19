@@ -4,11 +4,11 @@
 
 
 #include "cxxopts.hpp"
-#include "nlohmann/json.hpp"
 #include "ParsingUtils.h"
 #include "Message/JsonToMessageConverter.h"
 #include "Overload.h"
 #include "Response/Response.h"
+#include "httplib.h"
 
 int main(int argc, const char **argv) {
 
@@ -22,45 +22,40 @@ int main(int argc, const char **argv) {
     auto parsed_args = options.parse(argc, argv);
     auto config_path = parsed_args["config"].as<std::string>();
 
-    auto [server_port, server_host, hosts] = krapi::parse_config_file(config_path);
-    auto h = hosts;
-    ix::WebSocketServer server(server_port, server_host);
+    auto config = krapi::parse_discovery_config_file(config_path);
 
-    server.setOnClientMessageCallback(
-            [&hosts = h](
-                    const std::shared_ptr<ix::ConnectionState> &connectionState,
-                    ix::WebSocket &webSocket,
-                    const ix::WebSocketMessagePtr &msg
+    spdlog::info("Starting Discovery Server on {}:{}", config.server_host, config.server_port);
+
+    httplib::Server server;
+    server.Post(
+            "/",
+            [&](
+                    const httplib::Request &req,
+                    httplib::Response &res
             ) {
-                if (msg->type == ix::WebSocketMessageType::Open) {
-                    spdlog::info("Client {} connected", webSocket.getUrl());
-                } else if (msg->type == ix::WebSocketMessageType::Error) {
-                    spdlog::error("{}", msg->str);
-
-                } else if (msg->type == ix::WebSocketMessageType::Message) {
-                    spdlog::warn("Recivied msg {}", msg->str);
-                    auto message = std::invoke(krapi::JsonToMessageConverter{}, msg->str);
-                    auto response = std::visit<nlohmann::json>(
-                            Overload{
-                                    [](auto) {
-                                        return krapi::ErrorRsp{}.to_json();
-                                    },
-                                    [&hosts](const krapi::DiscoverTxPoolsMsg &) {
-                                        // TODO: instead of simply sending out a static list the Discover server should keep track of avaliable pools
-                                        return krapi::TxPoolDiscoveryRsp{hosts}.to_json();
-                                    }
-                            }, message
-                    );
-                    spdlog::info("Sending {} to {}", response.dump(), webSocket.getUrl());
-                    webSocket.send(response.dump());
-                }
+                auto message = std::invoke(krapi::JsonToMessageConverter{}, req.body);
+                auto response = std::visit<nlohmann::json>(
+                        Overload{
+                                [](auto) {
+                                    return krapi::ErrorRsp{}.to_json();
+                                },
+                                [&](const krapi::DiscoverNodesMsg &) {
+                                    spdlog::info("Recivied node discovery message");
+                                    // TODO: instead of simply sending out a static list the Discover
+                                    //  server should keep track of avaliable nodes
+                                    return krapi::NodesDiscoveryRsp{config.node_hosts}.to_json();
+                                },
+                                [&](const krapi::DiscoverTxPoolsMsg &) {
+                                    spdlog::info("Recivied pool discovery message");
+                                    // TODO: instead of simply sending out a static list the Discover server
+                                    //  should keep track of avaliable pools
+                                    return krapi::TxPoolDiscoveryRsp{config.pool_hosts}.to_json();
+                                }
+                        }, message
+                );
+                spdlog::info("Sending {}", response.dump());
+                res.set_content(response.dump(), "application/json");
             }
     );
-    auto res = server.listenAndStart();
-    if (!res) {
-        spdlog::error("");
-        return 1;
-    }
-    spdlog::info("Started Discovery Server on {}:{}", server.getHost(), server.getPort());
-    server.wait();
+    server.listen(config.server_host, config.server_port);
 }

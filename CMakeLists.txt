@@ -4,7 +4,7 @@ project(krapi)
 set(CMAKE_CXX_STANDARD 20)
 
 # set up libraries
-set(USE_TLS 1)
+set(USE_TLS 0)
 add_subdirectory(libs/websockets)
 add_subdirectory(libs/json)
 add_subdirectory(libs/fmt)
@@ -12,6 +12,8 @@ set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(libs/spdlog)
 add_subdirectory(libs/cryptopp)
 add_subdirectory(libs/cxxopts)
+add_subdirectory(libs/eventpp)
+add_subdirectory(libs/cpp-httplib)
 add_subdirectory(test)
 
 # General Includes

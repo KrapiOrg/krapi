@@ -6,10 +6,10 @@ set(DISCOVERYSOURCES ${DISCOVERYPREFIX}/main.cpp)
 add_executable(discovery "${DISCOVERYSOURCES}")
 target_link_libraries(discovery PRIVATE
         krapi_models
-        ixwebsocket
         nlohmann_json
         spdlog
         cxxopts
         msg_models
         rspns_models
+        httplib
         )

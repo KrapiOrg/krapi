@@ -26,6 +26,12 @@ namespace krapi {
             json["hosts"] = hosts;
             return json;
         }
+
+        [[nodiscard]]
+        const std::vector<std::string> &get_hosts() const {
+
+            return hosts;
+        }
     };
 }
 #endif //RSPNS_RESPONSE_TXDISCOVERYRSP_H

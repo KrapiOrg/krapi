@@ -12,12 +12,15 @@ namespace krapi {
     struct JsonToMessageConverter {
 
         Message operator()(std::string_view str) {
+
             auto json = nlohmann::json::parse(str);
             const auto &type = json["type"];
             if (type == "ack_msg") {
                 return AckMsg{};
             } else if (type == "discover_tx_pools_msg") {
                 return DiscoverTxPoolsMsg{};
+            } else if (type == "discover_nodes_msg") {
+                return DiscoverNodesMsg{};
             }
             return CreateTxMsg{};
         }

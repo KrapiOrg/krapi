@@ -9,8 +9,9 @@
 #include "AckMsg.h"
 #include "CreateTxMsg.h"
 #include "DiscoverTxPoolsMsg.h"
+#include "DiscoverNodesMsg.h"
 
 namespace krapi {
-    using Message = std::variant<AckMsg, CreateTxMsg, DiscoverTxPoolsMsg>;
+    using Message = std::variant<AckMsg, CreateTxMsg, DiscoverTxPoolsMsg, DiscoverNodesMsg>;
 }
 #endif //KRAPI_MODELS_MESSAGE_H
