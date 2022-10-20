@@ -5,11 +5,8 @@
 #include "fmt/core.h"
 #include "NodeManager.h"
 #include "ParsingUtils.h"
-#include "Message/DiscoverTxPoolsMsg.h"
-#include "Message/DiscoverNodesMsg.h"
-#include "Response/JsonToResponseConverter.h"
-#include "Overload.h"
-#include "Message/Message.h"
+#include "Message.h"
+#include "Response.h"
 #include "httplib.h"
 
 krapi::Response send_discovery_message(
@@ -18,10 +15,10 @@ krapi::Response send_discovery_message(
         const krapi::Message &message
 ) {
 
-    auto msg = std::visit([](auto &&x) { return x.to_string(); }, message);
-    auto res = client.Post("/", msg, "application/json");
-
-    return std::invoke(krapi::JsonToResponseConverter{}, res->body);
+    auto res = client.Post("/", to_string(nlohmann::json(message)), "application/json");
+    auto res_json = nlohmann::json::parse(res->body);
+    spdlog::info("Discovery responded with {}", res_json.dump(4));
+    return res_json.get<krapi::Response>();
 }
 
 int main(int argc, const char **argv) {
@@ -70,31 +67,18 @@ int main(int argc, const char **argv) {
     auto client = httplib::Client(discovery_url);
 
     spdlog::info("Sending node discovery request");
-    auto dm_nodes_res = send_discovery_message(client, discovery_url, krapi::DiscoverNodesMsg{});
+    auto dm_nodes_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverNodes);
     spdlog::info("Sending txpool discovery request");
-    auto tx_pools_res = send_discovery_message(client, discovery_url, krapi::DiscoverTxPoolsMsg{});
+    auto tx_pools_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverTxPools);
 
-    auto retrieve_hosts = [](const krapi::Response &rsp) {
-        return std::visit(
-                Overload{
-                        [](auto) { return std::vector<std::string>{}; },
-                        [](const krapi::NodesDiscoveryRsp &rsp) {
-                            return rsp.get_hosts();
-                        },
-                        [](const krapi::TxPoolDiscoveryRsp &rsp) {
-                            return rsp.get_hosts();
-                        }
-                }, rsp
-        );
-    };
 
-    auto node_uirs = retrieve_hosts(dm_nodes_res);
+    auto node_uirs = dm_nodes_res.content.get<std::vector<std::string>>();
     spdlog::info("Received {} node uris", fmt::join(node_uirs, ","));
 
-    auto tx_pools = retrieve_hosts(tx_pools_res);
-    spdlog::info("Received {} txpool uris", fmt::join(tx_pools, ","));
+    auto pool_uris = tx_pools_res.content.get<std::vector<std::string>>();
+    spdlog::info("Received {} txpool uris", fmt::join(pool_uris, ","));
 
-    krapi::NodeManager manager(my_uri, node_uirs, tx_pools);
+    krapi::NodeManager manager(my_uri, node_uirs, pool_uris);
     manager.connect_to_nodes();
 
     manager.wait();

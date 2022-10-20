@@ -44,9 +44,6 @@ namespace krapi {
             socket.disableAutomaticReconnection();
             socket.stop();
         });
-        m_eq->appendListener(NodeMessageType::Print, [&](const NodeMessage &msg) {
-            spdlog::info("{}", msg.str);
-        });
         socket.run();
     }
 
