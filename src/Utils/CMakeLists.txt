@@ -7,7 +7,6 @@ add_library(
         ${UTILSPREFIX}/Box.h
         ${UTILSPREFIX}/ErrorOr.h
         ${UTILSPREFIX}/Overload.h
-        ${UTILSPREFIX}/Serializable.h
 )
 target_link_libraries(utils PRIVATE nlohmann_json)
 set_target_properties(utils PROPERTIES LINKER_LANGUAGE CXX)

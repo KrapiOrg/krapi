@@ -4,11 +4,11 @@
 
 
 #include "cxxopts.hpp"
-#include "ParsingUtils.h"
-#include "Message/JsonToMessageConverter.h"
-#include "Overload.h"
-#include "Response/Response.h"
 #include "httplib.h"
+
+#include "ParsingUtils.h"
+#include "Message.h"
+#include "Response.h"
 
 int main(int argc, const char **argv) {
 
@@ -33,28 +33,31 @@ int main(int argc, const char **argv) {
                     const httplib::Request &req,
                     httplib::Response &res
             ) {
-                auto message = std::invoke(krapi::JsonToMessageConverter{}, req.body);
-                auto response = std::visit<nlohmann::json>(
-                        Overload{
-                                [](auto) {
-                                    return krapi::ErrorRsp{}.to_json();
-                                },
-                                [&](const krapi::DiscoverNodesMsg &) {
-                                    spdlog::info("Recivied node discovery message");
-                                    // TODO: instead of simply sending out a static list the Discover
-                                    //  server should keep track of avaliable nodes
-                                    return krapi::NodesDiscoveryRsp{config.node_hosts}.to_json();
-                                },
-                                [&](const krapi::DiscoverTxPoolsMsg &) {
-                                    spdlog::info("Recivied pool discovery message");
-                                    // TODO: instead of simply sending out a static list the Discover server
-                                    //  should keep track of avaliable pools
-                                    return krapi::TxPoolDiscoveryRsp{config.pool_hosts}.to_json();
-                                }
-                        }, message
-                );
-                spdlog::info("Sending {}", response.dump());
-                res.set_content(response.dump(), "application/json");
+                spdlog::info("Received {} from {}", req.body, req.remote_addr);
+                auto message_json = nlohmann::json::parse(req.body);
+                auto message = message_json.get<krapi::Message>();
+                krapi::Response response;
+
+                switch (message) {
+                    case krapi::Message::Acknowledge:
+                    case krapi::Message::CreateTransaction:
+                        break;
+                    case krapi::Message::DiscoverNodes:
+                        response = krapi::Response{
+                                krapi::ResponseType::NodesDiscovered,
+                                config.node_hosts
+                        };
+                        break;
+                    case krapi::Message::DiscoverTxPools:
+                        response = krapi::Response{
+                                krapi::ResponseType::TxPoolsDiscovered,
+                                config.pool_hosts
+                        };
+                        break;
+                }
+                auto response_json = nlohmann::json(response);
+                spdlog::info("Sending\n{} to {}", response_json.dump(4), req.remote_addr);
+                res.set_content(response_json.dump(), "application/json");
             }
     );
     server.listen(config.server_host, config.server_port);
