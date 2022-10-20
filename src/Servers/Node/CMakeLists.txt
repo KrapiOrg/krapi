@@ -23,7 +23,7 @@ target_link_libraries(node PRIVATE
         fmt
         spdlog
         cxxopts
-        krapi_models
+        shared_models
         eventpp
         sutils
         )

@@ -5,11 +5,9 @@ set(DISCOVERYPREFIX ${CMAKE_CURRENT_SOURCE_DIR}/src/Servers/Discovery)
 set(DISCOVERYSOURCES ${DISCOVERYPREFIX}/main.cpp)
 add_executable(discovery "${DISCOVERYSOURCES}")
 target_link_libraries(discovery PRIVATE
-        krapi_models
+        shared_models
         nlohmann_json
         spdlog
         cxxopts
-        msg_models
-        rspns_models
         httplib
         )
