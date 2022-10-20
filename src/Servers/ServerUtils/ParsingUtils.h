@@ -25,23 +25,6 @@ namespace krapi {
 
     };
 
-
-    NodeServerConfig parse_node_config_file(std::string_view path) {
-
-        std::ifstream config_file(path.data());
-
-        if (!config_file.is_open()) {
-            spdlog::error("Failed to open configuration file {}", path);
-            exit(1);
-        }
-
-        NodeServerConfig config;
-        nlohmann::from_json(nlohmann::json::parse(config_file), config);
-
-
-        return config;
-    }
-
     struct DiscoveryServerConfig {
         int server_port{};
         std::string server_host{};
@@ -58,8 +41,8 @@ namespace krapi {
 
     };
 
-    DiscoveryServerConfig parse_discovery_config_file(std::string_view path) {
-
+    template<typename T>
+    T parse_config(std::string_view path) {
 
         std::ifstream config_file(path.data());
 
@@ -68,9 +51,8 @@ namespace krapi {
             exit(1);
         }
 
-        DiscoveryServerConfig config;
+        T config;
         nlohmann::from_json(nlohmann::json::parse(config_file), config);
-
         return config;
     }
 }

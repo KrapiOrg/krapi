@@ -22,7 +22,7 @@ int main(int argc, const char **argv) {
     auto parsed_args = options.parse(argc, argv);
     auto config_path = parsed_args["config"].as<std::string>();
 
-    auto config = krapi::parse_discovery_config_file(config_path);
+    auto config = krapi::parse_config<krapi::DiscoveryServerConfig>(config_path);
 
     spdlog::info("Starting Discovery Server on {}:{}", config.server_host, config.server_port);
 
