@@ -11,7 +11,7 @@ set(
         ${NODEPREFIX}/NodeServer.h
         ${NODEPREFIX}/NodeMessage.h
         ${NODEPREFIX}/NodeResponse.h
-        NodeMessage.h)
+)
 
 add_executable(node "${NODESOURCES}")
 target_include_directories(node PRIVATE Utils)
