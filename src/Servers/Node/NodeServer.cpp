@@ -6,7 +6,6 @@
 
 #include <utility>
 #include "spdlog/spdlog.h"
-#include "ServerMessageHandeler.h"
 
 namespace krapi {
 
