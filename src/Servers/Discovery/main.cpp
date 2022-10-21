@@ -54,6 +54,13 @@ int main(int argc, const char **argv) {
                                 config.pool_hosts
                         };
                         break;
+                    case krapi::Message::DiscoverIdentity:
+                        response = krapi::Response{
+                                krapi::ResponseType::IdentityDiscovered,
+                                config.identity_host
+                        };
+                        break;
+
                 }
                 auto response_json = nlohmann::json(response);
                 spdlog::info("Sending\n{} to {}", response_json.dump(4), req.remote_addr);
