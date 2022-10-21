@@ -5,6 +5,7 @@
 #ifndef KRAPI_MODELS_NETWORKMANAGER_H
 #define KRAPI_MODELS_NETWORKMANAGER_H
 
+
 #include <vector>
 #include <string>
 #include "ixwebsocket/IXWebSocket.h"
@@ -12,29 +13,36 @@
 
 namespace krapi {
 
-    class  NodeManager {
+    class NodeManager {
+        std::promise<int> identity_promise;
+        int m_identity;
+
         std::string m_my_uri;
         std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> m_eq;
         std::vector<NodeServer> m_nodes;
         std::vector<std::string> m_network_node_hosts;
         std::vector<std::string> m_pool_hosts;
+        ix::WebSocket identity_socket;
+
+        void setup_listeners();
 
     public:
         explicit NodeManager(
                 std::string my_uri,
+                std::string identity_uri,
                 std::vector<std::string> network_node_hosts,
                 std::vector<std::string> pool_hosts
         );
-
-        void set_network_node_hosts(const std::vector<std::string> &hosts);
-
-        void set_pool_hosts(const std::vector<std::string> &hosts);
 
         void connect_to_nodes();
 
         void connect_to_tx_pools();
 
+        int identity();
+
         void wait();
+
+        ~NodeManager();
     };
 
 } // krapi

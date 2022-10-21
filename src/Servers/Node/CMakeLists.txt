@@ -10,7 +10,6 @@ set(
         ${NODEPREFIX}/NodeServer.cpp
         ${NODEPREFIX}/NodeServer.h
         ${NODEPREFIX}/NodeMessage.h
-        ${NODEPREFIX}/NodeResponse.h
 )
 
 add_executable(node "${NODESOURCES}")

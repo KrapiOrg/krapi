@@ -5,6 +5,7 @@
 #ifndef KRAPI_MODELS_SERVER_H
 #define KRAPI_MODELS_SERVER_H
 
+#include <future>
 
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "eventpp/eventdispatcher.h"
@@ -14,6 +15,8 @@ namespace krapi {
 
     class NodeServer {
         std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> m_eq;
+        std::promise<int> identity_promise;
+        int m_identity{-1};
         std::jthread m_thread;
         std::string m_uri;
 
@@ -30,6 +33,8 @@ namespace krapi {
         void wait();
 
         void stop();
+
+        int identity();
     };
 
 }
