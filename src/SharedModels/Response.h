@@ -11,12 +11,18 @@ namespace krapi {
     enum class ResponseType {
         NodesDiscovered,
         TxPoolsDiscovered,
+        IdentityDiscovered,
+        IdentityFound,
+        IdentityError,
         Error
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(ResponseType, {
         { ResponseType::NodesDiscovered, "nodes_discovered" },
         { ResponseType::TxPoolsDiscovered, "pools_discovered" },
+        { ResponseType::IdentityDiscovered, "identity_discovered" },
+        { ResponseType::IdentityFound, "identity_found" },
+        { ResponseType::IdentityError, "identity_error" },
         { ResponseType::Error, "error" }
     })
 
