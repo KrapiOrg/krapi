@@ -10,6 +10,12 @@ set(
         ${NODEPREFIX}/NodeServer.cpp
         ${NODEPREFIX}/NodeServer.h
         ${NODEPREFIX}/NodeMessage.h
+        ${NODEPREFIX}/NodeHttpClient.cpp
+        ${NODEPREFIX}/NodeHttpClient.h
+        ${NODEPREFIX}/NodeWebSocketServer.cpp
+        ${NODEPREFIX}/NodeWebSocketServer.h
+        ${NODEPREFIX}/IdentityManager.cpp
+        ${NODEPREFIX}/IdentityManager.h
 )
 
 add_executable(node "${NODESOURCES}")

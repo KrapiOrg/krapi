@@ -14,36 +14,13 @@ namespace krapi {
 
     NodeManager::NodeManager(
             std::string my_uri,
-            std::string identity_uri,
-            std::vector<std::string> network_hosts
+            std::vector<std::string> network_hosts,
+            int identity
     )
             : m_my_uri(std::move(my_uri)),
-              m_identity(-1),
+              m_identity(identity),
               m_network_node_hosts(std::move(network_hosts)),
               m_eq(std::make_shared<EventDispatcher<NodeMessageType, void(const NodeMessage &)>>()) {
-
-
-        identity_socket.setUrl(fmt::format("ws://{}", identity_uri));
-        identity_socket.setOnMessageCallback(
-                [this](const ix::WebSocketMessagePtr &msg) {
-                    if (msg->type == ix::WebSocketMessageType::Message) {
-                        auto resp_json = nlohmann::json::parse(msg->str);
-                        auto resp = resp_json.get<Response>();
-                        if (resp.type == ResponseType::IdentityFound) {
-                            auto identity = resp.content.get<int>();
-                            spdlog::info("Assigned Identity {}", identity);
-
-                            identity_promise.set_value(identity);
-                        }
-                    }
-                }
-        );
-
-        identity_socket.start();
-        auto identity_future = std::shared_future(identity_promise.get_future());
-        identity_future.wait();
-        m_identity = identity_future.get();
-        assert(m_identity != -1);
     }
 
     void NodeManager::connect_to_nodes() {
@@ -77,8 +54,6 @@ namespace krapi {
         for (auto &node: m_nodes) {
             node.stop();
         }
-        identity_socket.disableAutomaticReconnection();
-        identity_socket.stop();
         spdlog::info("Successfully terminated");
     }
 

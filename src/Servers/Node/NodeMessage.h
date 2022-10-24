@@ -13,6 +13,8 @@ namespace krapi {
         Stop,
         NodeIdentityRequest,
         NodeIdentityReply,
+        AddTxToPool,
+        RemoveTxFromPool,
         Broadcast
     };
 

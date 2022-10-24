@@ -58,7 +58,7 @@ namespace krapi {
 
     void NodeServer::start() {
 
-        spdlog::warn("Starting node server for {}", m_uri);
+        spdlog::info("Trying to connect to {}", m_uri);
 
         m_thread = std::jthread(&NodeServer::server_loop, this);
         auto identity_future = identity_promise.get_future();

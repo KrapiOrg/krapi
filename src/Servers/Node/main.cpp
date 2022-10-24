@@ -6,21 +6,11 @@
 #include "fmt/core.h"
 #include "NodeManager.h"
 #include "ParsingUtils.h"
-#include "Message.h"
-#include "Response.h"
 #include "httplib.h"
+#include "NodeHttpClient.h"
+#include "NodeWebSocketServer.h"
+#include "IdentityManager.h"
 
-krapi::Response send_discovery_message(
-        httplib::Client &client,
-        const std::string &url,
-        const krapi::Message &message
-) {
-
-    auto res = client.Post("/", to_string(nlohmann::json(message)), "application/json");
-    auto res_json = nlohmann::json::parse(res->body);
-    spdlog::info("Discovery responded with {}", res_json.dump());
-    return res_json.get<krapi::Response>();
-}
 
 int main(int argc, const char **argv) {
 
@@ -39,56 +29,30 @@ int main(int argc, const char **argv) {
 
     auto discovery_url = fmt::format("http://127.0.0.1:7005");
 
-    auto client = httplib::Client(discovery_url);
+    auto client = krapi::NodeHttpClient(discovery_url);
 
     spdlog::info("Sending node discovery request");
-    auto dm_nodes_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverNodes);
+    auto dm_nodes_res = client.post(krapi::Message::DiscoverNodes);
     spdlog::info("Sending identity discovery request");
-    auto identity_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverIdentity);
+    auto identity_res = client.post(krapi::Message::DiscoverIdentity);
 
     auto node_uirs = dm_nodes_res.content.get<std::vector<std::string>>();
     auto identity_uri = identity_res.content.get<std::string>();
 
-    krapi::NodeManager manager(my_uri, identity_uri, node_uirs);
+    krapi::IdentityManager identity_manager(identity_uri);
 
-    using namespace ix;
-
-    WebSocketServer ws_server(config.server_port, config.server_host);
-    ws_server.setOnClientMessageCallback(
-            [&manager](
-                    const std::shared_ptr<ConnectionState> &state,
-                    WebSocket &ws,
-                    const WebSocketMessagePtr &message
-            ) {
-                if (message->type == WebSocketMessageType::Open) {
-                    spdlog::info("{}:{} Just connected", state->getRemoteIp(), state->getRemotePort());
-                } else if (message->type == WebSocketMessageType::Error) {
-                    spdlog::info(
-                            "REASON: {}, STATUS_CODE: {}",
-                            message->errorInfo.reason,
-                            message->errorInfo.http_status
-                    );
-                } else if (message->type == WebSocketMessageType::Message) {
-                    auto msg_json = nlohmann::json::parse(message->str);
-                    auto msg = msg_json.get<krapi::NodeMessage>();
-                    auto rsp = krapi::NodeMessage{};
-                    if (msg.type == krapi::NodeMessageType::NodeIdentityRequest) {
-                        rsp = krapi::NodeMessage{
-                                krapi::NodeMessageType::NodeIdentityReply,
-                                manager.identity()
-                        };
-                    }
-
-                    ws.send(nlohmann::json(rsp).dump());
-                }
-            }
+    krapi::NodeWebSocketServer ws_server(
+            config.server_host,
+            config.server_port,
+            identity_manager.identity()
     );
-    auto res = ws_server.listenAndStart();
-    if (!res) {
-        // Error handling
-        return 1;
-    }
-    manager.connect_to_nodes();
-    manager.wait();
-    ws_server.wait();
+
+    krapi::NodeManager node_manager(
+            my_uri,
+            node_uirs,
+            identity_manager.identity()
+    );
+
+    node_manager.connect_to_nodes();
+    node_manager.wait();
 }
