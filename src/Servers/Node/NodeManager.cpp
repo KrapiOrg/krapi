@@ -15,13 +15,11 @@ namespace krapi {
     NodeManager::NodeManager(
             std::string my_uri,
             std::string identity_uri,
-            std::vector<std::string> network_hosts,
-            std::vector<std::string> pool_hosts
+            std::vector<std::string> network_hosts
     )
             : m_my_uri(std::move(my_uri)),
               m_identity(-1),
               m_network_node_hosts(std::move(network_hosts)),
-              m_pool_hosts(std::move(pool_hosts)),
               m_eq(std::make_shared<EventDispatcher<NodeMessageType, void(const NodeMessage &)>>()) {
 
 
@@ -55,10 +53,6 @@ namespace krapi {
                 m_nodes.emplace_back(uri, m_eq);
             }
         }
-    }
-
-    void NodeManager::connect_to_tx_pools() {
-
     }
 
     void NodeManager::wait() {

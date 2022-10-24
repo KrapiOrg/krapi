@@ -8,8 +8,11 @@
 
 #include <vector>
 #include <string>
+
 #include "ixwebsocket/IXWebSocket.h"
+
 #include "NodeServer.h"
+#include "Transaction.h"
 
 namespace krapi {
 
@@ -30,13 +33,10 @@ namespace krapi {
         explicit NodeManager(
                 std::string my_uri,
                 std::string identity_uri,
-                std::vector<std::string> network_node_hosts,
-                std::vector<std::string> pool_hosts
+                std::vector<std::string> network_node_hosts
         );
 
         void connect_to_nodes();
-
-        void connect_to_tx_pools();
 
         int identity();
 

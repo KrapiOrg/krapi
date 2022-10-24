@@ -43,16 +43,13 @@ int main(int argc, const char **argv) {
 
     spdlog::info("Sending node discovery request");
     auto dm_nodes_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverNodes);
-    spdlog::info("Sending txpool discovery request");
-    auto tx_pools_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverTxPools);
     spdlog::info("Sending identity discovery request");
     auto identity_res = send_discovery_message(client, discovery_url, krapi::Message::DiscoverIdentity);
 
     auto node_uirs = dm_nodes_res.content.get<std::vector<std::string>>();
-    auto pool_uris = tx_pools_res.content.get<std::vector<std::string>>();
     auto identity_uri = identity_res.content.get<std::string>();
 
-    krapi::NodeManager manager(my_uri, identity_uri, node_uirs, pool_uris);
+    krapi::NodeManager manager(my_uri, identity_uri, node_uirs);
 
     using namespace ix;
 
