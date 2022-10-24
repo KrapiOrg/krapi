@@ -30,15 +30,13 @@ namespace krapi {
         std::string server_host{};
         std::string identity_host{};
         std::vector<std::string> node_hosts{};
-        std::vector<std::string> pool_hosts{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 DiscoveryServerConfig,
                 server_port,
                 server_host,
                 identity_host,
-                node_hosts,
-                pool_hosts
+                node_hosts
         )
 
     };
