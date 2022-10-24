@@ -48,12 +48,6 @@ int main(int argc, const char **argv) {
                                 config.node_hosts
                         };
                         break;
-                    case krapi::Message::DiscoverTxPools:
-                        response = krapi::Response{
-                                krapi::ResponseType::TxPoolsDiscovered,
-                                config.pool_hosts
-                        };
-                        break;
                     case krapi::Message::DiscoverIdentity:
                         response = krapi::Response{
                                 krapi::ResponseType::IdentityDiscovered,

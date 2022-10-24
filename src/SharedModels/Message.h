@@ -12,7 +12,6 @@ namespace krapi {
         Acknowledge,
         CreateTransaction,
         DiscoverNodes,
-        DiscoverTxPools,
         DiscoverIdentity
     };
 
@@ -20,7 +19,6 @@ namespace krapi {
         { Message::Acknowledge, "acknowledge" },
         { Message::CreateTransaction, "create_tx" },
         { Message::DiscoverNodes, "discover_nodes" },
-        { Message::DiscoverTxPools, "discover_pools" },
         { Message::DiscoverIdentity, "discover_identity" }
     })
 }
