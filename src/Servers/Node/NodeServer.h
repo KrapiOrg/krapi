@@ -28,8 +28,6 @@ namespace krapi {
                 std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> eq
         );
 
-        void start();
-
         void wait();
 
         void stop();

@@ -15,7 +15,16 @@ namespace krapi {
     ) : m_uri(std::move(uri)),
         m_eq(std::move(eq)) {
 
-        start();
+        spdlog::info("Trying to connect to {}", m_uri);
+
+        m_thread = std::jthread(&NodeServer::server_loop, this);
+        auto identity_future = identity_promise.get_future();
+        identity_future.wait();
+
+        m_identity = identity_future.get();
+
+        assert(m_identity != -1);
+        spdlog::info("Connected to Node with Identity {}", m_identity);
     }
 
     void NodeServer::server_loop() {
@@ -54,20 +63,6 @@ namespace krapi {
                 }
         );
         socket.run();
-    }
-
-    void NodeServer::start() {
-
-        spdlog::info("Trying to connect to {}", m_uri);
-
-        m_thread = std::jthread(&NodeServer::server_loop, this);
-        auto identity_future = identity_promise.get_future();
-        identity_future.wait();
-
-        m_identity = identity_future.get();
-
-        assert(m_identity != -1);
-        spdlog::info("Connected to Node with Identity {}", m_identity);
     }
 
     void NodeServer::wait() {
