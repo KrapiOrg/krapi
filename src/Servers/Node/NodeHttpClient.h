@@ -2,8 +2,8 @@
 // Created by mythi on 24/10/22.
 //
 
-#ifndef SHARED_MODELS_NODEHTTPCLIENT_H
-#define SHARED_MODELS_NODEHTTPCLIENT_H
+#ifndef NODE_NODEHTTPCLIENT_H
+#define NODE_NODEHTTPCLIENT_H
 
 #include "httplib.h"
 #include "Response.h"
@@ -31,4 +31,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_NODEHTTPCLIENT_H
+#endif //NODE_NODEHTTPCLIENT_H

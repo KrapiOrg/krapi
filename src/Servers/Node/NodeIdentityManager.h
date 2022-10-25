@@ -2,8 +2,8 @@
 // Created by mythi on 24/10/22.
 //
 
-#ifndef SHARED_MODELS_NODEIDENTITYMANAGER_H
-#define SHARED_MODELS_NODEIDENTITYMANAGER_H
+#ifndef NODE_NODEIDENTITYMANAGER_H
+#define NODE_NODEIDENTITYMANAGER_H
 
 #include <future>
 #include "ixwebsocket/IXWebSocket.h"
@@ -63,4 +63,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_NODEIDENTITYMANAGER_H
+#endif //NODE_NODEIDENTITYMANAGER_H

@@ -2,8 +2,8 @@
 // Created by mythi on 24/10/22.
 //
 
-#ifndef SHARED_MODELS_NODEWEBSOCKETSERVER_H
-#define SHARED_MODELS_NODEWEBSOCKETSERVER_H
+#ifndef NODE_NODEWEBSOCKETSERVER_H
+#define NODE_NODEWEBSOCKETSERVER_H
 
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "nlohmann/json.hpp"
@@ -81,4 +81,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_NODEWEBSOCKETSERVER_H
+#endif //NODE_NODEWEBSOCKETSERVER_H
