@@ -25,7 +25,6 @@ namespace krapi {
         std::vector<NodeServer> m_nodes;
         std::vector<Transaction> m_txpool;
         std::vector<std::string> m_network_node_hosts;
-        std::vector<std::string> m_pool_hosts;
 
         void setup_listeners();
 
