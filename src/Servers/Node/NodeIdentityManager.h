@@ -2,8 +2,8 @@
 // Created by mythi on 24/10/22.
 //
 
-#ifndef SHARED_MODELS_IDENTITYMANAGER_H
-#define SHARED_MODELS_IDENTITYMANAGER_H
+#ifndef SHARED_MODELS_NODEIDENTITYMANAGER_H
+#define SHARED_MODELS_NODEIDENTITYMANAGER_H
 
 #include <future>
 #include "ixwebsocket/IXWebSocket.h"
@@ -14,7 +14,7 @@
 
 namespace krapi {
 
-    class IdentityManager {
+    class NodeIdentityManager {
         int m_identity;
 
         std::promise<int> identity_promise;
@@ -36,7 +36,7 @@ namespace krapi {
         }
 
     public:
-        explicit IdentityManager(const std::string &identity_uri) : m_identity{-1} {
+        explicit NodeIdentityManager(const std::string &identity_uri) : m_identity{-1} {
 
             ws.setUrl(fmt::format("ws://{}", identity_uri));
             ws.setOnMessageCallback([this](auto &&msg) { onMessage(std::forward<decltype(msg)>(msg)); });
@@ -54,7 +54,7 @@ namespace krapi {
             return m_identity;
         }
 
-        ~IdentityManager() {
+        ~NodeIdentityManager() {
 
             ws.disableAutomaticReconnection();
             ws.stop();
@@ -63,4 +63,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_IDENTITYMANAGER_H
+#endif //SHARED_MODELS_NODEIDENTITYMANAGER_H

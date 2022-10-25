@@ -8,16 +8,19 @@
 #include <future>
 
 #include "ixwebsocket/IXWebSocketServer.h"
-#include "eventpp/eventdispatcher.h"
 #include "NodeMessage.h"
+#include "NodeMessageQueue.h"
 
 namespace krapi {
 
     class NodeServer {
-        std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> m_eq;
+        NodeMessageQueuePtr m_eq;
+
         std::promise<int> identity_promise;
-        int m_identity{-1};
+        int m_identity;
+
         std::jthread m_thread;
+
         std::string m_uri;
 
         void server_loop();
@@ -25,7 +28,7 @@ namespace krapi {
     public:
         explicit NodeServer(
                 std::string uri,
-                std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> eq
+                NodeMessageQueuePtr eq
         );
 
         void wait();

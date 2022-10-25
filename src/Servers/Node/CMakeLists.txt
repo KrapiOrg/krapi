@@ -14,8 +14,9 @@ set(
         ${NODEPREFIX}/NodeHttpClient.h
         ${NODEPREFIX}/NodeWebSocketServer.cpp
         ${NODEPREFIX}/NodeWebSocketServer.h
-        ${NODEPREFIX}/IdentityManager.cpp
-        ${NODEPREFIX}/IdentityManager.h
+        ${NODEPREFIX}/NodeIdentityManager.cpp
+        ${NODEPREFIX}/NodeIdentityManager.h
+        ${NODEPREFIX}/NodeMessageQueue.h
 )
 
 add_executable(node "${NODESOURCES}")

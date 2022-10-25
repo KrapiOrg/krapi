@@ -11,9 +11,10 @@ namespace krapi {
 
     NodeServer::NodeServer(
             std::string uri,
-            std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> eq
+            NodeMessageQueuePtr eq
     ) : m_uri(std::move(uri)),
-        m_eq(std::move(eq)) {
+        m_eq(std::move(eq)),
+        m_identity(-1) {
 
         spdlog::info("Trying to connect to {}", m_uri);
 

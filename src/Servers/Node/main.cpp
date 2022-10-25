@@ -6,11 +6,7 @@
 #include "fmt/core.h"
 #include "NodeManager.h"
 #include "ParsingUtils.h"
-#include "httplib.h"
 #include "NodeHttpClient.h"
-#include "NodeWebSocketServer.h"
-#include "IdentityManager.h"
-
 
 int main(int argc, const char **argv) {
 
@@ -24,12 +20,8 @@ int main(int argc, const char **argv) {
     auto config_path = parsed_args["config"].as<std::string>();
 
     auto config = krapi::parse_config<krapi::NodeServerConfig>(config_path);
-    auto my_uri = fmt::format("{}:{}", config.server_host, config.server_port);
 
-
-    auto discovery_url = fmt::format("http://127.0.0.1:7005");
-
-    auto client = krapi::NodeHttpClient(discovery_url);
+    auto client = krapi::NodeHttpClient(fmt::format("http://{}", config.discovery_host));
 
     spdlog::info("Sending node discovery request");
     auto dm_nodes_res = client.post(krapi::Message::DiscoverNodes);
@@ -39,18 +31,11 @@ int main(int argc, const char **argv) {
     auto node_uirs = dm_nodes_res.content.get<std::vector<std::string>>();
     auto identity_uri = identity_res.content.get<std::string>();
 
-    krapi::IdentityManager identity_manager(identity_uri);
-
-    krapi::NodeWebSocketServer ws_server(
+    krapi::NodeManager node_manager(
             config.server_host,
             config.server_port,
-            identity_manager.identity()
-    );
-
-    krapi::NodeManager node_manager(
-            my_uri,
             node_uirs,
-            identity_manager.identity()
+            identity_uri
     );
 
     node_manager.connect_to_nodes();

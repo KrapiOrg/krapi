@@ -2,7 +2,7 @@
 // Created by mythi on 24/10/22.
 //
 
-#include "IdentityManager.h"
+#include "NodeIdentityManager.h"
 
 namespace krapi {
 } // krapi

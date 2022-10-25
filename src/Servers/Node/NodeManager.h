@@ -13,31 +13,37 @@
 
 #include "NodeServer.h"
 #include "Transaction.h"
+#include "NodeMessageQueue.h"
+#include "NodeIdentityManager.h"
+#include "NodeWebSocketServer.h"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
     class NodeManager {
 
-        int m_identity;
+        NodeIdentityManager m_identity_manager;
+        NodeWebSocketServer m_server;
 
-        std::string m_my_uri;
-        std::shared_ptr<eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>> m_eq;
+        NodeMessageQueuePtr m_eq;
         std::vector<NodeServer> m_nodes;
         std::vector<Transaction> m_txpool;
-        std::vector<std::string> m_network_node_hosts;
+
+        std::string m_server_host;
+        int m_server_port;
+        std::vector<std::string> m_node_uris;
 
         void setup_listeners();
 
     public:
         explicit NodeManager(
-                std::string my_uri,
-                std::vector<std::string> network_node_hosts,
-                int identity
+                const std::string &server_host,
+                int server_port,
+                std::vector<std::string> node_uris,
+                const std::string& identity_server_uri
         );
 
         void connect_to_nodes();
-
-        int identity();
 
         void wait();
 

@@ -2,31 +2,33 @@
 // Created by mythi on 13/10/22.
 //
 
-#include <future>
-#include <thread>
 #include "NodeManager.h"
 #include "spdlog/spdlog.h"
-#include "Response.h"
 
 
 namespace krapi {
     using namespace eventpp;
 
     NodeManager::NodeManager(
-            std::string my_uri,
-            std::vector<std::string> network_hosts,
-            int identity
+            const std::string &server_host,
+            int server_port,
+            std::vector<std::string> node_uris,
+            const std::string &identity_server_uri
     )
-            : m_my_uri(std::move(my_uri)),
-              m_identity(identity),
-              m_network_node_hosts(std::move(network_hosts)),
-              m_eq(std::make_shared<EventDispatcher<NodeMessageType, void(const NodeMessage &)>>()) {
+            : m_server_host(server_host),
+              m_server_port(server_port),
+              m_node_uris(std::move(node_uris)),
+              m_identity_manager(identity_server_uri),
+              m_server(server_host, server_port, m_identity_manager.identity()),
+              m_eq(create_message_queue()) {
     }
 
     void NodeManager::connect_to_nodes() {
 
-        for (const auto &uri: m_network_node_hosts) {
-            if (uri != m_my_uri) {
+        static auto my_uri = fmt::format("{}:{}", m_server_host, m_server_port);
+
+        for (const auto &uri: m_node_uris) {
+            if (uri != my_uri) {
                 m_nodes.emplace_back(uri, m_eq);
             }
         }
@@ -37,12 +39,6 @@ namespace krapi {
         for (auto &server: m_nodes) {
             server.wait();
         }
-    }
-
-
-    int NodeManager::identity() {
-
-        return m_identity;
     }
 
     void NodeManager::setup_listeners() {
