@@ -11,7 +11,7 @@ namespace krapi {
 
     NetworkConnection::NetworkConnection(
             std::string uri,
-            NodeMessageQueuePtr eq
+            MessageQueuePtr eq
     ) : m_uri(std::move(uri)),
         m_eq(std::move(eq)),
         m_identity(-1) {

@@ -28,7 +28,7 @@ namespace krapi {
 
         std::jthread m_thread;
         HttpServerInternalMessageQueue m_internal_queue;
-        NodeMessageQueuePtr m_node_message_queue;
+        MessageQueuePtr m_node_message_queue;
         TransactionQueuePtr m_tx_queue;
 
         std::string m_server_host;
@@ -76,7 +76,7 @@ namespace krapi {
         explicit HttpServer(
                 std::string server_host,
                 int server_port,
-                NodeMessageQueuePtr mq,
+                MessageQueuePtr mq,
                 TransactionQueuePtr tq
         ) :
                 m_server_host(std::move(server_host)),

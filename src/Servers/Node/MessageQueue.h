@@ -9,11 +9,11 @@
 #include "NodeMessage.h"
 
 namespace krapi {
-    using NodeMessageQueue = eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>;
-    using NodeMessageQueuePtr = std::shared_ptr<NodeMessageQueue>;
+    using MessageQueue = eventpp::EventDispatcher<NodeMessageType, void(const NodeMessage &)>;
+    using MessageQueuePtr = std::shared_ptr<MessageQueue>;
 
-    inline NodeMessageQueuePtr create_message_queue() {
-        return std::make_shared<NodeMessageQueue>();
+    inline MessageQueuePtr create_message_queue() {
+        return std::make_shared<MessageQueue>();
     }
 }
 

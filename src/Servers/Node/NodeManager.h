@@ -24,7 +24,7 @@ namespace krapi {
 
     class NodeManager {
 
-        NodeMessageQueuePtr m_eq;
+        MessageQueuePtr m_eq;
         TransactionQueuePtr m_txq;
 
         IdentityManager m_identity_manager;

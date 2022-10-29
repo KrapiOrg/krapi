@@ -14,7 +14,7 @@
 namespace krapi {
 
     class NetworkConnection {
-        NodeMessageQueuePtr m_eq;
+        MessageQueuePtr m_eq;
 
         std::promise<int> identity_promise;
         int m_identity;
@@ -28,7 +28,7 @@ namespace krapi {
     public:
         explicit NetworkConnection(
                 std::string uri,
-                NodeMessageQueuePtr eq
+                MessageQueuePtr eq
         );
 
         void wait();
