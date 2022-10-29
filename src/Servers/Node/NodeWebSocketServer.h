@@ -9,10 +9,13 @@
 #include "nlohmann/json.hpp"
 #include "NodeMessage.h"
 #include "spdlog/spdlog.h"
+#include "NodeMessageQueue.h"
+#include "TransactionQueue.h"
 
 namespace krapi {
 
     class NodeWebSocketServer {
+        TransactionQueuePtr m_txq;
         ix::WebSocketServer server;
         int identity;
 
@@ -33,16 +36,18 @@ namespace krapi {
                 );
             } else if (message->type == WebSocketMessageType::Message) {
                 auto msg_json = nlohmann::json::parse(message->str);
-                auto msg = msg_json.get<krapi::NodeMessage>();
-                auto rsp = krapi::NodeMessage{};
-                if (msg.type == krapi::NodeMessageType::NodeIdentityRequest) {
-                    rsp = krapi::NodeMessage{
+                auto msg = msg_json.get<NodeMessage>();
+                auto rsp = NodeMessage{};
+                if (msg.type == NodeMessageType::NodeIdentityRequest) {
+                    rsp = NodeMessage{
                             krapi::NodeMessageType::NodeIdentityReply,
                             identity
                     };
+                    ws.send(nlohmann::json(rsp).dump());
+                } else if (msg.type == NodeMessageType::BroadcastTx) {
+                    auto tx = msg.content.get<Transaction>();
+                    m_txq->dispatch(0, tx);
                 }
-
-                ws.send(nlohmann::json(rsp).dump());
             }
         }
 
@@ -51,9 +56,11 @@ namespace krapi {
         NodeWebSocketServer(
                 const std::string &host,
                 int port,
-                int identity
+                int identity,
+                TransactionQueuePtr txq
         ) : server(port, host),
-            identity(identity) {
+            identity(identity),
+            m_txq(std::move(txq)) {
 
             server.setOnClientMessageCallback(
                     [this](auto &&a, auto &&b, auto &&c) {

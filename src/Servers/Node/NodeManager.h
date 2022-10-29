@@ -17,15 +17,20 @@
 #include "NodeIdentityManager.h"
 #include "NodeWebSocketServer.h"
 #include "ParsingUtils.h"
+#include "TransactionQueue.h"
+#include "NodeHttpServer.h"
 
 namespace krapi {
 
     class NodeManager {
 
-        NodeIdentityManager m_identity_manager;
-        NodeWebSocketServer m_server;
-
         NodeMessageQueuePtr m_eq;
+        TransactionQueuePtr m_txq;
+
+        NodeIdentityManager m_identity_manager;
+        NodeWebSocketServer m_ws_server;
+        NodeHttpServer m_http_server;
+
         std::vector<NodeServer> m_nodes;
         std::vector<Transaction> m_txpool;
 
@@ -38,14 +43,19 @@ namespace krapi {
     public:
         explicit NodeManager(
                 const std::string &server_host,
-                int server_port,
+                int ws_server_port,
+                int http_server_port,
                 std::vector<std::string> node_uris,
                 const std::string& identity_server_uri
         );
 
         void connect_to_nodes();
 
+        TransactionQueuePtr get_tx_queue();
+
         void wait();
+
+        inline bool contains_tx(const Transaction &tx);
 
         ~NodeManager();
     };

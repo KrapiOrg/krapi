@@ -22,6 +22,8 @@ namespace krapi {
         int from;
         int to;
 
+        bool operator==(const Transaction &) const = default;
+
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(Transaction, type, from, to)
     };
 

@@ -13,18 +13,24 @@ namespace krapi {
         Stop,
         NodeIdentityRequest,
         NodeIdentityReply,
-        AddTxToPool,
-        RemoveTxFromPool,
-        Broadcast
+        BroadcastTx
     };
 
     struct NodeMessage {
-        NodeMessageType type;
-        nlohmann::json content;
+        NodeMessageType type{};
+        nlohmann::json content{};
         int sender_idenetity{};
         int receiver_identity{};
+        std::vector<std::string> blacklist{};
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(NodeMessage, sender_idenetity, receiver_identity, type, content)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+                NodeMessage,
+                sender_idenetity,
+                receiver_identity,
+                type,
+                content,
+                blacklist
+        )
     };
 
 } // krapi

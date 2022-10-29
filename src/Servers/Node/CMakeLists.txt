@@ -17,6 +17,10 @@ set(
         ${NODEPREFIX}/NodeIdentityManager.cpp
         ${NODEPREFIX}/NodeIdentityManager.h
         ${NODEPREFIX}/NodeMessageQueue.h
+        ${NODEPREFIX}/NodeHttpServer.cpp
+        ${NODEPREFIX}/NodeHttpServer.h
+        ${NODEPREFIX}/NodeHttpMessage.h
+        ${NODEPREFIX}/TransactionQueue.h
 )
 
 add_executable(node "${NODESOURCES}")

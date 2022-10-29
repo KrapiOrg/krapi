@@ -12,13 +12,15 @@
 
 namespace krapi {
     struct NodeServerConfig {
-        int server_port{};
+        int ws_server_port{};
+        int http_server_port{};
         std::string server_host{};
         std::string discovery_host{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 NodeServerConfig,
-                server_port,
+                ws_server_port,
+                http_server_port,
                 server_host,
                 discovery_host
         )

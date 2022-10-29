@@ -33,7 +33,8 @@ int main(int argc, const char **argv) {
 
     krapi::NodeManager node_manager(
             config.server_host,
-            config.server_port,
+            config.ws_server_port,
+            config.http_server_port,
             node_uirs,
             identity_uri
     );

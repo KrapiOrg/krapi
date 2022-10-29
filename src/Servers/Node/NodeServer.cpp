@@ -19,10 +19,11 @@ namespace krapi {
         spdlog::info("Trying to connect to {}", m_uri);
 
         m_thread = std::jthread(&NodeServer::server_loop, this);
+
         auto identity_future = identity_promise.get_future();
         identity_future.wait();
-
         m_identity = identity_future.get();
+
 
         assert(m_identity != -1);
         spdlog::info("Connected to Node with Identity {}", m_identity);
@@ -60,6 +61,18 @@ namespace krapi {
 
                             m_eq->dispatch(msg.type, msg);
                         }
+                    }
+                }
+        );
+        m_eq->appendListener(
+                NodeMessageType::BroadcastTx,
+                [&, this](const NodeMessage &msg) {
+                    if (msg.receiver_identity == m_identity) {
+                        spdlog::info("Forwarding broadcast message to {}", m_identity);
+                        auto bmsg = msg;
+                        bmsg.blacklist.push_back(m_uri);
+                        auto bmsg_json = nlohmann::json(bmsg);
+                        socket.send(bmsg_json.dump());
                     }
                 }
         );

@@ -11,16 +11,21 @@ namespace krapi {
 
     NodeManager::NodeManager(
             const std::string &server_host,
-            int server_port,
+            int ws_server_port,
+            int http_server_port,
             std::vector<std::string> node_uris,
             const std::string &identity_server_uri
     )
             : m_server_host(server_host),
-              m_server_port(server_port),
+              m_server_port(ws_server_port),
               m_node_uris(std::move(node_uris)),
               m_identity_manager(identity_server_uri),
-              m_server(server_host, server_port, m_identity_manager.identity()),
-              m_eq(create_message_queue()) {
+              m_eq(create_message_queue()),
+              m_txq(create_tx_queue()),
+              m_ws_server(server_host, ws_server_port, m_identity_manager.identity(), m_txq),
+              m_http_server(server_host, http_server_port, m_eq, m_txq) {
+
+        setup_listeners();
     }
 
     void NodeManager::connect_to_nodes() {
@@ -43,6 +48,29 @@ namespace krapi {
 
     void NodeManager::setup_listeners() {
 
+        static auto my_uri = fmt::format("{}:{}", m_server_host, m_server_port);
+        m_txq->appendListener(0, [this](Transaction tx) {
+
+
+            if (!contains_tx(tx)) {
+                spdlog::info("TxPool recieved transaction");
+
+                m_txpool.push_back(tx);
+
+                for (auto &node: m_nodes) {
+
+                    auto msg = NodeMessage{
+                            NodeMessageType::BroadcastTx,
+                            tx,
+                            m_identity_manager.identity(),
+                            node.identity(),
+                            {my_uri},
+                    };
+                    m_eq->dispatch(NodeMessageType::BroadcastTx, msg);
+                }
+            }
+
+        });
     }
 
     NodeManager::~NodeManager() {
@@ -51,6 +79,21 @@ namespace krapi {
             node.stop();
         }
         spdlog::info("Successfully terminated");
+    }
+
+    TransactionQueuePtr NodeManager::get_tx_queue() {
+
+        return m_txq;
+    }
+
+    bool NodeManager::contains_tx(const Transaction &tx) {
+
+        for (const auto &Tx: m_txpool) {
+            if (tx == Tx) {
+                return true;
+            }
+        }
+        return false;
     }
 
 
