@@ -12,10 +12,10 @@
 
 namespace krapi {
 
-    class NodeHttpClient {
+    class HttpClient {
         httplib::Client client;
     public:
-        explicit NodeHttpClient(const std::string& url): client(url) {
+        explicit HttpClient(const std::string& url): client(url) {
 
         }
 

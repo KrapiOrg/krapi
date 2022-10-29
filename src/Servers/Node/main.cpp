@@ -6,7 +6,7 @@
 #include "fmt/core.h"
 #include "NodeManager.h"
 #include "ParsingUtils.h"
-#include "NodeHttpClient.h"
+#include "HttpClient.h"
 
 int main(int argc, const char **argv) {
 
@@ -21,7 +21,7 @@ int main(int argc, const char **argv) {
 
     auto config = krapi::parse_config<krapi::NodeServerConfig>(config_path);
 
-    auto client = krapi::NodeHttpClient(fmt::format("http://{}", config.discovery_host));
+    auto client = krapi::HttpClient(fmt::format("http://{}", config.discovery_host));
 
     spdlog::info("Sending node discovery request");
     auto dm_nodes_res = client.post(krapi::Message::DiscoverNodes);

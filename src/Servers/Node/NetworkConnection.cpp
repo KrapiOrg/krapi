@@ -2,14 +2,14 @@
 // Created by mythi on 13/10/22.
 //
 
-#include "NodeServer.h"
+#include "NetworkConnection.h"
 
 #include <utility>
 #include "spdlog/spdlog.h"
 
 namespace krapi {
 
-    NodeServer::NodeServer(
+    NetworkConnection::NetworkConnection(
             std::string uri,
             NodeMessageQueuePtr eq
     ) : m_uri(std::move(uri)),
@@ -18,7 +18,7 @@ namespace krapi {
 
         spdlog::info("Trying to connect to {}", m_uri);
 
-        m_thread = std::jthread(&NodeServer::server_loop, this);
+        m_thread = std::jthread(&NetworkConnection::server_loop, this);
 
         auto identity_future = identity_promise.get_future();
         identity_future.wait();
@@ -29,7 +29,7 @@ namespace krapi {
         spdlog::info("Connected to Node with Identity {}", m_identity);
     }
 
-    void NodeServer::server_loop() {
+    void NetworkConnection::server_loop() {
 
         using namespace ix;
 
@@ -79,14 +79,14 @@ namespace krapi {
         socket.run();
     }
 
-    void NodeServer::wait() {
+    void NetworkConnection::wait() {
 
         if (m_thread.joinable()) {
             m_thread.join();
         }
     }
 
-    void NodeServer::stop() {
+    void NetworkConnection::stop() {
 
         if (m_thread.joinable()) {
             m_eq->dispatch(NodeMessageType::Stop, NodeMessage{});
@@ -95,7 +95,7 @@ namespace krapi {
         }
     }
 
-    int NodeServer::identity() {
+    int NetworkConnection::identity() {
 
         return m_identity;
     }

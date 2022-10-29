@@ -2,7 +2,7 @@
 // Created by mythi on 24/10/22.
 //
 
-#include "NodeWebSocketServer.h"
+#include "WebSocketServer.h"
 
 namespace krapi {
 } // krapi

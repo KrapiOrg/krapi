@@ -7,19 +7,19 @@ set(
         ${NODEPREFIX}/main.cpp
         ${NODEPREFIX}/NodeManager.cpp
         ${NODEPREFIX}/NodeManager.h
-        ${NODEPREFIX}/NodeServer.cpp
-        ${NODEPREFIX}/NodeServer.h
+        ${NODEPREFIX}/NetworkConnection.cpp
+        ${NODEPREFIX}/NetworkConnection.h
         ${NODEPREFIX}/NodeMessage.h
-        ${NODEPREFIX}/NodeHttpClient.cpp
-        ${NODEPREFIX}/NodeHttpClient.h
-        ${NODEPREFIX}/NodeWebSocketServer.cpp
-        ${NODEPREFIX}/NodeWebSocketServer.h
-        ${NODEPREFIX}/NodeIdentityManager.cpp
-        ${NODEPREFIX}/NodeIdentityManager.h
-        ${NODEPREFIX}/NodeMessageQueue.h
-        ${NODEPREFIX}/NodeHttpServer.cpp
-        ${NODEPREFIX}/NodeHttpServer.h
-        ${NODEPREFIX}/NodeHttpMessage.h
+        ${NODEPREFIX}/HttpClient.cpp
+        ${NODEPREFIX}/HttpClient.h
+        ${NODEPREFIX}/WebSocketServer.cpp
+        ${NODEPREFIX}/WebSocketServer.h
+        ${NODEPREFIX}/IdentityManager.cpp
+        ${NODEPREFIX}/IdentityManager.h
+        ${NODEPREFIX}/MessageQueue.h
+        ${NODEPREFIX}/HttpServer.cpp
+        ${NODEPREFIX}/HttpServer.h
+        ${NODEPREFIX}/HttpMessage.h
         ${NODEPREFIX}/TransactionQueue.h
 )
 

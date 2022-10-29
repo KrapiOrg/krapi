@@ -9,12 +9,12 @@
 #include "nlohmann/json.hpp"
 #include "NodeMessage.h"
 #include "spdlog/spdlog.h"
-#include "NodeMessageQueue.h"
+#include "MessageQueue.h"
 #include "TransactionQueue.h"
 
 namespace krapi {
 
-    class NodeWebSocketServer {
+    class WebSocketServer {
         TransactionQueuePtr m_txq;
         ix::WebSocketServer server;
         int identity;
@@ -53,7 +53,7 @@ namespace krapi {
 
 
     public:
-        NodeWebSocketServer(
+        WebSocketServer(
                 const std::string &host,
                 int port,
                 int identity,
@@ -79,7 +79,7 @@ namespace krapi {
             spdlog::info("Started");
         }
 
-        ~NodeWebSocketServer() {
+        ~WebSocketServer() {
 
             spdlog::info("Stopped");
             server.stop();

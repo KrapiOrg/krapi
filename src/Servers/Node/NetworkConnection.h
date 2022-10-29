@@ -9,11 +9,11 @@
 
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "NodeMessage.h"
-#include "NodeMessageQueue.h"
+#include "MessageQueue.h"
 
 namespace krapi {
 
-    class NodeServer {
+    class NetworkConnection {
         NodeMessageQueuePtr m_eq;
 
         std::promise<int> identity_promise;
@@ -26,7 +26,7 @@ namespace krapi {
         void server_loop();
 
     public:
-        explicit NodeServer(
+        explicit NetworkConnection(
                 std::string uri,
                 NodeMessageQueuePtr eq
         );

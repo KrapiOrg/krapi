@@ -14,7 +14,7 @@
 
 namespace krapi {
 
-    class NodeIdentityManager {
+    class IdentityManager {
         int m_identity;
 
         std::promise<int> identity_promise;
@@ -36,7 +36,7 @@ namespace krapi {
         }
 
     public:
-        explicit NodeIdentityManager(const std::string &identity_uri) : m_identity{-1} {
+        explicit IdentityManager(const std::string &identity_uri) : m_identity{-1} {
 
             ws.setUrl(fmt::format("ws://{}", identity_uri));
             ws.setOnMessageCallback([this](auto &&msg) { onMessage(std::forward<decltype(msg)>(msg)); });
@@ -54,7 +54,7 @@ namespace krapi {
             return m_identity;
         }
 
-        ~NodeIdentityManager() {
+        ~IdentityManager() {
 
             ws.disableAutomaticReconnection();
             ws.stop();

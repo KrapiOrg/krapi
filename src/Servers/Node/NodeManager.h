@@ -11,14 +11,14 @@
 
 #include "ixwebsocket/IXWebSocket.h"
 
-#include "NodeServer.h"
+#include "NetworkConnection.h"
 #include "Transaction.h"
-#include "NodeMessageQueue.h"
-#include "NodeIdentityManager.h"
-#include "NodeWebSocketServer.h"
+#include "MessageQueue.h"
+#include "IdentityManager.h"
+#include "WebSocketServer.h"
 #include "ParsingUtils.h"
 #include "TransactionQueue.h"
-#include "NodeHttpServer.h"
+#include "HttpServer.h"
 
 namespace krapi {
 
@@ -27,11 +27,11 @@ namespace krapi {
         NodeMessageQueuePtr m_eq;
         TransactionQueuePtr m_txq;
 
-        NodeIdentityManager m_identity_manager;
-        NodeWebSocketServer m_ws_server;
-        NodeHttpServer m_http_server;
+        IdentityManager m_identity_manager;
+        WebSocketServer m_ws_server;
+        HttpServer m_http_server;
 
-        std::vector<NodeServer> m_nodes;
+        std::vector<NetworkConnection> m_nodes;
         std::vector<Transaction> m_txpool;
 
         std::string m_server_host;

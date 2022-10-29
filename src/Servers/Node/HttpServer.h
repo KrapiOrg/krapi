@@ -2,8 +2,8 @@
 // Created by mythi on 26/10/22.
 //
 
-#ifndef SHARED_MODELS_NODEHTTPSERVER_H
-#define SHARED_MODELS_NODEHTTPSERVER_H
+#ifndef SHARED_MODELS_HTTPSERVER_H
+#define SHARED_MODELS_HTTPSERVER_H
 
 #include <utility>
 
@@ -11,15 +11,15 @@
 #include "nlohmann/json.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "eventpp/utilities/counterremover.h"
-#include "NodeHttpMessage.h"
+#include "HttpMessage.h"
 #include "Transaction.h"
-#include "NodeMessageQueue.h"
+#include "MessageQueue.h"
 #include "TransactionQueue.h"
 #include "spdlog/spdlog.h"
 
 namespace krapi {
 
-    class NodeHttpServer {
+    class HttpServer {
         enum class HttpServerInternalMessage {
             Start,
             Stop
@@ -45,7 +45,7 @@ namespace krapi {
             server.Post("/", [this](const httplib::Request &req, httplib::Response &res) {
                 spdlog::info("POST REQ: {}", req.body);
                 auto msg_json = nlohmann::json::parse(req.body);
-                auto msg = msg_json.get<NodeHttpMessage>();
+                auto msg = msg_json.get<HttpMessage>();
                 if (msg.type == NodeHttpMessageType::AddTx) {
                     spdlog::info("HttpServer recieved addtx message");
                     auto tx = msg.content.get<Transaction>();
@@ -60,7 +60,7 @@ namespace krapi {
 
             m_internal_queue.appendListener(HttpServerInternalMessage::Start, [this]() {
 
-                m_thread = std::jthread(&NodeHttpServer::server_loop, this);
+                m_thread = std::jthread(&HttpServer::server_loop, this);
             });
 
             m_internal_queue.appendListener(HttpServerInternalMessage::Stop, [this]() {
@@ -73,7 +73,7 @@ namespace krapi {
 
     public:
 
-        explicit NodeHttpServer(
+        explicit HttpServer(
                 std::string server_host,
                 int server_port,
                 NodeMessageQueuePtr mq,
@@ -94,7 +94,7 @@ namespace krapi {
             m_internal_queue.dispatch(HttpServerInternalMessage::Start);
         }
 
-        ~NodeHttpServer() {
+        ~HttpServer() {
 
             m_internal_queue.dispatch(HttpServerInternalMessage::Stop);
 
@@ -103,4 +103,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_NODEHTTPSERVER_H
+#endif //SHARED_MODELS_HTTPSERVER_H

@@ -16,11 +16,11 @@ namespace krapi {
         { NodeHttpMessageType::AddTx, "add_tx" }
     })
 
-    struct NodeHttpMessage {
+    struct HttpMessage {
         NodeHttpMessageType type;
         nlohmann::json content;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(NodeHttpMessage, type, content)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(HttpMessage, type, content)
     };
 }
 
