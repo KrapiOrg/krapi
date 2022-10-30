@@ -9,5 +9,5 @@ target_link_libraries(discovery PRIVATE
         nlohmann_json
         spdlog
         cxxopts
-        httplib
+        ixwebsocket
         )

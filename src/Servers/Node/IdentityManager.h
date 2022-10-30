@@ -11,6 +11,7 @@
 #include "fmt/format.h"
 #include "Response.h"
 #include "spdlog/spdlog.h"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
@@ -18,6 +19,8 @@ namespace krapi {
         int m_identity;
 
         std::promise<int> identity_promise;
+
+        ServerHost m_host;
         ix::WebSocket ws;
 
         void onMessage(const ix::WebSocketMessagePtr &msg) {
@@ -36,9 +39,9 @@ namespace krapi {
         }
 
     public:
-        explicit IdentityManager(const std::string &identity_uri) : m_identity{-1} {
+        explicit IdentityManager(ServerHost host) : m_host(std::move(host)), m_identity{-1} {
 
-            ws.setUrl(fmt::format("ws://{}", identity_uri));
+            ws.setUrl(fmt::format("ws://{}:{}", m_host.first, m_host.second));
             ws.setOnMessageCallback([this](auto &&msg) { onMessage(std::forward<decltype(msg)>(msg)); });
 
             ws.start();

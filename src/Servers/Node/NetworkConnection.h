@@ -8,34 +8,51 @@
 #include <future>
 
 #include "ixwebsocket/IXWebSocketServer.h"
+#include "eventpp/eventdispatcher.h"
 #include "NodeMessage.h"
 #include "MessageQueue.h"
+#include "ParsingUtils.h"
+#include "ixwebsocket/IXHttpClient.h"
 
 namespace krapi {
 
     class NetworkConnection {
-        MessageQueuePtr m_eq;
+        enum class InternalMessage {
+            Start,
+            Block,
+            Stop
+        };
+        using InternalMessageQueue = eventpp::EventDispatcher<InternalMessage, void()>;
 
-        std::promise<int> identity_promise;
+        ServerHost m_host;
+        MessageQueuePtr m_eq;
+        InternalMessageQueue m_imq;
+
+        std::shared_ptr<ix::HttpClient> m_http_client;
+        std::shared_ptr<ix::WebSocket> m_ws;
+
         int m_identity;
 
-        std::jthread m_thread;
 
-        std::string m_uri;
+        void onMessage(const ix::WebSocketMessagePtr &message);
 
-        void server_loop();
+        void setup_listeners();
 
     public:
         explicit NetworkConnection(
-                std::string uri,
+                ServerHost host,
                 MessageQueuePtr eq
         );
+
+        void start();
 
         void wait();
 
         void stop();
 
         int identity();
+
+        ~NetworkConnection();
     };
 
 }

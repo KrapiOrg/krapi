@@ -4,7 +4,7 @@
 
 
 #include "cxxopts.hpp"
-#include "httplib.h"
+#include "ixwebsocket/IXHttpServer.h"
 
 #include "ParsingUtils.h"
 #include "Message.h"
@@ -24,42 +24,62 @@ int main(int argc, const char **argv) {
 
     auto config = krapi::parse_config<krapi::DiscoveryServerConfig>(config_path);
 
-    spdlog::info("Starting Discovery Server on {}:{}", config.server_host, config.server_port);
+    spdlog::info("Starting Discovery Server on {}:{}", config.discovery_host.first, config.discovery_host.second);
 
-    httplib::Server server;
-    server.Post(
-            "/",
+    ix::HttpServer server(config.discovery_host.second, config.discovery_host.first);
+    server.setOnConnectionCallback(
             [&](
-                    const httplib::Request &req,
-                    httplib::Response &res
-            ) {
-                spdlog::info("Received {} from {}", req.body, req.remote_addr);
-                auto message_json = nlohmann::json::parse(req.body);
-                auto message = message_json.get<krapi::Message>();
-                krapi::Response response;
+                    const ix::HttpRequestPtr &req,
+                    const std::shared_ptr<ix::ConnectionState> &state
+            ) -> ix::HttpResponsePtr {
 
-                switch (message) {
-                    case krapi::Message::Acknowledge:
-                    case krapi::Message::CreateTransaction:
-                        break;
-                    case krapi::Message::DiscoverNodes:
-                        response = krapi::Response{
-                                krapi::ResponseType::NodesDiscovered,
-                                config.node_hosts
-                        };
-                        break;
-                    case krapi::Message::DiscoverIdentity:
-                        response = krapi::Response{
-                                krapi::ResponseType::IdentityDiscovered,
-                                config.identity_host
-                        };
-                        break;
+                if (req->method == "POST") {
+                    if (req->uri == "/") {
+                        spdlog::info("Received {} from {}:{}", req->body, state->getRemoteIp(), state->getRemotePort());
+                        auto message_json = nlohmann::json::parse(req->body);
+                        auto message = message_json.get<krapi::Message>();
+                        krapi::Response response;
 
+                        switch (message) {
+                            case krapi::Message::Acknowledge:
+                            case krapi::Message::CreateTransaction:
+                                break;
+                            case krapi::Message::DiscoverNodes:
+                                response = krapi::Response{
+                                        krapi::ResponseType::NodesDiscovered,
+                                        config.network_hosts
+                                };
+                                break;
+                            case krapi::Message::DiscoverIdentity:
+                                response = krapi::Response{
+                                        krapi::ResponseType::IdentityDiscovered,
+                                        config.identity_host
+                                };
+                                break;
+
+                        }
+                        auto response_json = nlohmann::json(response);
+                        spdlog::info("Sending\n{} to {}:{}", response_json.dump(4), state->getRemoteIp(),
+                                     state->getRemotePort());
+                        auto headers = ix::WebSocketHttpHeaders();
+                        headers["Content-Type"] = "application/json";
+                        return std::make_shared<ix::HttpResponse>(
+                                200,
+                                "",
+                                ix::HttpErrorCode::Ok,
+                                headers,
+                                response_json.dump()
+                        );
+                    }
                 }
-                auto response_json = nlohmann::json(response);
-                spdlog::info("Sending\n{} to {}", response_json.dump(4), req.remote_addr);
-                res.set_content(response_json.dump(), "application/json");
+                return std::make_shared<ix::HttpResponse>(404, "", ix::HttpErrorCode::Invalid);
             }
     );
-    server.listen(config.server_host, config.server_port);
+    auto res = server.listen();
+    if (!res.first) {
+        spdlog::error("{}", res.second);
+        exit(1);
+    }
+    server.start();
+    server.wait();
 }

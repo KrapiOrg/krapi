@@ -13,7 +13,6 @@ add_subdirectory(libs/spdlog)
 add_subdirectory(libs/cryptopp)
 add_subdirectory(libs/cxxopts)
 add_subdirectory(libs/eventpp)
-add_subdirectory(libs/cpp-httplib)
 add_subdirectory(test)
 
 # General Includes

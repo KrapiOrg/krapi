@@ -6,13 +6,12 @@
 #define NODE_NODEMESSAGE_H
 
 #include "nlohmann/json.hpp"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
     enum class NodeMessageType {
         Stop,
-        NodeIdentityRequest,
-        NodeIdentityReply,
         BroadcastTx
     };
 
@@ -21,7 +20,7 @@ namespace krapi {
         nlohmann::json content{};
         int sender_idenetity{};
         int receiver_identity{};
-        std::vector<std::string> blacklist{};
+        std::vector<ServerHost> blacklist{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 NodeMessage,

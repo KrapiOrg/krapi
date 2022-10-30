@@ -5,24 +5,34 @@
 #ifndef NODE_NODEHTTPCLIENT_H
 #define NODE_NODEHTTPCLIENT_H
 
-#include "httplib.h"
 #include "Response.h"
 #include "Message.h"
 #include "spdlog/spdlog.h"
+#include "ixwebsocket/IXHttpClient.h"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
     class HttpClient {
-        httplib::Client client;
+        ix::HttpClient m_client;
+        ServerHost m_host;
     public:
-        explicit HttpClient(const std::string& url): client(url) {
+        explicit HttpClient(ServerHost host) : m_host(std::move(host)) {
 
         }
 
-        Response post(
-                const Message &message
+        krapi::Response post(
+                const std::string &path,
+                const krapi::Message &message
         ) {
-            auto res = client.Post("/", to_string(nlohmann::json(message)), "application/json");
+
+            auto url = fmt::format("http://{}:{}{}", m_host.first, m_host.second, path);
+            auto message_json = nlohmann::json(message);
+            auto res = m_client.post(
+                    url,
+                    to_string(message_json),
+                    m_client.createRequest(url, ix::HttpClient::kPost)
+            );
             auto res_json = nlohmann::json::parse(res->body);
             return res_json.get<krapi::Response>();
         }

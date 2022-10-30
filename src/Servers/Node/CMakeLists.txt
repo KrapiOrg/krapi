@@ -28,7 +28,6 @@ target_include_directories(node PRIVATE Utils)
 target_include_directories(node PRIVATE src/Models)
 target_link_libraries(node PRIVATE
         ixwebsocket
-        httplib
         nlohmann_json
         fmt
         spdlog

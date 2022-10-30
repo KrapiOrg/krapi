@@ -3,6 +3,8 @@
 //
 
 #include "NodeManager.h"
+
+#include <utility>
 #include "spdlog/spdlog.h"
 
 
@@ -10,45 +12,47 @@ namespace krapi {
     using namespace eventpp;
 
     NodeManager::NodeManager(
-            const std::string &server_host,
-            int ws_server_port,
-            int http_server_port,
-            std::vector<std::string> node_uris,
-            const std::string &identity_server_uri
-    )
-            : m_server_host(server_host),
-              m_server_port(ws_server_port),
-              m_node_uris(std::move(node_uris)),
-              m_identity_manager(identity_server_uri),
-              m_eq(create_message_queue()),
-              m_txq(create_tx_queue()),
-              m_ws_server(server_host, ws_server_port, m_identity_manager.identity(), m_txq),
-              m_http_server(server_host, http_server_port, m_eq, m_txq) {
+            ServerHost ws_server_host,
+            ServerHost http_server_host,
+            ServerHost identity_server_host,
+            ServerHosts network_hosts
+    ) :
+            m_ws_server_host(std::move(ws_server_host)),
+            m_http_server_host(std::move(http_server_host)),
+            m_identity_server_host(std::move(identity_server_host)),
+            m_network_hosts(std::move(network_hosts)),
+            m_eq(create_message_queue()),
+            m_txq(create_tx_queue()),
+            m_identity_manager(std::make_shared<IdentityManager>(m_identity_server_host)),
+            m_ws_server(m_ws_server_host, m_txq),
+            m_http_server(m_http_server_host, m_eq, m_txq, m_identity_manager) {
 
         setup_listeners();
     }
 
     void NodeManager::connect_to_nodes() {
 
-        static auto my_uri = fmt::format("{}:{}", m_server_host, m_server_port);
-
-        for (const auto &uri: m_node_uris) {
-            if (uri != my_uri) {
-                m_nodes.emplace_back(uri, m_eq);
+        for (const auto &host: m_network_hosts) {
+            if (host != m_ws_server_host) {
+                m_connections.push_back(std::make_unique<NetworkConnection>(host, m_eq));
             }
+        }
+        for (auto &connection: m_connections) {
+            connection->start();
         }
     }
 
     void NodeManager::wait() {
 
-        for (auto &server: m_nodes) {
-            server.wait();
+        for (auto &connection: m_connections) {
+            connection->wait();
         }
+        m_ws_server.wait();
+        m_http_server.wait();
     }
 
     void NodeManager::setup_listeners() {
 
-        static auto my_uri = fmt::format("{}:{}", m_server_host, m_server_port);
         m_txq->appendListener(0, [this](Transaction tx) {
 
 
@@ -57,14 +61,14 @@ namespace krapi {
 
                 m_txpool.push_back(tx);
 
-                for (auto &node: m_nodes) {
+                for (auto &connection: m_connections) {
 
                     auto msg = NodeMessage{
                             NodeMessageType::BroadcastTx,
                             tx,
-                            m_identity_manager.identity(),
-                            node.identity(),
-                            {my_uri},
+                            m_identity_manager->identity(),
+                            connection->identity(),
+                            {m_ws_server_host},
                     };
                     m_eq->dispatch(NodeMessageType::BroadcastTx, msg);
                 }
@@ -75,26 +79,33 @@ namespace krapi {
 
     NodeManager::~NodeManager() {
 
-        for (auto &node: m_nodes) {
-            node.stop();
+        for (auto &node: m_connections) {
+            node->stop();
         }
+        m_http_server.stop();
+        m_ws_server.stop();
         spdlog::info("Successfully terminated");
     }
 
-    TransactionQueuePtr NodeManager::get_tx_queue() {
 
-        return m_txq;
+    bool NodeManager::contains_tx(const Transaction &transaction) {
+
+        return std::any_of(
+                m_txpool.begin(),
+                m_txpool.end(),
+                [&transaction](const Transaction &tx) {
+                    return tx == transaction;
+                }
+        );
+
+    }
+    void NodeManager::start_ws_server() {
+
+        m_ws_server.start();
     }
 
-    bool NodeManager::contains_tx(const Transaction &tx) {
+    void NodeManager::start_http_server() {
 
-        for (const auto &Tx: m_txpool) {
-            if (tx == Tx) {
-                return true;
-            }
-        }
-        return false;
+        m_http_server.start();
     }
-
-
 } // krapi

@@ -11,78 +11,100 @@
 #include "spdlog/spdlog.h"
 #include "MessageQueue.h"
 #include "TransactionQueue.h"
+#include "IdentityManager.h"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
     class WebSocketServer {
+        enum class WsServerInternalMessage {
+            Start,
+            Block,
+            Stop
+        };
+        using WsServerInternalMessageQueue = eventpp::EventDispatcher<WsServerInternalMessage, void()>;
+        WsServerInternalMessageQueue m_internal_queue;
+
+        ServerHost m_host;
+        ix::WebSocketServer m_server;
+
         TransactionQueuePtr m_txq;
-        ix::WebSocketServer server;
-        int identity;
 
-        void onMessage(
-                const std::shared_ptr<ix::ConnectionState> &state,
-                ix::WebSocket &ws,
-                const ix::WebSocketMessagePtr &message
-        ) {
+        void setup_listeners() {
 
-            using namespace ix;
-            if (message->type == WebSocketMessageType::Open) {
-                spdlog::info("{}:{} Just connected", state->getRemoteIp(), state->getRemotePort());
-            } else if (message->type == WebSocketMessageType::Error) {
-                spdlog::info(
-                        "REASON: {}, STATUS_CODE: {}",
-                        message->errorInfo.reason,
-                        message->errorInfo.http_status
-                );
-            } else if (message->type == WebSocketMessageType::Message) {
-                auto msg_json = nlohmann::json::parse(message->str);
-                auto msg = msg_json.get<NodeMessage>();
-                auto rsp = NodeMessage{};
-                if (msg.type == NodeMessageType::NodeIdentityRequest) {
-                    rsp = NodeMessage{
-                            krapi::NodeMessageType::NodeIdentityReply,
-                            identity
-                    };
-                    ws.send(nlohmann::json(rsp).dump());
-                } else if (msg.type == NodeMessageType::BroadcastTx) {
-                    auto tx = msg.content.get<Transaction>();
-                    m_txq->dispatch(0, tx);
+            m_internal_queue.appendListener(WsServerInternalMessage::Start, [this]() {
+                auto res = m_server.listenAndStart();
+                if (!res) {
+                    spdlog::error("Failed to start websocket server");
+                    exit(-1);
                 }
-            }
+            });
+
+            m_internal_queue.appendListener(WsServerInternalMessage::Block, [this]() {
+                m_server.wait();
+            });
+
+            m_internal_queue.appendListener(WsServerInternalMessage::Stop, [this]() {
+                m_server.stop();
+            });
+
+            m_server.setOnClientMessageCallback(
+                    [this](
+                            const std::shared_ptr<ix::ConnectionState> &state,
+                            ix::WebSocket &ws,
+                            const ix::WebSocketMessagePtr &message
+                    ) {
+                        using namespace ix;
+                        if (message->type == WebSocketMessageType::Open) {
+                            spdlog::info("{}:{} Just connected", state->getRemoteIp(), state->getRemotePort());
+                        } else if (message->type == WebSocketMessageType::Error) {
+                            spdlog::info(
+                                    "REASON: {}, STATUS_CODE: {}",
+                                    message->errorInfo.reason,
+                                    message->errorInfo.http_status
+                            );
+                        } else if (message->type == WebSocketMessageType::Message) {
+                            auto msg_json = nlohmann::json::parse(message->str);
+                            auto msg = msg_json.get<NodeMessage>();
+                            if (msg.type == NodeMessageType::BroadcastTx) {
+                                auto tx = msg.content.get<Transaction>();
+                                spdlog::info("Dispatching transaction {} to txq", msg.content.dump());
+                                m_txq->dispatch(0, tx);
+                            }
+                        }
+                    }
+            );
         }
 
 
     public:
-        WebSocketServer(
-                const std::string &host,
-                int port,
-                int identity,
+        explicit WebSocketServer(
+                ServerHost host,
                 TransactionQueuePtr txq
-        ) : server(port, host),
-            identity(identity),
+        ) : m_host(std::move(host)),
+            m_server(m_host.second, m_host.first),
             m_txq(std::move(txq)) {
+            setup_listeners();
+        }
 
-            server.setOnClientMessageCallback(
-                    [this](auto &&a, auto &&b, auto &&c) {
-                        onMessage(
-                                std::forward<decltype(a)>(a),
-                                std::forward<decltype(b)>(b),
-                                std::forward<decltype(c)>(c)
-                        );
-                    }
-            );
-            auto res = server.listenAndStart();
-            if (!res) {
-                spdlog::error("Failed to start websocket server");
-                exit(1);
-            }
-            spdlog::info("Started");
+        void start() {
+
+            m_internal_queue.dispatch(WsServerInternalMessage::Start);
+        }
+
+        void wait() {
+
+            m_internal_queue.dispatch(WsServerInternalMessage::Block);
+        }
+
+        void stop() {
+
+            m_internal_queue.dispatch(WsServerInternalMessage::Stop);
         }
 
         ~WebSocketServer() {
 
-            spdlog::info("Stopped");
-            server.stop();
+            stop();
         }
     };
 

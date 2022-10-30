@@ -21,12 +21,12 @@ int main(int argc, const char **argv) {
     auto parsed_args = options.parse(argc, argv);
     auto config_path = parsed_args["config"].as<std::string>();
 
-    auto config = krapi::parse_config<krapi::IdentityServerConfig>(config_path);
+    auto config = krapi::parse_config<krapi::ServerHost>(config_path);
 
-    spdlog::info("Starting Identity Server on {}:{}", config.server_host, config.server_port);
+    spdlog::info("Starting Identity Server on {}:{}", config.first, config.second);
 
     using namespace ix;
-    WebSocketServer server(config.server_port, config.server_host);
+    WebSocketServer server(config.second, config.first);
 
     std::mutex identity_map_mutex;
     std::map<int, std::shared_ptr<WebSocket>> identity_map;

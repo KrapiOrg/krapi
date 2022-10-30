@@ -24,38 +24,41 @@ namespace krapi {
 
     class NodeManager {
 
+        ServerHost m_ws_server_host;
+        ServerHost m_http_server_host;
+        ServerHost m_identity_server_host;
+        ServerHosts m_network_hosts;
+
         MessageQueuePtr m_eq;
         TransactionQueuePtr m_txq;
 
-        IdentityManager m_identity_manager;
-        WebSocketServer m_ws_server;
-        HttpServer m_http_server;
+        std::shared_ptr<IdentityManager> m_identity_manager;
+        krapi::WebSocketServer m_ws_server;
+        krapi::HttpServer m_http_server;
 
-        std::vector<NetworkConnection> m_nodes;
+        std::vector<std::unique_ptr<NetworkConnection>> m_connections;
         std::vector<Transaction> m_txpool;
 
-        std::string m_server_host;
-        int m_server_port;
-        std::vector<std::string> m_node_uris;
+
 
         void setup_listeners();
 
     public:
         explicit NodeManager(
-                const std::string &server_host,
-                int ws_server_port,
-                int http_server_port,
-                std::vector<std::string> node_uris,
-                const std::string& identity_server_uri
+                ServerHost ws_server_host,
+                ServerHost http_server_host,
+                ServerHost identity_server_host,
+                ServerHosts network_hosts
         );
 
         void connect_to_nodes();
 
-        TransactionQueuePtr get_tx_queue();
+        void start_http_server();
+        void start_ws_server();
 
         void wait();
 
-        inline bool contains_tx(const Transaction &tx);
+        inline bool contains_tx(const Transaction &transaction);
 
         ~NodeManager();
     };

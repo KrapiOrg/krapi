@@ -11,46 +11,33 @@
 
 
 namespace krapi {
+    using ServerHost = std::pair<std::string, int>;
+    using ServerHosts = std::vector<ServerHost>;
+
     struct NodeServerConfig {
-        int ws_server_port{};
-        int http_server_port{};
-        std::string server_host{};
-        std::string discovery_host{};
+        ServerHost ws_server_host{};
+        ServerHost http_server_host{};
+        ServerHost discovery_host{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 NodeServerConfig,
-                ws_server_port,
-                http_server_port,
-                server_host,
+                ws_server_host,
+                http_server_host,
                 discovery_host
         )
 
     };
 
     struct DiscoveryServerConfig {
-        int server_port{};
-        std::string server_host{};
-        std::string identity_host{};
-        std::vector<std::string> node_hosts{};
+        ServerHost discovery_host{};
+        ServerHost identity_host{};
+        std::vector<ServerHost> network_hosts{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 DiscoveryServerConfig,
-                server_port,
-                server_host,
+                discovery_host,
                 identity_host,
-                node_hosts
-        )
-
-    };
-
-    struct IdentityServerConfig {
-        int server_port{};
-        std::string server_host{};
-
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(
-                IdentityServerConfig,
-                server_port,
-                server_host
+                network_hosts
         )
 
     };

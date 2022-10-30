@@ -10,94 +10,118 @@
 namespace krapi {
 
     NetworkConnection::NetworkConnection(
-            std::string uri,
+            ServerHost host,
             MessageQueuePtr eq
-    ) : m_uri(std::move(uri)),
+    ) : m_host(std::move(host)),
         m_eq(std::move(eq)),
+        m_ws(std::make_shared<ix::WebSocket>()),
+        m_http_client(std::make_shared<ix::HttpClient>()),
         m_identity(-1) {
 
-        spdlog::info("Trying to connect to {}", m_uri);
+        setup_listeners();
 
-        m_thread = std::jthread(&NetworkConnection::server_loop, this);
+        spdlog::info("Trying to connect to {}:{}", m_host.first, m_host.second);
 
-        auto identity_future = identity_promise.get_future();
-        identity_future.wait();
-        m_identity = identity_future.get();
-
-
-        assert(m_identity != -1);
-        spdlog::info("Connected to Node with Identity {}", m_identity);
+        m_ws->setUrl(fmt::format("ws://{}:{}", m_host.first, m_host.second));
+        m_ws->setOnMessageCallback(std::bind_front(&NetworkConnection::onMessage, this));
     }
 
-    void NetworkConnection::server_loop() {
+    void NetworkConnection::setup_listeners() {
 
-        using namespace ix;
+        // InternalMessageQueue
+        m_imq.appendListener(InternalMessage::Start, [this]() {
+            spdlog::info("Asking for identity of {}:{}", m_host.first, m_host.second);
 
-        WebSocket socket;
-        socket.setUrl(fmt::format("ws://{}", m_uri));
+            // The http port is 100 greater tham the ws port
+            auto url = fmt::format("http://{}:{}", m_host.first, m_host.second + 100);
+            ix::HttpResponsePtr response;
+            int retryCount = 0;
+            while (!response) {
+                auto temp = m_http_client->get(url, m_http_client->createRequest());
 
-        socket.setOnMessageCallback(
-                [&, this](const WebSocketMessagePtr &message) {
-                    if (message->type == WebSocketMessageType::Open) {
-                        spdlog::info("Opened connection to {}", socket.getUrl());
-                        spdlog::info("Sending Identity Request to {}", socket.getUrl());
-                        auto msg = NodeMessage{NodeMessageType::NodeIdentityRequest};
-                        auto msg_json = nlohmann::json(msg);
-                        socket.send(msg_json.dump());
-                    } else if (message->type == WebSocketMessageType::Error) {
-                        spdlog::error("{}, {}", socket.getUrl(), message->errorInfo.reason);
-                    } else if (message->type == WebSocketMessageType::Message) {
-                        auto msg = NodeMessage{};
-                        nlohmann::from_json(nlohmann::json::parse(message->str), msg);
+                if (temp->statusCode != 200) {
+                    spdlog::error("Failed to connect to {}:{}, Retrying...", m_host.first, m_host.second);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000 + 500 * retryCount));
+                    retryCount++;
+                } else {
 
-                        if (msg.type == NodeMessageType::NodeIdentityReply) {
-                            auto identity = msg.content.get<int>();
-                            identity_promise.set_value(identity);
-                            this->m_identity = identity;
-                        } else if (msg.type == NodeMessageType::Stop) {
-                            socket.disableAutomaticReconnection();
-                            socket.stop();
-                        } else {
-
-                            m_eq->dispatch(msg.type, msg);
-                        }
-                    }
+                    response = temp;
                 }
-        );
+            }
+            auto res = m_http_client->get(url, m_http_client->createRequest());
+            auto body_json = nlohmann::json::parse(res->body);
+            m_identity = body_json.get<int>();
+
+            spdlog::info("Connected to Node with Identity {}", m_identity);
+
+        });
+
+        m_imq.appendListener(InternalMessage::Block, [this]() {
+            m_ws->stop();
+            m_ws->run();
+        });
+
+        m_imq.appendListener(InternalMessage::Stop, [this]() {
+            m_ws->disableAutomaticReconnection();
+            m_ws->stop();
+        });
+
+
+        // ConnectionMessageQueue
         m_eq->appendListener(
                 NodeMessageType::BroadcastTx,
-                [&, this](const NodeMessage &msg) {
+                [this](const NodeMessage &msg) {
                     if (msg.receiver_identity == m_identity) {
                         spdlog::info("Forwarding broadcast message to {}", m_identity);
                         auto bmsg = msg;
-                        bmsg.blacklist.push_back(m_uri);
+                        bmsg.blacklist.push_back(m_host);
                         auto bmsg_json = nlohmann::json(bmsg);
-                        socket.send(bmsg_json.dump());
+                        m_ws->send(bmsg_json.dump());
                     }
                 }
         );
-        socket.run();
+
+
     }
+
+
+    void NetworkConnection::onMessage(const ix::WebSocketMessagePtr &message) {
+
+        if (message->type == ix::WebSocketMessageType::Open) {
+            spdlog::info("Opened connection to {}", m_ws->getUrl());
+        } else if (message->type == ix::WebSocketMessageType::Error) {
+            spdlog::error("{}, {}", m_ws->getUrl(), message->errorInfo.reason);
+        } else if (message->type == ix::WebSocketMessageType::Message) {
+            auto msg = nlohmann::json::parse(message->str).get<NodeMessage>();
+            m_eq->dispatch(msg.type, msg);
+        }
+    }
+
 
     void NetworkConnection::wait() {
 
-        if (m_thread.joinable()) {
-            m_thread.join();
-        }
+        m_imq.dispatch(InternalMessage::Block);
+
+    }
+
+    void NetworkConnection::start() {
+
+        m_imq.dispatch(InternalMessage::Start);
     }
 
     void NetworkConnection::stop() {
 
-        if (m_thread.joinable()) {
-            m_eq->dispatch(NodeMessageType::Stop, NodeMessage{});
-            m_thread.request_stop();
-            m_thread.join();
-        }
+        m_imq.dispatch(InternalMessage::Stop);
     }
 
     int NetworkConnection::identity() {
 
         return m_identity;
+    }
+
+    NetworkConnection::~NetworkConnection() {
+
+        stop();
     }
 
 
