@@ -49,23 +49,77 @@ cmake --build .
 ## Running
 After building, an executable will be built for each server in the protocol outlined above.
 
-To run a particular server lets say `discovery` do the following (the process should be similar
-for all other servers)
-1. Place a config file for `discovery` called xxx.json (where xxx is the name of the file)
-2. The contents of the file should look like this
+Each server requires a different configuration file with a different format.
+Configuration file paths can be customized through command line options for each respective server.
+
+### Discovery
+Nodes use this to find other nodes in the network, a configuration file looks like this.
+This server is used by all other nodes/servers in the network as an entry point to the network.
+
 ```json
 {
-  "server_port": 8080,
-  "server_host": "127.0.0.1",
-  "hosts": [
-    "127.0.0.1:8080"
+  "discovery_host": [
+    "127.0.0.1",
+    7005
+  ],
+  "identity_host": [
+    "127.0.0.1",
+    5000
+  ],
+  "network_hosts": [
+    [
+      "127.0.0.1",
+      8000
+    ],
+    [
+      "127.0.0.1",
+      8001
+    ]
   ]
 }
 ```
-server_port: controls the port the `discovery` server will bind to
-server_host: the host uri the server will run on
-hosts: the list of known `transaction pool` known in the krapi network.
-3. Run the command `discovery --config=xxx.json`
+### Identity
+This is used so that when a node sends a message it gets routed to the correct destination.
+Every node connects to it after a discovery request to find its ipaddress.
+```json
+[
+  "127.0.0.1",
+  5000
+]
+```
+
+### Node
+This is the critical part of the network, each node manages connections to other nodes in the network,
+connections to clients i.e. it hosts a WebSocketServer and an HttpServer, and it self-manages WebSocket instances and HttpClients.
+
+```json
+{
+  "ws_server_host": [
+    "127.0.0.1",
+    8000
+  ],
+  "http_server_host": [
+    "127.0.0.1",
+    8100
+  ],
+  "discovery_host": [
+    "127.0.0.1",
+    7005
+  ]
+}
+```
+Programatically a "ServerHost" is just a tuple consisting of the IPAddress and the port the server is running on,
+So `["ssda.efsdf.sd",2423904]` is a ServerHost in json fomat.
+
+
+For the network to properly start, start the individual servers in the following order
+Discovery/Identity/Node1/Node2/...NodeN
+
+### Example: Running a discovery server
+use the following command`discovery --config=path/to/config_fille.json`
+
+```
+
 
 ## QnA
 
