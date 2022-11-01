@@ -5,14 +5,14 @@
 #ifndef KRAPI_MODELS_SERVER_H
 #define KRAPI_MODELS_SERVER_H
 
-#include <future>
 
 #include "ixwebsocket/IXWebSocketServer.h"
-#include "eventpp/eventdispatcher.h"
-#include "../Models/NodeMessage.h"
-#include "../Utils/MessageQueue.h"
-#include "ParsingUtils.h"
 #include "ixwebsocket/IXHttpClient.h"
+#include "eventpp/eventdispatcher.h"
+
+#include "NodeMessage.h"
+#include "MessageQueue.h"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
