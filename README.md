@@ -118,7 +118,6 @@ Discovery/Identity/Node1/Node2/...NodeN
 ### Example: Running a discovery server
 use the following command`discovery --config=path/to/config_fille.json`
 
-```
 
 
 ## QnA
