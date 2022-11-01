@@ -14,17 +14,13 @@
 #include "TransactionQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
+#include "InternalMessageQueue.h"
 
 namespace krapi {
 
     class WebSocketServer {
-        enum class WsServerInternalMessage {
-            Start,
-            Block,
-            Stop
-        };
-        using WsServerInternalMessageQueue = eventpp::EventDispatcher<WsServerInternalMessage, void()>;
-        WsServerInternalMessageQueue m_internal_queue;
+
+        InternalMessageQueue m_internal_queue;
 
         ServerHost m_host;
         ix::WebSocketServer m_server;

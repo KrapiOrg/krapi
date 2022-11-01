@@ -13,16 +13,12 @@
 #include "NodeMessage.h"
 #include "MessageQueue.h"
 #include "ParsingUtils.h"
+#include "InternalMessageQueue.h"
 
 namespace krapi {
 
     class NetworkConnectionManager {
-        enum class InternalMessage {
-            Start,
-            Block,
-            Stop
-        };
-        using InternalMessageQueue = eventpp::EventDispatcher<InternalMessage, void()>;
+
 
         ServerHost m_host;
         MessageQueuePtr m_eq;

@@ -15,22 +15,22 @@ namespace krapi {
 
     void WebSocketServer::start() {
 
-        m_internal_queue.dispatch(WsServerInternalMessage::Start);
+        m_internal_queue.dispatch(InternalMessage::Start);
     }
 
     void WebSocketServer::wait() {
 
-        m_internal_queue.dispatch(WsServerInternalMessage::Block);
+        m_internal_queue.dispatch(InternalMessage::Block);
     }
 
     void WebSocketServer::stop() {
 
-        m_internal_queue.dispatch(WsServerInternalMessage::Stop);
+        m_internal_queue.dispatch(InternalMessage::Stop);
     }
 
     void WebSocketServer::setup_listeners() {
 
-        m_internal_queue.appendListener(WsServerInternalMessage::Start, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Start, [this]() {
             auto res = m_server.listenAndStart();
             if (!res) {
                 spdlog::error("Failed to start websocket server");
@@ -38,11 +38,11 @@ namespace krapi {
             }
         });
 
-        m_internal_queue.appendListener(WsServerInternalMessage::Block, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Block, [this]() {
             m_server.wait();
         });
 
-        m_internal_queue.appendListener(WsServerInternalMessage::Stop, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Stop, [this]() {
             m_server.stop();
         });
 

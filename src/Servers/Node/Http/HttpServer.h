@@ -19,20 +19,15 @@
 #include "TransactionQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
+#include "InternalMessageQueue.h"
 
 namespace krapi {
 
     class HttpServer {
-        enum class HttpServerInternalMessage {
-            Start,
-            Block,
-            Stop
-        };
-        using HttpServerInternalMessageQueue = eventpp::EventDispatcher<HttpServerInternalMessage, void()>;
 
         ServerHost m_host;
         std::shared_ptr<IdentityManager> m_identity_manager;
-        HttpServerInternalMessageQueue m_internal_queue;
+        InternalMessageQueue m_internal_queue;
         MessageQueuePtr m_node_message_queue;
         TransactionQueuePtr m_tx_queue;
         ix::HttpServer m_server;

@@ -18,17 +18,17 @@ namespace krapi {
 
     void HttpServer::start() {
 
-        m_internal_queue.dispatch(HttpServerInternalMessage::Start);
+        m_internal_queue.dispatch(InternalMessage::Start);
     }
 
     void HttpServer::wait() {
 
-        m_internal_queue.dispatch(HttpServerInternalMessage::Block);
+        m_internal_queue.dispatch(InternalMessage::Block);
     }
 
     void HttpServer::stop() {
 
-        m_internal_queue.dispatch(HttpServerInternalMessage::Stop);
+        m_internal_queue.dispatch(InternalMessage::Stop);
     }
 
     HttpServer::~HttpServer() {
@@ -40,7 +40,7 @@ namespace krapi {
     void HttpServer::setup_listeners() {
 
 
-        m_internal_queue.appendListener(HttpServerInternalMessage::Start, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Start, [this]() {
             auto res = m_server.listen();
             if (!res.first) {
                 spdlog::error("{}", res.second);
@@ -50,11 +50,11 @@ namespace krapi {
             spdlog::info("Started http server");
         });
 
-        m_internal_queue.appendListener(HttpServerInternalMessage::Block, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Block, [this]() {
             m_server.wait();
         });
 
-        m_internal_queue.appendListener(HttpServerInternalMessage::Stop, [this]() {
+        m_internal_queue.appendListener(InternalMessage::Stop, [this]() {
             m_server.stop();
         });
 
