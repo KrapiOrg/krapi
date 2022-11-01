@@ -1,9 +1,6 @@
 [submodule "libs/websockets"]
 	path = libs/websockets
 	url = https://github.com/machinezone/IXWebSocket
-[submodule "libs/spdlog"]
-	path = libs/spdlog
-	url = https://github.com/KrapiOrg/spdlog
 [submodule "libs/json"]
 	path = libs/json
 	url = https://github.com/nlohmann/json
@@ -28,3 +25,6 @@
 [submodule "libs/eventpp"]
 	path = libs/eventpp
 	url = https://github.com/wqking/eventpp
+[submodule "libs/spdlog"]
+	path = libs/spdlog
+	url = https://github.com/gabime/spdlog
