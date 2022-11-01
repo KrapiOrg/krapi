@@ -9,16 +9,14 @@
 #include <vector>
 #include <string>
 
-#include "ixwebsocket/IXWebSocket.h"
-
 #include "NetworkConnectionManager.h"
 #include "Transaction.h"
-#include "../Utils/MessageQueue.h"
+#include "MessageQueue.h"
 #include "IdentityManager.h"
-#include "../WebSocket/WebSocketServer.h"
+#include "WebSocketServer.h"
 #include "ParsingUtils.h"
-#include "../Utils/TransactionQueue.h"
-#include "../Http/HttpServer.h"
+#include "TransactionQueue.h"
+#include "HttpServer.h"
 
 namespace krapi {
 
@@ -38,8 +36,6 @@ namespace krapi {
 
         std::vector<std::unique_ptr<NetworkConnectionManager>> m_connections;
         std::vector<Transaction> m_txpool;
-
-
 
         void setup_listeners();
 
