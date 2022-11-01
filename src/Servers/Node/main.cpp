@@ -4,9 +4,9 @@
 
 #include "cxxopts.hpp"
 #include "fmt/core.h"
-#include "NodeManager.h"
+#include "Managers/NodeManager.h"
 #include "ParsingUtils.h"
-#include "HttpClient.h"
+#include "Http/HttpClient.h"
 
 int main(int argc, const char **argv) {
 

@@ -5,27 +5,35 @@ set(NODEPREFIX ${CMAKE_CURRENT_SOURCE_DIR}/src/Servers/Node)
 set(
         NODESOURCES
         ${NODEPREFIX}/main.cpp
-        ${NODEPREFIX}/NodeManager.cpp
-        ${NODEPREFIX}/NodeManager.h
-        ${NODEPREFIX}/NetworkConnection.cpp
-        ${NODEPREFIX}/NetworkConnection.h
-        ${NODEPREFIX}/NodeMessage.h
-        ${NODEPREFIX}/HttpClient.cpp
-        ${NODEPREFIX}/HttpClient.h
-        ${NODEPREFIX}/WebSocketServer.cpp
-        ${NODEPREFIX}/WebSocketServer.h
-        ${NODEPREFIX}/IdentityManager.cpp
-        ${NODEPREFIX}/IdentityManager.h
-        ${NODEPREFIX}/MessageQueue.h
-        ${NODEPREFIX}/HttpServer.cpp
-        ${NODEPREFIX}/HttpServer.h
-        ${NODEPREFIX}/HttpMessage.h
-        ${NODEPREFIX}/TransactionQueue.h
+        ${NODEPREFIX}/Managers/NodeManager.cpp
+        ${NODEPREFIX}/Managers/NodeManager.h
+        ${NODEPREFIX}/Managers/IdentityManager.cpp
+        ${NODEPREFIX}/Managers/IdentityManager.h
+        ${NODEPREFIX}/Managers/NetworkConnectionManager.cpp
+        ${NODEPREFIX}/Managers/NetworkConnectionManager.h
+        ${NODEPREFIX}/Models/NodeMessage.h
+        ${NODEPREFIX}/Http/HttpClient.cpp
+        ${NODEPREFIX}/Http/HttpClient.h
+        ${NODEPREFIX}/Http/HttpServer.cpp
+        ${NODEPREFIX}/Http/HttpServer.h
+        ${NODEPREFIX}/Http/HttpMessage.h
+        ${NODEPREFIX}/WebSocket/WebSocketServer.cpp
+        ${NODEPREFIX}/WebSocket/WebSocketServer.h
+        ${NODEPREFIX}/Utils/MessageQueue.h
+        ${NODEPREFIX}/Utils/TransactionQueue.h
 )
-
 add_executable(node "${NODESOURCES}")
 target_include_directories(node PRIVATE Utils)
-target_include_directories(node PRIVATE src/Models)
+target_include_directories(
+        node
+        PRIVATE
+        src/SharedModels
+        ${NODEPREFIX}/Http
+        ${NODEPREFIX}/Managers
+        ${NODEPREFIX}/Models
+        ${NODEPREFIX}/Utils
+        ${NODEPREFIX}/WebSocket
+)
 target_link_libraries(node PRIVATE
         ixwebsocket
         nlohmann_json

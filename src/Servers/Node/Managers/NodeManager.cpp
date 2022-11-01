@@ -34,7 +34,7 @@ namespace krapi {
 
         for (const auto &host: m_network_hosts) {
             if (host != m_ws_server_host) {
-                m_connections.push_back(std::make_unique<NetworkConnection>(host, m_eq));
+                m_connections.push_back(std::make_unique<NetworkConnectionManager>(host, m_eq));
             }
         }
         for (auto &connection: m_connections) {

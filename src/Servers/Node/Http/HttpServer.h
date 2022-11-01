@@ -10,14 +10,15 @@
 #include "nlohmann/json.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "eventpp/utilities/counterremover.h"
+#include "ixwebsocket/IXHttpServer.h"
+#include "spdlog/spdlog.h"
+
 #include "HttpMessage.h"
 #include "Transaction.h"
 #include "MessageQueue.h"
 #include "TransactionQueue.h"
-#include "spdlog/spdlog.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
-#include "ixwebsocket/IXHttpServer.h"
 
 namespace krapi {
 

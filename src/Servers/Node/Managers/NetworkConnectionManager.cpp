@@ -2,14 +2,14 @@
 // Created by mythi on 13/10/22.
 //
 
-#include "NetworkConnection.h"
+#include "NetworkConnectionManager.h"
 
 #include <utility>
 #include "spdlog/spdlog.h"
 
 namespace krapi {
 
-    NetworkConnection::NetworkConnection(
+    NetworkConnectionManager::NetworkConnectionManager(
             ServerHost host,
             MessageQueuePtr eq
     ) : m_host(std::move(host)),
@@ -23,10 +23,10 @@ namespace krapi {
         spdlog::info("Trying to connect to {}:{}", m_host.first, m_host.second);
 
         m_ws->setUrl(fmt::format("ws://{}:{}", m_host.first, m_host.second));
-        m_ws->setOnMessageCallback(std::bind_front(&NetworkConnection::onMessage, this));
+        m_ws->setOnMessageCallback(std::bind_front(&NetworkConnectionManager::onMessage, this));
     }
 
-    void NetworkConnection::setup_listeners() {
+    void NetworkConnectionManager::setup_listeners() {
 
         // InternalMessageQueue
         m_imq.appendListener(InternalMessage::Start, [this]() {
@@ -85,7 +85,7 @@ namespace krapi {
     }
 
 
-    void NetworkConnection::onMessage(const ix::WebSocketMessagePtr &message) {
+    void NetworkConnectionManager::onMessage(const ix::WebSocketMessagePtr &message) {
 
         if (message->type == ix::WebSocketMessageType::Open) {
             spdlog::info("Opened connection to {}", m_ws->getUrl());
@@ -98,28 +98,28 @@ namespace krapi {
     }
 
 
-    void NetworkConnection::wait() {
+    void NetworkConnectionManager::wait() {
 
         m_imq.dispatch(InternalMessage::Block);
 
     }
 
-    void NetworkConnection::start() {
+    void NetworkConnectionManager::start() {
 
         m_imq.dispatch(InternalMessage::Start);
     }
 
-    void NetworkConnection::stop() {
+    void NetworkConnectionManager::stop() {
 
         m_imq.dispatch(InternalMessage::Stop);
     }
 
-    int NetworkConnection::identity() {
+    int NetworkConnectionManager::identity() {
 
         return m_identity;
     }
 
-    NetworkConnection::~NetworkConnection() {
+    NetworkConnectionManager::~NetworkConnectionManager() {
 
         stop();
     }

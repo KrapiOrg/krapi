@@ -7,11 +7,11 @@
 
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "nlohmann/json.hpp"
-#include "NodeMessage.h"
+#include "../Models/NodeMessage.h"
 #include "spdlog/spdlog.h"
-#include "MessageQueue.h"
-#include "TransactionQueue.h"
-#include "IdentityManager.h"
+#include "../Utils/MessageQueue.h"
+#include "../Utils/TransactionQueue.h"
+#include "../Managers/IdentityManager.h"
 #include "ParsingUtils.h"
 
 namespace krapi {

@@ -9,14 +9,14 @@
 
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "eventpp/eventdispatcher.h"
-#include "NodeMessage.h"
-#include "MessageQueue.h"
+#include "../Models/NodeMessage.h"
+#include "../Utils/MessageQueue.h"
 #include "ParsingUtils.h"
 #include "ixwebsocket/IXHttpClient.h"
 
 namespace krapi {
 
-    class NetworkConnection {
+    class NetworkConnectionManager {
         enum class InternalMessage {
             Start,
             Block,
@@ -39,7 +39,7 @@ namespace krapi {
         void setup_listeners();
 
     public:
-        explicit NetworkConnection(
+        explicit NetworkConnectionManager(
                 ServerHost host,
                 MessageQueuePtr eq
         );
@@ -52,7 +52,7 @@ namespace krapi {
 
         int identity();
 
-        ~NetworkConnection();
+        ~NetworkConnectionManager();
     };
 
 }
