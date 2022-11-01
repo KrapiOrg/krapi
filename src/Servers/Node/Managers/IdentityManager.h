@@ -8,9 +8,10 @@
 #include <future>
 #include "ixwebsocket/IXWebSocket.h"
 #include "nlohmann/json.hpp"
-#include "fmt/format.h"
-#include "Response.h"
 #include "spdlog/spdlog.h"
+#include "fmt/format.h"
+
+#include "Response.h"
 #include "ParsingUtils.h"
 
 namespace krapi {
@@ -23,45 +24,15 @@ namespace krapi {
         ServerHost m_host;
         ix::WebSocket ws;
 
-        void onMessage(const ix::WebSocketMessagePtr &msg) {
-
-            if (msg->type == ix::WebSocketMessageType::Message) {
-                auto resp_json = nlohmann::json::parse(msg->str);
-                auto resp = resp_json.get<Response>();
-                if (resp.type == ResponseType::IdentityFound) {
-                    auto identity = resp.content.get<int>();
-                    spdlog::info("Got assigned the identity {}", identity);
-
-                    identity_promise.set_value(identity);
-                }
-            }
-
-        }
+        void onMessage(const ix::WebSocketMessagePtr &msg);
 
     public:
-        explicit IdentityManager(ServerHost host) : m_host(std::move(host)), m_identity{-1} {
-
-            ws.setUrl(fmt::format("ws://{}:{}", m_host.first, m_host.second));
-            ws.setOnMessageCallback([this](auto &&msg) { onMessage(std::forward<decltype(msg)>(msg)); });
-
-            ws.start();
-            auto identity_future = std::shared_future(identity_promise.get_future());
-            identity_future.wait();
-            m_identity = identity_future.get();
-            assert(m_identity != -1);
-        }
+        explicit IdentityManager(ServerHost host);
 
         [[nodiscard]]
-        int identity() const {
+        int identity() const;
 
-            return m_identity;
-        }
-
-        ~IdentityManager() {
-
-            ws.disableAutomaticReconnection();
-            ws.stop();
-        }
+        ~IdentityManager();
     };
 
 } // krapi
