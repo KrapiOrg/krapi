@@ -65,7 +65,7 @@ namespace krapi {
                         auto msg_json = nlohmann::json::parse(message->str);
                         auto msg = msg_json.get<NodeMessage>();
                         if (msg.type == NodeMessageType::BroadcastTx) {
-                            auto tx = msg.content.get<Transaction>();
+                            auto tx = Transaction::from_json(msg.content);
                             spdlog::info("Dispatching transaction {} to txq", msg.content.dump());
                             m_txq->dispatch(0, tx);
                         }

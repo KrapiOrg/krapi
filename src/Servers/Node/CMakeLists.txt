@@ -21,6 +21,10 @@ set(
         ${NODEPREFIX}/WebSocket/WebSocketServer.h
         ${NODEPREFIX}/Utils/MessageQueue.h
         ${NODEPREFIX}/Utils/TransactionQueue.h
+        ${NODEPREFIX}/Blockchain/Blockchain.cpp
+        ${NODEPREFIX}/Blockchain/Blockchain.h
+        ${NODEPREFIX}/Blockchain/Block.h
+        ${NODEPREFIX}/Blockchain/BlockHeader.h
 )
 add_executable(node "${NODESOURCES}")
 target_include_directories(node PRIVATE Utils)
@@ -33,6 +37,7 @@ target_include_directories(
         ${NODEPREFIX}/Models
         ${NODEPREFIX}/Utils
         ${NODEPREFIX}/WebSocket
+        ${NODEPREFIX}/Blockchain
 )
 target_link_libraries(node PRIVATE
         ixwebsocket
@@ -43,4 +48,6 @@ target_link_libraries(node PRIVATE
         shared_models
         eventpp
         sutils
+        magic_enum
+        cryptopp
         )

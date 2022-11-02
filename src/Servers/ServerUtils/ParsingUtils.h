@@ -18,12 +18,14 @@ namespace krapi {
         ServerHost ws_server_host{};
         ServerHost http_server_host{};
         ServerHost discovery_host{};
+        std::filesystem::path blockchain_path;
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 NodeServerConfig,
                 ws_server_host,
                 http_server_host,
-                discovery_host
+                discovery_host,
+                blockchain_path
         )
 
     };

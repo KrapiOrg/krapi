@@ -68,7 +68,7 @@ namespace krapi {
                         auto msg = msg_json.get<krapi::HttpMessage>();
                         if (msg.type == krapi::NodeHttpMessageType::AddTx) {
                             spdlog::info("HttpServer recieved addtx message");
-                            auto tx = msg.content.get<krapi::Transaction>();
+                            auto tx = Transaction::from_json(msg.content);
                             m_tx_queue->dispatch(0, tx);
                         }
                         return std::make_shared<ix::HttpResponse>();

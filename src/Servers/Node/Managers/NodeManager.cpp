@@ -15,7 +15,8 @@ namespace krapi {
             ServerHost ws_server_host,
             ServerHost http_server_host,
             ServerHost identity_server_host,
-            ServerHosts network_hosts
+            ServerHosts network_hosts,
+            const std::string &blockchain_path
     ) :
             m_ws_server_host(std::move(ws_server_host)),
             m_http_server_host(std::move(http_server_host)),
@@ -25,7 +26,8 @@ namespace krapi {
             m_txq(create_tx_queue()),
             m_identity_manager(std::make_shared<IdentityManager>(m_identity_server_host)),
             m_ws_server(m_ws_server_host, m_txq),
-            m_http_server(m_http_server_host, m_eq, m_txq, m_identity_manager) {
+            m_http_server(m_http_server_host, m_eq, m_txq, m_identity_manager),
+            m_blockchain(std::move(Blockchain::from_disk(blockchain_path))) {
 
         setup_listeners();
     }
@@ -65,7 +67,7 @@ namespace krapi {
 
                     auto msg = NodeMessage{
                             NodeMessageType::BroadcastTx,
-                            tx,
+                            tx.to_json(),
                             m_identity_manager->identity(),
                             connection->identity(),
                             {m_ws_server_host},
@@ -99,6 +101,7 @@ namespace krapi {
         );
 
     }
+
     void NodeManager::start_ws_server() {
 
         m_ws_server.start();

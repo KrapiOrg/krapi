@@ -17,6 +17,7 @@
 #include "ParsingUtils.h"
 #include "TransactionQueue.h"
 #include "HttpServer.h"
+#include "Blockchain.h"
 
 namespace krapi {
 
@@ -36,6 +37,7 @@ namespace krapi {
 
         std::vector<std::unique_ptr<NetworkConnectionManager>> m_connections;
         std::vector<Transaction> m_txpool;
+        Blockchain m_blockchain;
 
         void setup_listeners();
 
@@ -44,7 +46,8 @@ namespace krapi {
                 ServerHost ws_server_host,
                 ServerHost http_server_host,
                 ServerHost identity_server_host,
-                ServerHosts network_hosts
+                ServerHosts network_hosts,
+                const std::string& blockchain_path
         );
 
         void connect_to_nodes();

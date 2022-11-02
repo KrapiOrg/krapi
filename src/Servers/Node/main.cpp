@@ -35,7 +35,8 @@ int main(int argc, const char **argv) {
             config.ws_server_host,
             config.http_server_host,
             identity_host,
-            network_hosts
+            network_hosts,
+            config.blockchain_path
     );
 
     node_manager.start_http_server();

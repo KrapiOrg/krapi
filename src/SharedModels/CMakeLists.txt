@@ -9,5 +9,5 @@ add_library(
         ${MODELSPREFIX}/Response.h
         ${MODELSPREFIX}/Transaction.h
 )
-target_link_libraries(shared_models PRIVATE nlohmann_json)
+target_link_libraries(shared_models PRIVATE nlohmann_json magic_enum)
 set_target_properties(shared_models PROPERTIES LINKER_LANGUAGE CXX)
