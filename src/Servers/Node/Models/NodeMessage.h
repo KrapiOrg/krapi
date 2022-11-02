@@ -11,9 +11,12 @@
 namespace krapi {
 
     enum class NodeMessageType {
-        Stop,
         BroadcastTx
     };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(NodeMessageType, {
+        { NodeMessageType::BroadcastTx, "boradcast_tx" }
+    })
 
     struct NodeMessage {
         NodeMessageType type{};
