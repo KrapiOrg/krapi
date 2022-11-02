@@ -5,8 +5,8 @@
 #ifndef NODE_NODEMESSAGE_H
 #define NODE_NODEMESSAGE_H
 
-#include "../../../../libs/json/include/nlohmann/json.hpp"
-#include "../../ServerUtils/ParsingUtils.h"
+#include "nlohmann/json.hpp"
+#include "ParsingUtils.h"
 
 namespace krapi {
 
