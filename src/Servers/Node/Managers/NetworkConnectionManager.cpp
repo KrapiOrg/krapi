@@ -74,7 +74,7 @@ namespace krapi {
                     if (msg.receiver_identity == m_identity) {
                         spdlog::info("Forwarding broadcast message to {}", m_identity);
                         auto bmsg = msg;
-                        bmsg.blacklist.push_back(m_host);
+                        bmsg.identity_blacklist.insert(m_identity);
                         auto bmsg_json = nlohmann::json(bmsg);
                         m_ws->send(bmsg_json.dump());
                     }
