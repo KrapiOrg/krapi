@@ -62,13 +62,13 @@ namespace krapi {
                     for (auto &connection: m_connections) {
 
                         auto msg = NodeMessage{
-                                NodeMessageType::BroadcastTx,
+                                NodeMessageType::AddTransactionToPool,
                                 tx.to_json(),
                                 m_identity_manager->identity(),
                                 connection->identity(),
                                 {m_identity_manager->identity()},
                         };
-                        m_eq->dispatch(NodeMessageType::BroadcastTx, msg);
+                        m_eq->dispatch(NodeMessageType::AddTransactionToPool, msg);
                     }
                 }
         );

@@ -69,14 +69,15 @@ namespace krapi {
 
         // ConnectionMessageQueue
         m_eq->appendListener(
-                NodeMessageType::BroadcastTx,
+                NodeMessageType::AddTransactionToPool,
                 [this](const NodeMessage &msg) {
-                    if (msg.receiver_identity == m_identity) {
-                        spdlog::info("Forwarding broadcast message to {}", m_identity);
-                        auto bmsg = msg;
-                        bmsg.identity_blacklist.insert(m_identity);
-                        auto bmsg_json = nlohmann::json(bmsg);
-                        m_ws->send(bmsg_json.dump());
+                    if (msg.receiver_identity() == m_identity) {
+                        spdlog::info(
+                                "NetworkConnectionManager: Forwarding transaction {} to {}",
+                                msg.content(),
+                                m_identity
+                        );
+                        m_ws->send(msg.to_json().dump());
                     }
                 }
         );
@@ -92,8 +93,9 @@ namespace krapi {
         } else if (message->type == ix::WebSocketMessageType::Error) {
             spdlog::error("{}, {}", m_ws->getUrl(), message->errorInfo.reason);
         } else if (message->type == ix::WebSocketMessageType::Message) {
-            auto msg = nlohmann::json::parse(message->str).get<NodeMessage>();
-            m_eq->dispatch(msg.type, msg);
+
+            auto msg = NodeMessage::from_json(nlohmann::json::parse(message->str));
+            m_eq->dispatch(msg.type(), msg);
         }
     }
 

@@ -62,12 +62,11 @@ namespace krapi {
                                 message->errorInfo.http_status
                         );
                     } else if (message->type == WebSocketMessageType::Message) {
-                        auto msg_json = nlohmann::json::parse(message->str);
-                        auto msg = msg_json.get<NodeMessage>();
-                        if (msg.type == NodeMessageType::BroadcastTx) {
+                        auto msg = NodeMessage::from_json(nlohmann::json::parse(message->str));
+                        if (msg.type() == NodeMessageType::AddTransactionToPool) {
 
-                            spdlog::info("WebSocketServer: Adding transaction {}", msg.content.dump());
-                            m_transaction_pool->add_transaction(Transaction::from_json(msg.content));
+                            spdlog::info("WebSocketServer: Adding transaction {}", msg.content().dump());
+                            m_transaction_pool->add_transaction(Transaction::from_json(msg.content()));
                         }
                     }
                 }
