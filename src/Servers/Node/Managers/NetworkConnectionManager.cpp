@@ -74,7 +74,7 @@ namespace krapi {
                     if (msg.receiver_identity() == m_identity) {
                         spdlog::info(
                                 "NetworkConnectionManager: Forwarding transaction {} to {}",
-                                msg.content(),
+                                msg.content().dump(),
                                 m_identity
                         );
                         m_ws->send(msg.to_json().dump());
