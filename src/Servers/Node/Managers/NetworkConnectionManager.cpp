@@ -30,7 +30,7 @@ namespace krapi {
 
         // InternalMessageQueue
         m_imq.appendListener(InternalMessage::Start, [this]() {
-            spdlog::info("Asking for identity of {}:{}", m_host.first, m_host.second);
+            spdlog::info("NetworkConnectionManager: Asking for identity of {}:{}", m_host.first, m_host.second);
 
             // The http port is 100 greater tham the ws port
             auto url = fmt::format("http://{}:{}", m_host.first, m_host.second + 100);
@@ -40,7 +40,7 @@ namespace krapi {
                 auto temp = m_http_client->get(url, m_http_client->createRequest());
 
                 if (temp->statusCode != 200) {
-                    spdlog::error("Failed to connect to {}:{}, Retrying...", m_host.first, m_host.second);
+                    spdlog::error("NetworkConnectionManager: Failed to connect to {}:{}, Retrying...", m_host.first, m_host.second);
                     std::this_thread::sleep_for(std::chrono::milliseconds(1000 + 500 * retryCount));
                     retryCount++;
                 } else {
@@ -52,7 +52,7 @@ namespace krapi {
             auto body_json = nlohmann::json::parse(res->body);
             m_identity = body_json.get<int>();
 
-            spdlog::info("Connected to Node with Identity {}", m_identity);
+            spdlog::info("NetworkConnectionManager: Connected to Node with Identity {}", m_identity);
 
         });
 
@@ -89,7 +89,7 @@ namespace krapi {
     void NetworkConnectionManager::onMessage(const ix::WebSocketMessagePtr &message) {
 
         if (message->type == ix::WebSocketMessageType::Open) {
-            spdlog::info("Opened connection to {}", m_ws->getUrl());
+            spdlog::info("NetworkConnectionManager: Connection established with {}", m_ws->getUrl());
         } else if (message->type == ix::WebSocketMessageType::Error) {
             spdlog::error("{}, {}", m_ws->getUrl(), message->errorInfo.reason);
         } else if (message->type == ix::WebSocketMessageType::Message) {
