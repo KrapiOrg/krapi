@@ -6,7 +6,7 @@
 #define NODE_NODEMESSAGE_H
 
 #include "nlohmann/json.hpp"
-#include "ParsingUtils.h"
+#include <unordered_set>
 
 namespace krapi {
 
@@ -23,7 +23,7 @@ namespace krapi {
         nlohmann::json content{};
         int sender_idenetity{};
         int receiver_identity{};
-        std::vector<ServerHost> blacklist{};
+        std::unordered_set<int> identity_blacklist{};
 
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(
                 NodeMessage,
@@ -31,7 +31,7 @@ namespace krapi {
                 receiver_identity,
                 type,
                 content,
-                blacklist
+                identity_blacklist
         )
     };
 

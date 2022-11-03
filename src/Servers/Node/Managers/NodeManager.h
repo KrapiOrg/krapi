@@ -15,9 +15,9 @@
 #include "IdentityManager.h"
 #include "WebSocketServer.h"
 #include "ParsingUtils.h"
-#include "TransactionQueue.h"
 #include "HttpServer.h"
 #include "Blockchain.h"
+#include "TransactionPool.h"
 
 namespace krapi {
 
@@ -29,15 +29,14 @@ namespace krapi {
         ServerHosts m_network_hosts;
 
         MessageQueuePtr m_eq;
-        TransactionQueuePtr m_txq;
+        TransactionPoolPtr m_transaction_pool;
+        Blockchain m_blockchain;
 
         std::shared_ptr<IdentityManager> m_identity_manager;
         krapi::WebSocketServer m_ws_server;
         krapi::HttpServer m_http_server;
 
         std::vector<std::unique_ptr<NetworkConnectionManager>> m_connections;
-        std::vector<Transaction> m_txpool;
-        Blockchain m_blockchain;
 
         void setup_listeners();
 

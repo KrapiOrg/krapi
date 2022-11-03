@@ -5,10 +5,10 @@
 #include "WebSocketServer.h"
 
 namespace krapi {
-    WebSocketServer::WebSocketServer(ServerHost host, TransactionQueuePtr txq) :
+    WebSocketServer::WebSocketServer(ServerHost host, TransactionPoolPtr transaction_pool) :
             m_host(std::move(host)),
             m_server(m_host.second, m_host.first),
-            m_txq(std::move(txq)) {
+            m_transaction_pool(std::move(transaction_pool)) {
 
         setup_listeners();
     }
@@ -65,9 +65,9 @@ namespace krapi {
                         auto msg_json = nlohmann::json::parse(message->str);
                         auto msg = msg_json.get<NodeMessage>();
                         if (msg.type == NodeMessageType::BroadcastTx) {
-                            auto tx = Transaction::from_json(msg.content);
-                            spdlog::info("Dispatching transaction {} to txq", msg.content.dump());
-                            m_txq->dispatch(0, tx);
+
+                            spdlog::info("WebSocketServer: Adding transaction {}", msg.content.dump());
+                            m_transaction_pool->add_transaction(Transaction::from_json(msg.content));
                         }
                     }
                 }

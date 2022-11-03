@@ -25,6 +25,8 @@ set(
         ${NODEPREFIX}/Blockchain/Blockchain.h
         ${NODEPREFIX}/Blockchain/Block.h
         ${NODEPREFIX}/Blockchain/BlockHeader.h
+        ${NODEPREFIX}/Blockchain/TransactionPool.cpp
+        ${NODEPREFIX}/Blockchain/TransactionPool.h
 )
 add_executable(node "${NODESOURCES}")
 target_include_directories(node PRIVATE Utils)

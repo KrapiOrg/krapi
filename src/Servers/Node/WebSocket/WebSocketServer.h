@@ -11,10 +11,10 @@
 
 #include "NodeMessage.h"
 #include "MessageQueue.h"
-#include "TransactionQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
 #include "InternalMessageQueue.h"
+#include "TransactionPool.h"
 
 namespace krapi {
 
@@ -25,7 +25,7 @@ namespace krapi {
         ServerHost m_host;
         ix::WebSocketServer m_server;
 
-        TransactionQueuePtr m_txq;
+        TransactionPoolPtr m_transaction_pool;
 
         void setup_listeners();
 
@@ -33,7 +33,7 @@ namespace krapi {
     public:
         explicit WebSocketServer(
                 ServerHost host,
-                TransactionQueuePtr txq
+                TransactionPoolPtr transaction_pool
         );
 
         void start();

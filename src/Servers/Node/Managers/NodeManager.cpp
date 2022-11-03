@@ -22,11 +22,11 @@ namespace krapi {
             m_http_server_host(std::move(http_server_host)),
             m_identity_server_host(std::move(identity_server_host)),
             m_network_hosts(std::move(network_hosts)),
+            m_transaction_pool(create_transaction_pool()),
             m_eq(create_message_queue()),
-            m_txq(create_tx_queue()),
             m_identity_manager(std::make_shared<IdentityManager>(m_identity_server_host)),
-            m_ws_server(m_ws_server_host, m_txq),
-            m_http_server(m_http_server_host, m_eq, m_txq, m_identity_manager),
+            m_ws_server(m_ws_server_host, m_transaction_pool),
+            m_http_server(m_http_server_host, m_eq, m_transaction_pool, m_identity_manager),
             m_blockchain(std::move(Blockchain::from_disk(blockchain_path))) {
 
         setup_listeners();
@@ -55,28 +55,23 @@ namespace krapi {
 
     void NodeManager::setup_listeners() {
 
-        m_txq->appendListener(0, [this](Transaction tx) {
+        m_transaction_pool->append_listener(
+                TransactionPool::Event::Add,
+                [this](const Transaction &tx) {
 
+                    for (auto &connection: m_connections) {
 
-            if (!contains_tx(tx)) {
-                spdlog::info("TxPool recieved transaction");
-
-                m_txpool.push_back(tx);
-
-                for (auto &connection: m_connections) {
-
-                    auto msg = NodeMessage{
-                            NodeMessageType::BroadcastTx,
-                            tx.to_json(),
-                            m_identity_manager->identity(),
-                            connection->identity(),
-                            {m_ws_server_host},
-                    };
-                    m_eq->dispatch(NodeMessageType::BroadcastTx, msg);
+                        auto msg = NodeMessage{
+                                NodeMessageType::BroadcastTx,
+                                tx.to_json(),
+                                m_identity_manager->identity(),
+                                connection->identity(),
+                                {m_identity_manager->identity()},
+                        };
+                        m_eq->dispatch(NodeMessageType::BroadcastTx, msg);
+                    }
                 }
-            }
-
-        });
+        );
     }
 
     NodeManager::~NodeManager() {
@@ -92,14 +87,7 @@ namespace krapi {
 
     bool NodeManager::contains_tx(const Transaction &transaction) {
 
-        return std::any_of(
-                m_txpool.begin(),
-                m_txpool.end(),
-                [&transaction](const Transaction &tx) {
-                    return tx == transaction;
-                }
-        );
-
+        return m_transaction_pool->contains(transaction);
     }
 
     void NodeManager::start_ws_server() {

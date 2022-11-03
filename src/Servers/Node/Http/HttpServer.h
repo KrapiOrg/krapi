@@ -16,10 +16,10 @@
 #include "HttpMessage.h"
 #include "Transaction.h"
 #include "MessageQueue.h"
-#include "TransactionQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
 #include "InternalMessageQueue.h"
+#include "TransactionPool.h"
 
 namespace krapi {
 
@@ -29,7 +29,7 @@ namespace krapi {
         std::shared_ptr<IdentityManager> m_identity_manager;
         InternalMessageQueue m_internal_queue;
         MessageQueuePtr m_node_message_queue;
-        TransactionQueuePtr m_tx_queue;
+        TransactionPoolPtr m_transaction_pool;
         ix::HttpServer m_server;
 
 
@@ -40,7 +40,7 @@ namespace krapi {
         explicit HttpServer(
                 ServerHost host,
                 MessageQueuePtr mq,
-                TransactionQueuePtr tq,
+                TransactionPoolPtr txp,
                 std::shared_ptr<IdentityManager> identity_manager
         );
 

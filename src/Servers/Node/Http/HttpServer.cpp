@@ -5,11 +5,15 @@
 #include "HttpServer.h"
 
 namespace krapi {
-    HttpServer::HttpServer(ServerHost host, MessageQueuePtr mq, TransactionQueuePtr tq,
-                           std::shared_ptr<IdentityManager> identity_manager) :
+    HttpServer::HttpServer(
+            ServerHost host,
+            MessageQueuePtr mq,
+            TransactionPoolPtr tq,
+            std::shared_ptr<IdentityManager> identity_manager
+    ) :
             m_host(std::move(host)),
             m_node_message_queue(std::move(mq)),
-            m_tx_queue(std::move(tq)),
+            m_transaction_pool(std::move(tq)),
             m_identity_manager(std::move(identity_manager)),
             m_server(m_host.second, m_host.first) {
 
@@ -67,9 +71,8 @@ namespace krapi {
                         auto msg_json = nlohmann::json::parse(req->body);
                         auto msg = msg_json.get<krapi::HttpMessage>();
                         if (msg.type == krapi::NodeHttpMessageType::AddTx) {
-                            spdlog::info("HttpServer recieved addtx message");
-                            auto tx = Transaction::from_json(msg.content);
-                            m_tx_queue->dispatch(0, tx);
+                            spdlog::info("HttpServer: Adding transaction {}", msg.content.dump());
+                            m_transaction_pool->add_transaction(Transaction::from_json(msg.content));
                         }
                         return std::make_shared<ix::HttpResponse>();
                     } else {
