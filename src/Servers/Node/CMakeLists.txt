@@ -28,7 +28,6 @@ set(
         ${NODEPREFIX}/Blockchain/TransactionPool.h
 )
 add_executable(node "${NODESOURCES}")
-target_include_directories(node PRIVATE Utils)
 target_include_directories(
         node
         PRIVATE
