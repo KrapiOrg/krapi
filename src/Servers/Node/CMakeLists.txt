@@ -20,7 +20,6 @@ set(
         ${NODEPREFIX}/WebSocket/WebSocketServer.cpp
         ${NODEPREFIX}/WebSocket/WebSocketServer.h
         ${NODEPREFIX}/Utils/MessageQueue.h
-        ${NODEPREFIX}/Utils/TransactionQueue.h
         ${NODEPREFIX}/Blockchain/Blockchain.cpp
         ${NODEPREFIX}/Blockchain/Blockchain.h
         ${NODEPREFIX}/Blockchain/Block.h
