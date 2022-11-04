@@ -57,18 +57,29 @@ namespace krapi {
 
         m_transaction_pool->append_listener(
                 TransactionPool::Event::Add,
-                [this](const Transaction &tx) {
+                [this](const Transaction &tx, const std::unordered_set<int> &old_blacklist) {
 
-                    for (auto &connection: m_connections) {
+                    // The new blacklist contains the identites of the nodes that the tx passed to
+                    // And the identity of this node and the nodes it's connected to
+                    auto new_blacklist = old_blacklist;
+                    new_blacklist.insert(m_identity_manager->identity());
+                    for (const auto &connection: m_connections) {
+                        new_blacklist.insert(connection->identity());
+                    }
 
-                        auto msg = NodeMessage{
-                                NodeMessageType::AddTransactionToPool,
-                                tx.to_json(),
-                                m_identity_manager->identity(),
-                                connection->identity(),
-                                {m_identity_manager->identity()},
-                        };
-                        m_eq->dispatch(NodeMessageType::AddTransactionToPool, msg);
+                    // pass this tx if it still hasn't passed to a particular node
+                    for (const auto &connection : m_connections) {
+                        if(!old_blacklist.contains(connection->identity())){
+                            auto msg = NodeMessage{
+                                    NodeMessageType::AddTransactionToPool,
+                                    tx.to_json(),
+                                    m_identity_manager->identity(),
+                                    connection->identity(),
+                                    new_blacklist,
+                            };
+                            m_eq->dispatch(NodeMessageType::AddTransactionToPool, msg);
+                        }
+
                     }
                 }
         );

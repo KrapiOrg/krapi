@@ -66,7 +66,10 @@ namespace krapi {
                         if (msg.type() == NodeMessageType::AddTransactionToPool) {
 
                             spdlog::info("WebSocketServer: Adding transaction {}", msg.content().dump());
-                            m_transaction_pool->add_transaction(Transaction::from_json(msg.content()));
+                            m_transaction_pool->add_transaction(
+                                    Transaction::from_json(msg.content()),
+                                    msg.identity_blacklist()
+                            );
                         }
                     }
                 }
