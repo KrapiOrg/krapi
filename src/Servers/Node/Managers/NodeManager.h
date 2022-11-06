@@ -18,6 +18,7 @@
 #include "HttpServer.h"
 #include "Blockchain.h"
 #include "TransactionPool.h"
+#include "Miner.h"
 
 namespace krapi {
 
@@ -29,8 +30,9 @@ namespace krapi {
         ServerHosts m_network_hosts;
 
         MessageQueuePtr m_eq;
+        std::shared_ptr<Blockchain> m_blockchain;
+        std::shared_ptr<Miner> m_miner;
         TransactionPoolPtr m_transaction_pool;
-        Blockchain m_blockchain;
 
         std::shared_ptr<IdentityManager> m_identity_manager;
         krapi::WebSocketServer m_ws_server;

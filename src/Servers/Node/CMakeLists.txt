@@ -20,6 +20,7 @@ set(
         ${NODEPREFIX}/WebSocket/WebSocketServer.cpp
         ${NODEPREFIX}/WebSocket/WebSocketServer.h
         ${NODEPREFIX}/Utils/MessageQueue.h
+        ${NODEPREFIX}/Utils/Miner.h
         ${NODEPREFIX}/Blockchain/Blockchain.cpp
         ${NODEPREFIX}/Blockchain/Blockchain.h
         ${NODEPREFIX}/Blockchain/Block.h
@@ -50,4 +51,6 @@ target_link_libraries(node PRIVATE
         sutils
         magic_enum
         cryptopp
+        date
+        merklecpp
         )

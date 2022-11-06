@@ -5,8 +5,9 @@
 #ifndef NODE_MODELS_BLOCK_H
 #define NODE_MODELS_BLOCK_H
 
+#include <fstream>
 #include <string>
-#include <vector>
+#include <unordered_set>
 #include <utility>
 
 #include "nlohmann/json.hpp"
@@ -16,14 +17,16 @@
 #include "sha.h"
 #include "filters.h"
 #include "hex.h"
+#include "spdlog/spdlog.h"
 
 namespace krapi {
 
     class Block {
+
     public:
         explicit Block(
                 BlockHeader header,
-                std::vector<Transaction> transactions
+                std::unordered_set<Transaction> transactions
         ) :
                 m_header(std::move(header)),
                 m_transactions(std::move(transactions)) {
@@ -31,9 +34,9 @@ namespace krapi {
 
         static Block from_json(const nlohmann::json &json) {
 
-            std::vector<Transaction> transactions;
+            std::unordered_set<Transaction> transactions;
             for (const auto &tx: json["transactions"]) {
-                transactions.push_back(Transaction::from_json(tx));
+                transactions.insert(Transaction::from_json(tx));
             }
 
             return Block{
@@ -44,14 +47,15 @@ namespace krapi {
 
         static std::optional<Block> from_disk(const std::filesystem::path &path) {
 
-            if (!path.has_filename()
-                && !path.has_extension()
+            if (path.has_filename()
+                && path.has_extension()
                 && !path.empty()
-                && !path.extension().string().ends_with(".json")) {
+                && path.extension().string().ends_with(".json")) {
 
                 std::fstream file(path);
 
                 if (file.is_open() && file.good()) {
+                    spdlog::info("Block: loaded from disk {}", path.string());
 
                     auto json = nlohmann::json::parse(file);
                     return Block::from_json(json);
@@ -62,23 +66,17 @@ namespace krapi {
         }
 
         [[nodiscard]]
-        std::string hashcode() const {
+        std::string hash() const {
 
-            using namespace CryptoPP;
-            auto str = to_json().dump();
-            auto digest = std::string();
-            auto hash = SHA256();
-            StringSource s1(str, true,
-                            new HashFilter(hash, new HashFilter(hash, new HexEncoder(new StringSink(digest)))));
-
-            return digest;
+            return m_header.m_hash;
         }
 
         void to_disk(const std::filesystem::path &path) const {
+
             namespace fs = std::filesystem;
 
-            std::ofstream file(path / (hashcode() + ".json"));
-            if(file.is_open() && file.good())
+            std::ofstream file(path / (m_header.m_hash + ".json"));
+            if (file.is_open() && file.good())
                 file << to_json().dump(4);
         }
 
@@ -101,7 +99,7 @@ namespace krapi {
             return m_header;
         }
 
-        [[nodiscard]] const std::vector<Transaction> &transactions() const {
+        [[nodiscard]] const std::unordered_set<Transaction> &transactions() const {
 
             return m_transactions;
         }
@@ -112,10 +110,8 @@ namespace krapi {
 
     private:
         BlockHeader m_header;
-        std::vector<Transaction> m_transactions;
+        std::unordered_set<Transaction> m_transactions;
 
     };
-
 } // krapi
-
 #endif //NODE_MODELS_BLOCK_H

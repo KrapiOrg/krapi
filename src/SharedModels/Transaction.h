@@ -10,6 +10,7 @@
 #include "cryptopp/sha.h"
 #include "filters.h"
 #include "hex.h"
+#include "fmt/format.h"
 
 namespace krapi {
 
@@ -76,7 +77,7 @@ namespace krapi {
         std::string hashcode() const {
 
             using namespace CryptoPP;
-            auto str = to_json().dump();
+            auto str = fmt::format("{}{}{}", (int) m_type, m_from, m_to);
             auto digest = std::string();
             auto hash = SHA256();
             StringSource s1(str, true,

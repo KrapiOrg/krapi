@@ -22,12 +22,13 @@ namespace krapi {
             m_http_server_host(std::move(http_server_host)),
             m_identity_server_host(std::move(identity_server_host)),
             m_network_hosts(std::move(network_hosts)),
-            m_transaction_pool(create_transaction_pool()),
             m_eq(create_message_queue()),
+            m_blockchain(Blockchain::from_disk(blockchain_path)),
+            m_miner(std::make_shared<Miner>(m_blockchain)),
+            m_transaction_pool(create_transaction_pool(m_miner)),
             m_identity_manager(std::make_shared<IdentityManager>(m_identity_server_host)),
             m_ws_server(m_ws_server_host, m_transaction_pool),
-            m_http_server(m_http_server_host, m_eq, m_transaction_pool, m_identity_manager),
-            m_blockchain(std::move(Blockchain::from_disk(blockchain_path))) {
+            m_http_server(m_http_server_host, m_eq, m_transaction_pool, m_identity_manager) {
 
         setup_listeners();
     }
@@ -68,8 +69,8 @@ namespace krapi {
                     }
 
                     // pass this tx if it still hasn't passed to a particular node
-                    for (const auto &connection : m_connections) {
-                        if(!old_blacklist.contains(connection->identity())){
+                    for (const auto &connection: m_connections) {
+                        if (!old_blacklist.contains(connection->identity())) {
                             auto msg = NodeMessage{
                                     NodeMessageType::AddTransactionToPool,
                                     tx.to_json(),
@@ -83,6 +84,10 @@ namespace krapi {
                     }
                 }
         );
+
+        m_miner->append_listener(Miner::Event::BatchMined, [](Block block) {
+            spdlog::info("NodeManager: block {} was just mined", block.to_json().dump());
+        });
     }
 
     NodeManager::~NodeManager() {

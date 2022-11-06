@@ -28,3 +28,9 @@
 [submodule "libs/cryptopp-cmake"]
 	path = libs/cryptopp-cmake
 	url = https://github.com/abdes/cryptopp-cmake
+[submodule "libs/date"]
+	path = libs/date
+	url = https://github.com/HowardHinnant/date
+[submodule "libs/merklecpp"]
+	path = libs/merklecpp
+	url = https://github.com/microsoft/merklecpp

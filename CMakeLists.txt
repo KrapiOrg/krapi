@@ -15,6 +15,9 @@ add_subdirectory(libs/cryptopp-cmake)
 add_subdirectory(libs/cxxopts)
 add_subdirectory(libs/eventpp)
 add_subdirectory(libs/magic_enum)
+add_subdirectory(libs/date)
+set(TRACE ON)
+add_subdirectory(libs/merklecpp)
 add_subdirectory(test)
 
 # General Includes

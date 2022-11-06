@@ -8,6 +8,7 @@
 #include "eventpp/eventdispatcher.h"
 #include "Transaction.h"
 #include "spdlog/spdlog.h"
+#include "Miner.h"
 #include <unordered_set>
 
 namespace krapi {
@@ -27,7 +28,13 @@ namespace krapi {
         std::unordered_set<Transaction> m_transactions;
         std::mutex m_transactions_mutex;
 
+        std::shared_ptr<Miner> m_miner;
+
     public:
+
+        explicit TransactionPool(std::shared_ptr<Miner> miner) : m_miner(std::move(miner)) {
+
+        }
 
         void add_transaction(const Transaction &transaction, const std::unordered_set<int> &identity_blacklist = {}) {
 
@@ -38,9 +45,14 @@ namespace krapi {
             }
             m_transactions.insert(transaction);
             dispatcher.dispatch(Event::Add, transaction, identity_blacklist);
+            if (m_transactions.size() == 3) {
+                m_miner->mine(m_transactions);
+                m_transactions.clear();
+            }
         }
 
-        void remove_transaction(const Transaction &transaction, const std::unordered_set<int> &identity_blacklist = {}) {
+        void
+        remove_transaction(const Transaction &transaction, const std::unordered_set<int> &identity_blacklist = {}) {
 
             std::lock_guard l(m_transactions_mutex);
             if (m_transactions.contains(transaction)) {
@@ -68,9 +80,9 @@ namespace krapi {
 
     using TransactionPoolPtr = std::shared_ptr<TransactionPool>;
 
-    inline TransactionPoolPtr create_transaction_pool() {
+    inline TransactionPoolPtr create_transaction_pool(std::shared_ptr<Miner> miner) {
 
-        return std::make_shared<TransactionPool>();
+        return std::make_shared<TransactionPool>(std::move(miner));
     }
 
 } // krapi

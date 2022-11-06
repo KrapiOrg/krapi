@@ -17,16 +17,15 @@ namespace krapi {
 
     class Blockchain {
         std::list<Block> m_blocks;
+        std::mutex m_blocks_mutex;
 
+    public:
         explicit Blockchain(std::list<Block> blocks)
                 : m_blocks(std::move(blocks)) {
 
         }
 
-    public:
-
-
-        static Blockchain from_disk(const std::filesystem::path &path) {
+        static std::shared_ptr<Blockchain> from_disk(const std::filesystem::path &path) {
 
             namespace fs = std::filesystem;
 
@@ -38,9 +37,7 @@ namespace krapi {
             }
 
             for (const auto &entry: fs::directory_iterator(path)) {
-
                 if (entry.is_regular_file()) {
-
                     if (auto block = Block::from_disk(entry.path())) {
                         blocks.push_back(block.value());
                     }
@@ -48,7 +45,22 @@ namespace krapi {
 
             }
 
-            return Blockchain{blocks};
+            blocks.sort(
+                    [](const Block &a, const Block &b) {
+                        return a.header().previous_hash() == b.hash();
+                    }
+            );
+
+
+            auto blk = std::make_shared<Blockchain>(blocks);
+            blk->dump();
+            return blk;
+        }
+
+        void add(const Block &block) {
+
+            std::lock_guard l(m_blocks_mutex);
+            m_blocks.push_back(block);
         }
 
         void save_to_disk(const std::filesystem::path &path) {
@@ -64,9 +76,32 @@ namespace krapi {
                 exit(1);
             }
 
+            std::lock_guard l(m_blocks_mutex);
+
             for (const auto &block: m_blocks) {
                 block.to_disk(path);
             }
+        }
+
+        void dump() {
+
+            std::lock_guard l(m_blocks_mutex);
+            for (const auto &block: m_blocks) {
+
+                spdlog::info("Blockchain: Block {}", block.to_json().dump());
+            }
+        }
+
+        [[nodiscard]]
+        const Block &last() {
+
+            std::lock_guard l(m_blocks_mutex);
+            return m_blocks.back();
+        }
+
+        ~Blockchain() {
+
+            spdlog::error("DROPPED BLOCKCHAIN !!!!");
         }
     };
 
