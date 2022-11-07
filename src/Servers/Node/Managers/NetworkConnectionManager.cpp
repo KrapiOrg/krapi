@@ -10,15 +10,11 @@
 namespace krapi {
 
     NetworkConnectionManager::NetworkConnectionManager(
-            ServerHost host,
-            MessageQueuePtr eq
+            ServerHost host
     ) : m_host(std::move(host)),
-        m_eq(std::move(eq)),
         m_ws(std::make_shared<ix::WebSocket>()),
         m_http_client(std::make_shared<ix::HttpClient>()),
         m_identity(-1) {
-
-        setup_listeners();
 
         spdlog::info("Trying to connect to {}:{}", m_host.first, m_host.second);
 
@@ -26,44 +22,18 @@ namespace krapi {
         m_ws->setOnMessageCallback(std::bind_front(&NetworkConnectionManager::onMessage, this));
     }
 
-    void NetworkConnectionManager::setup_listeners() {
-
-        // ConnectionMessageQueue
-        m_eq->appendListener(
-                NodeMessageType::AddTransactionToPool,
-                [this](const NodeMessage &msg) {
-                    if (msg.receiver_identity() == m_identity) {
-                        spdlog::info(
-                                "NetworkConnectionManager: Forwarding transaction {} to {}",
-                                msg.content().dump(),
-                                m_identity
-                        );
-                        m_ws->send(msg.to_json().dump());
-                    }
-                }
-        );
-
-    }
-
     void NetworkConnectionManager::onMessage(const ix::WebSocketMessagePtr &message) {
 
         if (message->type == ix::WebSocketMessageType::Open) {
             spdlog::info("NetworkConnectionManager: Connection established with {}", m_ws->getUrl());
+        } else if (message->type == ix::WebSocketMessageType::Close) {
+            spdlog::info("NetworkConnectionManager: Connection established with {} is closing down", m_ws->getUrl());
         } else if (message->type == ix::WebSocketMessageType::Error) {
             spdlog::error("{}, {}", m_ws->getUrl(), message->errorInfo.reason);
         } else if (message->type == ix::WebSocketMessageType::Message) {
-
             auto msg = NodeMessage::from_json(nlohmann::json::parse(message->str));
-            m_eq->dispatch(msg.type(), msg);
+            m_event_dispatcher.dispatch(msg.type(), msg);
         }
-    }
-
-
-    void NetworkConnectionManager::wait() {
-
-        m_ws->stop();
-        m_ws->run();
-
     }
 
     void NetworkConnectionManager::start() {
@@ -78,6 +48,7 @@ namespace krapi {
         }
         spdlog::info("NetworkConnectionManager: Starting WebSocket connection", m_identity);
         m_ws->start();
+        while (m_ws->getReadyState() != ix::ReadyState::Open);
         spdlog::info("NetworkConnectionManager: Connected to Node with Identity {}", m_identity);
     }
 
@@ -124,6 +95,19 @@ namespace krapi {
             }
         }
         return HttpMessage::fromJson(nlohmann::json::parse(response->body));
+    }
+
+    void NetworkConnectionManager::send(const NodeMessage &message) {
+
+        m_ws->send(message.to_json().dump());
+    }
+
+    void NetworkConnectionManager::add_listener(
+            NodeMessageType type,
+            std::function<void(NodeMessage)> listener
+    ) {
+
+        m_event_dispatcher.appendListener(type, listener);
     }
 
 

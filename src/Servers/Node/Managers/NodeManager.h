@@ -11,7 +11,6 @@
 
 #include "NetworkConnectionManager.h"
 #include "Transaction.h"
-#include "MessageQueue.h"
 #include "IdentityManager.h"
 #include "WebSocketServer.h"
 #include "ParsingUtils.h"
@@ -29,7 +28,6 @@ namespace krapi {
         ServerHost m_identity_server_host;
         ServerHosts m_network_hosts;
 
-        MessageQueuePtr m_eq;
         std::shared_ptr<Blockchain> m_blockchain;
         std::shared_ptr<Miner> m_miner;
         TransactionPoolPtr m_transaction_pool;
@@ -57,8 +55,6 @@ namespace krapi {
         void start_ws_server();
 
         void wait();
-
-        inline bool contains_tx(const Transaction &transaction);
 
         ~NodeManager();
     };

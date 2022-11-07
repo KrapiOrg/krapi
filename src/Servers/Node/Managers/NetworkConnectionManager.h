@@ -20,9 +20,8 @@ namespace krapi {
 
     class NetworkConnectionManager {
 
-
         ServerHost m_host;
-        MessageQueuePtr m_eq;
+        eventpp::EventDispatcher<NodeMessageType, void(NodeMessage)> m_event_dispatcher;
 
         std::shared_ptr<ix::HttpClient> m_http_client;
         std::shared_ptr<ix::WebSocket> m_ws;
@@ -31,25 +30,23 @@ namespace krapi {
 
         void onMessage(const ix::WebSocketMessagePtr &message);
 
-        void setup_listeners();
 
         HttpMessage request(
                 const HttpMessage &message
         );
 
     public:
-        explicit NetworkConnectionManager(
-                ServerHost host,
-                MessageQueuePtr eq
-        );
+        explicit NetworkConnectionManager(ServerHost host);
 
         void start();
-
-        void wait();
 
         void stop();
 
         int identity();
+
+        void send(const NodeMessage &message);
+
+        void add_listener(NodeMessageType type, std::function<void(NodeMessage)> listener);
 
         ~NetworkConnectionManager();
     };
