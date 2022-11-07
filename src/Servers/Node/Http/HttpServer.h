@@ -8,14 +8,11 @@
 #include <utility>
 
 #include "nlohmann/json.hpp"
-#include "eventpp/eventdispatcher.h"
-#include "eventpp/utilities/counterremover.h"
 #include "ixwebsocket/IXHttpServer.h"
 #include "spdlog/spdlog.h"
 
 #include "HttpMessage.h"
 #include "Transaction.h"
-#include "MessageQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
 #include "InternalMessageQueue.h"
@@ -27,19 +24,18 @@ namespace krapi {
 
         ServerHost m_host;
         std::shared_ptr<IdentityManager> m_identity_manager;
-        InternalMessageQueue m_internal_queue;
-        MessageQueuePtr m_node_message_queue;
         TransactionPoolPtr m_transaction_pool;
         ix::HttpServer m_server;
 
-
-        void setup_listeners();
+        ix::HttpResponsePtr  onMessage(
+                const ix::HttpRequestPtr &req,
+                const std::shared_ptr<ix::ConnectionState> &state
+        );
 
     public:
 
         explicit HttpServer(
                 ServerHost host,
-                MessageQueuePtr mq,
                 TransactionPoolPtr txp,
                 std::shared_ptr<IdentityManager> identity_manager
         );

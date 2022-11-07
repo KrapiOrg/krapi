@@ -28,7 +28,7 @@ namespace krapi {
             m_transaction_pool(create_transaction_pool(m_miner)),
             m_identity_manager(std::make_shared<IdentityManager>(m_identity_server_host)),
             m_ws_server(m_ws_server_host, m_transaction_pool),
-            m_http_server(m_http_server_host, m_eq, m_transaction_pool, m_identity_manager) {
+            m_http_server(m_http_server_host, m_transaction_pool, m_identity_manager) {
 
         setup_listeners();
     }
