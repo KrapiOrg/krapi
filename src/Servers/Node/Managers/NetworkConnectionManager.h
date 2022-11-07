@@ -14,6 +14,7 @@
 #include "MessageQueue.h"
 #include "ParsingUtils.h"
 #include "InternalMessageQueue.h"
+#include "HttpMessage.h"
 
 namespace krapi {
 
@@ -22,17 +23,19 @@ namespace krapi {
 
         ServerHost m_host;
         MessageQueuePtr m_eq;
-        InternalMessageQueue m_imq;
 
         std::shared_ptr<ix::HttpClient> m_http_client;
         std::shared_ptr<ix::WebSocket> m_ws;
 
         int m_identity;
 
-
         void onMessage(const ix::WebSocketMessagePtr &message);
 
         void setup_listeners();
+
+        HttpMessage request(
+                const HttpMessage &message
+        );
 
     public:
         explicit NetworkConnectionManager(

@@ -28,45 +28,6 @@ namespace krapi {
 
     void NetworkConnectionManager::setup_listeners() {
 
-        // InternalMessageQueue
-        m_imq.appendListener(InternalMessage::Start, [this]() {
-            spdlog::info("NetworkConnectionManager: Asking for identity of {}:{}", m_host.first, m_host.second);
-
-            // The http port is 100 greater tham the ws port
-            auto url = fmt::format("http://{}:{}", m_host.first, m_host.second + 100);
-            ix::HttpResponsePtr response;
-            int retryCount = 0;
-            while (!response) {
-                auto temp = m_http_client->get(url, m_http_client->createRequest());
-
-                if (temp->statusCode != 200) {
-                    spdlog::error("NetworkConnectionManager: Failed to connect to {}:{}, Retrying...", m_host.first, m_host.second);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1000 + 500 * retryCount));
-                    retryCount++;
-                } else {
-
-                    response = temp;
-                }
-            }
-            auto res = m_http_client->get(url, m_http_client->createRequest());
-            auto body_json = nlohmann::json::parse(res->body);
-            m_identity = body_json.get<int>();
-
-            spdlog::info("NetworkConnectionManager: Connected to Node with Identity {}", m_identity);
-
-        });
-
-        m_imq.appendListener(InternalMessage::Block, [this]() {
-            m_ws->stop();
-            m_ws->run();
-        });
-
-        m_imq.appendListener(InternalMessage::Stop, [this]() {
-            m_ws->disableAutomaticReconnection();
-            m_ws->stop();
-        });
-
-
         // ConnectionMessageQueue
         m_eq->appendListener(
                 NodeMessageType::AddTransactionToPool,
@@ -82,9 +43,7 @@ namespace krapi {
                 }
         );
 
-
     }
-
 
     void NetworkConnectionManager::onMessage(const ix::WebSocketMessagePtr &message) {
 
@@ -102,18 +61,30 @@ namespace krapi {
 
     void NetworkConnectionManager::wait() {
 
-        m_imq.dispatch(InternalMessage::Block);
+        m_ws->stop();
+        m_ws->run();
 
     }
 
     void NetworkConnectionManager::start() {
 
-        m_imq.dispatch(InternalMessage::Start);
+        spdlog::info("NetworkConnectionManager: Asking for identity of {}:{}", m_host.first, m_host.second);
+
+        auto identity_response = request(HttpMessage{NodeHttpMessageType::RequestIdentity});
+        if (identity_response.type == NodeHttpMessageType::IdentityResponse) {
+
+            m_identity = identity_response.content.get<int>();
+            spdlog::info("NetworkConnectionManager: Received identity {}", m_identity);
+        }
+        spdlog::info("NetworkConnectionManager: Starting WebSocket connection", m_identity);
+        m_ws->start();
+        spdlog::info("NetworkConnectionManager: Connected to Node with Identity {}", m_identity);
     }
 
     void NetworkConnectionManager::stop() {
 
-        m_imq.dispatch(InternalMessage::Stop);
+        m_ws->disableAutomaticReconnection();
+        m_ws->stop();
     }
 
     int NetworkConnectionManager::identity() {
@@ -124,6 +95,35 @@ namespace krapi {
     NetworkConnectionManager::~NetworkConnectionManager() {
 
         stop();
+    }
+
+    HttpMessage NetworkConnectionManager::request(
+            const HttpMessage &message
+    ) {
+
+        // The http port is 100 greater than the ws port
+
+        static const auto url = fmt::format("http://{}:{}", m_host.first, m_host.second + 100);
+        ix::HttpResponsePtr response;
+        int retryCount = 0;
+
+        while (!response) {
+            auto temp = m_http_client->post(url, message.to_json().dump(), m_http_client->createRequest());
+
+            if (temp->statusCode != 200) {
+                spdlog::error(
+                        "NetworkConnectionManager: Failed to connect to {}:{}, Retrying...",
+                        m_host.first,
+                        m_host.second
+                );
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000 + 500 * retryCount));
+                retryCount++;
+            } else {
+
+                response = temp;
+            }
+        }
+        return HttpMessage::fromJson(nlohmann::json::parse(response->body));
     }
 
 
