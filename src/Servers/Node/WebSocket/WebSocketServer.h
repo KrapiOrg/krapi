@@ -10,24 +10,24 @@
 #include "spdlog/spdlog.h"
 
 #include "NodeMessage.h"
-#include "MessageQueue.h"
 #include "IdentityManager.h"
 #include "ParsingUtils.h"
-#include "InternalMessageQueue.h"
 #include "TransactionPool.h"
 
 namespace krapi {
 
     class WebSocketServer {
 
-        InternalMessageQueue m_internal_queue;
-
         ServerHost m_host;
         ix::WebSocketServer m_server;
 
         TransactionPoolPtr m_transaction_pool;
 
-        void setup_listeners();
+        void onMessage(
+                const std::shared_ptr<ix::ConnectionState> &state,
+                ix::WebSocket &ws,
+                const ix::WebSocketMessagePtr &message
+        );
 
 
     public:
