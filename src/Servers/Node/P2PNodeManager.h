@@ -29,55 +29,9 @@ namespace krapi {
         ix::WebSocket ws;
         int my_id;
 
-        static inline std::string peer_state_to_string(rtc::PeerConnection::State state) {
-
-            using namespace rtc;
-            switch (state) {
-                case PeerConnection::State::New:
-                    return "new";
-                case PeerConnection::State::Connecting:
-                    return "connecting";
-                case PeerConnection::State::Connected:
-                    return "connected";
-                case PeerConnection::State::Disconnected:
-                    return "disconnected";
-                case PeerConnection::State::Failed:
-                    return "failed";
-                case PeerConnection::State::Closed:
-                    return "closed";
-                default:
-                    return "unknown";
-            }
-        }
-
-        static inline std::string gathering_state_to_string(rtc::PeerConnection::GatheringState state) {
-
-            using namespace rtc;
-            switch (state) {
-                case PeerConnection::GatheringState::New:
-                    return "new";
-                case PeerConnection::GatheringState::InProgress:
-                    return "in-progress";
-                case PeerConnection::GatheringState::Complete:
-                    return "complete";
-                default:
-                    return "unknown";
-            }
-        }
-
         std::shared_ptr<rtc::PeerConnection> create_connection(int id) {
 
             auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
-
-            pc->onStateChange([id](rtc::PeerConnection::State state) {
-
-                spdlog::info("P2PNodeManager: DataChannel with {} is {}", id, peer_state_to_string(state));
-            });
-            pc->onGatheringStateChange([id](rtc::PeerConnection::GatheringState state) {
-
-                spdlog::info("P2PNodeManager: Gathering for connection with {} is {}", id,
-                             gathering_state_to_string(state));
-            });
 
             pc->onLocalDescription([this, id](const rtc::Description &description) {
                 auto desc = nlohmann::json{
@@ -86,7 +40,6 @@ namespace krapi {
                         {"description", std::string(description)}
                 };
                 auto msg = Message{MessageType::RTCSetup, desc};
-                spdlog::info("P2PManager: Sending local description to peer {}", id);
                 ws.send(msg);
             });
 
@@ -98,31 +51,19 @@ namespace krapi {
                         {"mid",       candidate.mid()}
                 };
                 auto msg = Message{MessageType::RTCSetup, cand};
-                //spdlog::info("P2PManager: Sending local candidacy to peer {}", id);
                 ws.send(msg);
             });
 
             pc->onDataChannel([id, this](std::shared_ptr<rtc::DataChannel> remote_channel) {
-                spdlog::info("P2PNodeManager: DataChannel from {} received with label {}", id, remote_channel->label());
-
-                remote_channel->onOpen([&, wdc = std::weak_ptr(remote_channel)]() {
-                    if (auto dc = wdc.lock())
-                        dc->send(fmt::format("Hello from {}", my_id));
-                });
-
-                remote_channel->onClosed([id]() {
-
-                    spdlog::info("DataChannel from {} closed", id);
-                });
 
                 remote_channel->onMessage([id](auto data) {
 
                     spdlog::info("P2PNodeManager: Message from {}, received; {}", id, std::get<std::string>(data));
                 });
-                spdlog::info("Adding channel for {} to map", id);
+
                 peer_map.add_channel(id, remote_channel);
             });
-            spdlog::info("Adding peer connection for {} to map", id);
+
             peer_map.add_peer(id, pc);
             return pc;
         }
@@ -136,18 +77,7 @@ namespace krapi {
                     auto peer_id = rsp.content.get<int>();
                     spdlog::info("P2PNodeManager: Peer {} is avaliable", peer_id);
                     auto pc = create_connection(peer_id);
-                    auto local_channel = pc->createDataChannel("test");
-
-                    local_channel->onOpen([this, peer_id, wdc = std::weak_ptr(local_channel)]() {
-                        if (auto dc = wdc.lock())
-                            dc->send(fmt::format("Hello from {}", my_id));
-                        spdlog::info("DataChannel from {} opened", peer_id);
-                    });
-
-                    local_channel->onClosed([peer_id]() {
-
-                        spdlog::info("DataChannel from {} closed", peer_id);
-                    });
+                    auto local_channel = pc->createDataChannel("krapi");
 
                     local_channel->onMessage([peer_id](auto data) {
 
@@ -233,7 +163,6 @@ namespace krapi {
 
         void boradcast() {
 
-            peer_map.broadcast(fmt::format("FUCK YOU from {}", my_id));
         }
 
     };
