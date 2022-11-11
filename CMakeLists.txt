@@ -27,7 +27,6 @@ include_directories(src/Servers/ServerUtils)
 include_directories(src/SharedModels)
 
 include(src/Utils/CMakeLists.txt)
-include(src/Servers/ServerUtils/CMakeLists.txt)
 include(src/Servers/Signaling/CMakeLists.txt)
 include(src/Servers/Node/CMakeLists.txt)
 include(src/SharedModels/CMakeLists.txt)

@@ -21,5 +21,4 @@ target_link_libraries(
         datachannel
         ixwebsocket
         shared_models
-        sutils
 )
