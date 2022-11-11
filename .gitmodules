@@ -1,6 +1,3 @@
-[submodule "libs/websockets"]
-	path = libs/websockets
-	url = https://github.com/machinezone/IXWebSocket
 [submodule "libs/json"]
 	path = libs/json
 	url = https://github.com/nlohmann/json
@@ -22,15 +19,12 @@
 [submodule "libs/spdlog"]
 	path = libs/spdlog
 	url = https://github.com/gabime/spdlog
-[submodule "libs/magic_enum"]
-	path = libs/magic_enum
-	url = https://github.com/Neargye/magic_enum
 [submodule "libs/cryptopp-cmake"]
 	path = libs/cryptopp-cmake
 	url = https://github.com/abdes/cryptopp-cmake
-[submodule "libs/date"]
-	path = libs/date
-	url = https://github.com/HowardHinnant/date
-[submodule "libs/merklecpp"]
-	path = libs/merklecpp
-	url = https://github.com/microsoft/merklecpp
+[submodule "libs/libdatachannel"]
+	path = libs/libdatachannel
+	url = https://github.com/paullouisageneau/libdatachannel/
+[submodule "libs/IXWebSocket"]
+	path = libs/IXWebSocket
+	url = https://github.com/machinezone/IXWebSocket

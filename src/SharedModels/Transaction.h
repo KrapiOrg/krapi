@@ -6,10 +6,6 @@
 #define SHARED_MODELS_TRANSACTION_H
 
 #include "nlohmann/json.hpp"
-#include "magic_enum.hpp"
-#include "cryptopp/sha.h"
-#include "filters.h"
-#include "hex.h"
 #include "fmt/format.h"
 
 namespace krapi {
@@ -76,14 +72,14 @@ namespace krapi {
         [[nodiscard]]
         std::string hashcode() const {
 
-            using namespace CryptoPP;
-            auto str = fmt::format("{}{}{}", (int) m_type, m_from, m_to);
-            auto digest = std::string();
-            auto hash = SHA256();
-            StringSource s1(str, true,
-                            new HashFilter(hash, new HexEncoder(new StringSink(digest))));
+//            using namespace CryptoPP;
+//            auto str = fmt::format("{}{}{}", (int) m_type, m_from, m_to);
+//            auto digest = std::string();
+//            auto hash = SHA256();
+//            StringSource s1(str, true,
+//                            new HashFilter(hash, new HexEncoder(new StringSink(digest))));
 
-            return digest;
+            return {};
         }
 
     private:
