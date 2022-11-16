@@ -156,7 +156,7 @@ namespace krapi {
         } else if (message.type == PeerMessageType::PeerTypeResponse) {
             auto peer_type = message.content.get<PeerType>();
 
-            spdlog::info("LightNodeManager: Setting PeerType of {} to {}", id, message.content.dump());
+            spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
             peer_map.set_peer_type(id, peer_type);
         }
     }
