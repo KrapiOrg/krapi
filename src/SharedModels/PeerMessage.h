@@ -10,12 +10,16 @@
 
 namespace krapi {
     enum class PeerMessageType {
+        PeerTypeRequest,
+        PeerTypeResponse,
         AddTransaction,
         RemoveTransactions,
         AddBlock
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
+        { PeerMessageType::PeerTypeRequest, "peer_type_request" },
+        { PeerMessageType::PeerTypeResponse, "peer_type_response" },
         { PeerMessageType::AddTransaction, "add_transaction" },
         { PeerMessageType::RemoveTransactions, "remove_transactions" },
         { PeerMessageType::AddBlock, "add_block" },

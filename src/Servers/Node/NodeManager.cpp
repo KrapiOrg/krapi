@@ -3,6 +3,7 @@
 //
 
 #include "NodeManager.h"
+#include "PeerType.h"
 
 namespace krapi {
     std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int peer_id) {
@@ -31,7 +32,11 @@ namespace krapi {
         });
 
         pc->onDataChannel([peer_id, this](std::shared_ptr<rtc::DataChannel> answerer_channel) {
+            answerer_channel->onOpen([acw = std::weak_ptr(answerer_channel)]() {
 
+                if (auto ac = acw.lock())
+                    ac->send(PeerMessage{PeerMessageType::PeerTypeRequest});
+            });
             answerer_channel->onMessage([peer_id, this](auto data) {
                 auto str_data = std::get<std::string>(data);
                 onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
@@ -53,10 +58,16 @@ namespace krapi {
                 spdlog::info("P2PNodeManager: Peer {} is avaliable", peer_id);
                 auto pc = create_connection(peer_id);
                 auto offerer_channel = pc->createDataChannel("krapi");
+                offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
+
+                    if(auto offerer_channel = woc.lock())
+                        offerer_channel->send(PeerMessage{PeerMessageType::PeerTypeRequest});
+                });
                 offerer_channel->onMessage([this, peer_id](auto data) {
                     auto str_data = std::get<std::string>(data);
                     onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
                 });
+
                 peer_map.add_channel(peer_id, offerer_channel);
             }
                 break;
@@ -138,6 +149,20 @@ namespace krapi {
         } else if (message.type == PeerMessageType::AddBlock) {
             auto block = Block::from_json(message.content);
             m_block_dispatcher.dispatch(Event::BlockReceived, block);
+        } else if (message.type == PeerMessageType::PeerTypeRequest) {
+
+            auto channel = peer_map.get_channel(id);
+            channel->send(
+                    PeerMessage{
+                            PeerMessageType::PeerTypeResponse,
+                            PeerType::Full
+                    }
+            );
+        } else if (message.type == PeerMessageType::PeerTypeResponse) {
+            auto peer_type = message.content.get<PeerType>();
+
+            spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
+            peer_map.set_peer_type(id, peer_type);
         }
     }
 

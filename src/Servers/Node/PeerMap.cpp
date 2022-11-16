@@ -28,7 +28,13 @@ namespace krapi {
         return peer_map[id];
     }
 
+    std::shared_ptr<rtc::DataChannel> PeerMap::get_channel(int id) {
+
+        return channel_map[id];
+    }
+
     void PeerMap::broadcast(PeerMessage message, int my_id) {
+
         auto old_ignore_list = message.ignore_list;
         auto new_ignore_list = message.ignore_list;
 
@@ -38,9 +44,19 @@ namespace krapi {
             new_ignore_list.insert(id);
         }
         message.ignore_list = new_ignore_list;
-
+        auto cm = std::unordered_map<int, std::shared_ptr<rtc::DataChannel>>{};
+        auto ct = std::unordered_map<int, PeerType>{};
+        {
+            std::lock_guard l(mutex);
+            cm = channel_map;
+            ct = peer_type_map;
+        }
         auto message_str = message.to_string();
-        for (auto &[id, channel]: channel_map) {
+        for (auto &[id, channel]: cm) {
+
+            if (ct.contains(id) && ct[id] == PeerType::Light)
+                continue;
+
             if (!old_ignore_list.contains(id)) {
 
                 if (channel->isOpen()) {
@@ -49,6 +65,18 @@ namespace krapi {
                 }
             }
         }
+    }
+
+    void PeerMap::set_peer_type(int id, PeerType type) {
+
+        std::lock_guard l(mutex);
+        peer_type_map[id] = type;
+    }
+
+    PeerType PeerMap::get_peer_type(int id) {
+
+        std::lock_guard l(mutex);
+        return peer_type_map[id];
     }
 
 } // krapi
