@@ -11,11 +11,11 @@ using namespace std::chrono_literals;
 
 int main() {
 
-    NodeManager manager;
-
     auto blockchain = Blockchain::from_disk("blockchain");
     auto miner = Miner(blockchain.last());
     auto transaction_pool = TransactionPool();
+
+    NodeManager manager;
 
     manager.append_listener(
             NodeManager::Event::TransactionReceived,
