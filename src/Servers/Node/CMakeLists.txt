@@ -17,7 +17,6 @@ set(
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/TransactionPool.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/TransactionPool.h
-        ${CMAKE_CURRENT_LIST_DIR}/PeerMessage.h
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Miner.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Miner.h
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Transaction.h

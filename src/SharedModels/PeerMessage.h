@@ -2,8 +2,8 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef NODE_PEERMESSAGE_H
-#define NODE_PEERMESSAGE_H
+#ifndef SHARED_MODELS_PEERMESSAGE_H
+#define SHARED_MODELS_PEERMESSAGE_H
 
 #include <unordered_set>
 #include "nlohmann/json.hpp"
@@ -64,4 +64,4 @@ namespace krapi {
     };
 }
 
-#endif //NODE_PEERMESSAGE_H
+#endif //SHARED_MODELS_PEERMESSAGE_H
