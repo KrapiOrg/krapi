@@ -2,8 +2,8 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef SHARED_MODELS_P2PNODEMANAGER_H
-#define SHARED_MODELS_P2PNODEMANAGER_H
+#ifndef NODE_NODEMANAGER_H
+#define NODE_NODEMANAGER_H
 
 #include <condition_variable>
 #include <future>
@@ -23,7 +23,7 @@
 
 namespace krapi {
 
-    class P2PNodeManager {
+    class NodeManager {
     public:
         enum class Event {
             TransactionReceived,
@@ -55,7 +55,7 @@ namespace krapi {
 
     public:
 
-        P2PNodeManager();
+        NodeManager();
 
         void wait();
 
@@ -71,4 +71,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_P2PNODEMANAGER_H
+#endif //NODE_NODEMANAGER_H

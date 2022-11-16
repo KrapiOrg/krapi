@@ -2,10 +2,10 @@
 // Created by mythi on 12/11/22.
 //
 
-#include "P2PNodeManager.h"
+#include "NodeManager.h"
 
 namespace krapi {
-    std::shared_ptr<rtc::PeerConnection> P2PNodeManager::create_connection(int peer_id) {
+    std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int peer_id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
 
@@ -43,7 +43,7 @@ namespace krapi {
         return pc;
     }
 
-    void P2PNodeManager::onWsResponse(const Response &rsp) {
+    void NodeManager::onWsResponse(const Response &rsp) {
 
         switch (rsp.type) {
 
@@ -95,7 +95,7 @@ namespace krapi {
         }
     }
 
-    P2PNodeManager::P2PNodeManager() {
+    NodeManager::NodeManager() {
 
         std::promise<int> barrier;
         auto future = barrier.get_future();
@@ -123,13 +123,13 @@ namespace krapi {
         });
     }
 
-    void P2PNodeManager::wait() {
+    void NodeManager::wait() {
 
         std::unique_lock l(blocking_mutex);
         blocking_cv.wait(l);
     }
 
-    void P2PNodeManager::onRemoteMessage(int id, const PeerMessage &message) {
+    void NodeManager::onRemoteMessage(int id, const PeerMessage &message) {
 
         if (message.type == PeerMessageType::AddTransaction) {
             auto transaction = Transaction::from_json(message.content);
@@ -141,22 +141,22 @@ namespace krapi {
         }
     }
 
-    void P2PNodeManager::broadcast_message(const PeerMessage &message) {
+    void NodeManager::broadcast_message(const PeerMessage &message) {
 
         peer_map.broadcast(message, my_id);
     }
 
-    void P2PNodeManager::append_listener(P2PNodeManager::Event event, std::function<void(Block)> listener) {
+    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Block)> listener) {
 
         m_block_dispatcher.appendListener(event, listener);
     }
 
-    void P2PNodeManager::append_listener(P2PNodeManager::Event event, std::function<void(Transaction)> listener) {
+    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Transaction)> listener) {
 
         m_tx_dispatcher.appendListener(event, listener);
     }
 
-    int P2PNodeManager::id() const {
+    int NodeManager::id() const {
 
         return my_id;
     }

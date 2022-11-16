@@ -1,7 +1,7 @@
 //
 // Created by mythi on 12/10/22.
 //
-#include "P2PNodeManager.h"
+#include "NodeManager.h"
 #include "Blockchain/Blockchain.h"
 #include "Blockchain/Miner.h"
 #include "Blockchain/TransactionPool.h"
@@ -11,14 +11,14 @@ using namespace std::chrono_literals;
 
 int main() {
 
-    P2PNodeManager manager;
+    NodeManager manager;
 
     auto blockchain = Blockchain::from_disk("blockchain");
     auto miner = Miner(blockchain.last());
     auto transaction_pool = TransactionPool();
 
     manager.append_listener(
-            P2PNodeManager::Event::TransactionReceived,
+            NodeManager::Event::TransactionReceived,
             [&transaction_pool](Transaction transaction) {
                 spdlog::info("Main: Received Transaction {}", transaction.to_json().dump(4));
                 transaction_pool.add(transaction);
@@ -26,7 +26,7 @@ int main() {
     );
 
     manager.append_listener(
-            P2PNodeManager::Event::BlockReceived,
+            NodeManager::Event::BlockReceived,
             [&blockchain](Block block) {
                 spdlog::info("Main: Received Block {}", block.to_json().dump(4));
                 blockchain.add(block);

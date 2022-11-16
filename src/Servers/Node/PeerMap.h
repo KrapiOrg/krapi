@@ -34,4 +34,4 @@ namespace krapi {
 
 } // krapi
 
-#endif //SHARED_MODELS_PEERMAP_H
+#endif //NODE_PEERMAP_H
