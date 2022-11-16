@@ -2,8 +2,7 @@
 // Created by mythi on 20/10/22.
 //
 
-#ifndef RSPNS_MODELS_RESPONSE_H
-#define RSPNS_MODELS_RESPONSE_H
+#pragma once
 
 #include "nlohmann/json.hpp"
 
@@ -57,5 +56,3 @@ namespace krapi {
         }
     };
 }
-
-#endif //RSPNS_MODELS_RESPONSE_H

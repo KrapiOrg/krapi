@@ -2,8 +2,7 @@
 // Created by mythi on 11/10/22.
 //
 
-#ifndef KRAPI_ERROROR_H
-#define KRAPI_ERROROR_H
+#pragma once
 
 #include <string_view>
 
@@ -106,6 +105,3 @@ namespace krapi {
         std::optional<KrapiErr> m_error;
     };
 } // hasha
-
-
-#endif //KRAPI_ERROROR_H

@@ -2,8 +2,7 @@
 // Created by mythi on 16/11/22.
 //
 
-#ifndef SHARED_MODELS_PEERTYPE_H
-#define SHARED_MODELS_PEERTYPE_H
+#pragma once
 
 #include "nlohmann/json.hpp"
 
@@ -15,9 +14,7 @@ namespace krapi {
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerType, {
         { PeerType::Full, "peer_type_full" },
-        { PeerType::Full, "peer_type_light" },
+        { PeerType::Light, "peer_type_light" },
     })
 
 }// krapi
-
-#endif //SHARED_MODELS_PEERTYPE_H

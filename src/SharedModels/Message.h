@@ -2,9 +2,6 @@
 // Created by mythi on 20/10/22.
 //
 
-#ifndef SHARED_MODELS_MESSAGE_H
-#define SHARED_MODELS_MESSAGE_H
-
 #include "nlohmann/json.hpp"
 
 namespace krapi {
@@ -52,5 +49,3 @@ namespace krapi {
         }
     };
 }
-
-#endif //SHARED_MODELS_MESSAGE_H

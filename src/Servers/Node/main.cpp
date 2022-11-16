@@ -3,8 +3,8 @@
 //
 #include "NodeManager.h"
 #include "Blockchain/Blockchain.h"
-#include "Blockchain/Miner.h"
-#include "Blockchain/TransactionPool.h"
+#include "Miner.h"
+#include "TransactionPool.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;

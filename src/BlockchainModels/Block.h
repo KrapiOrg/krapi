@@ -13,7 +13,6 @@
 
 #include "Transaction.h"
 #include "BlockHeader.h"
-#include "spdlog/spdlog.h"
 
 namespace krapi {
 

@@ -3,6 +3,7 @@
 //
 
 #include "Block.h"
+#include "spdlog/spdlog.h"
 
 namespace krapi {
     Block::Block(BlockHeader header, std::unordered_set<Transaction> transactions) :

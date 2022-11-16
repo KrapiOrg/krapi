@@ -6,7 +6,6 @@
 #define NODE_BLOCKCHAIN_TRANSACTION_H
 
 #include "nlohmann/json.hpp"
-#include "fmt/format.h"
 #include "cryptopp/hex.h"
 
 namespace krapi {

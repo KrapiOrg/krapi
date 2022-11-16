@@ -3,8 +3,8 @@
 //
 
 #include "Miner.h"
-#include "cryptopp/sha.h"
 #include "cryptopp/hex.h"
+#include "spdlog/spdlog.h"
 
 using namespace std::chrono;
 

@@ -2,8 +2,7 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef NODE_PEERMAP_H
-#define NODE_PEERMAP_H
+#pragma once
 
 #include <unordered_map>
 #include <mutex>
@@ -39,5 +38,3 @@ namespace krapi {
 
 
 } // krapi
-
-#endif //NODE_PEERMAP_H

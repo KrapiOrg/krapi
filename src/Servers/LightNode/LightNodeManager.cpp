@@ -2,11 +2,11 @@
 // Created by mythi on 12/11/22.
 //
 
-#include "NodeManager.h"
+#include "LightNodeManager.h"
 #include "PeerType.h"
 
 namespace krapi {
-    std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int peer_id) {
+    std::shared_ptr<rtc::PeerConnection> LightNodeManager::create_connection(int peer_id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
 
@@ -48,14 +48,14 @@ namespace krapi {
         return pc;
     }
 
-    void NodeManager::onWsResponse(const Response &rsp) {
+    void LightNodeManager::onWsResponse(const Response &rsp) {
 
         switch (rsp.type) {
 
             case ResponseType::PeerAvailable: {
 
                 auto peer_id = rsp.content.get<int>();
-                spdlog::info("NodeManager: Peer {} is avaliable", peer_id);
+                spdlog::info("LightP2PNodeManager: Peer {} is avaliable", peer_id);
                 auto pc = create_connection(peer_id);
                 auto offerer_channel = pc->createDataChannel("krapi");
                 offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
@@ -106,7 +106,7 @@ namespace krapi {
         }
     }
 
-    NodeManager::NodeManager() {
+    LightNodeManager::LightNodeManager() {
 
         std::promise<int> barrier;
         auto future = barrier.get_future();
@@ -121,68 +121,52 @@ namespace krapi {
                 if (response.type == ResponseType::PeerIdentity)
                     barrier.set_value(response.content.get<int>());
                 else
-                    spdlog::info("NodeManager: Expected a PeerIdentity response, got {}", response.to_string());
+                    spdlog::info("LightP2PNodeManager: Expected a PeerIdentity response, got {}", response.to_string());
             }
         });
         ws.start();
-        spdlog::info("NodeManager: Waiting for identity from signaling server...");
+        spdlog::info("LightP2PNodeManager: Waiting for identity from signaling server...");
         my_id = future.get();
-        spdlog::info("NodeManager: Aquired identity {}", my_id);
+        spdlog::info("LightP2PNodeManager: Aquired identity {}", my_id);
         ws.setOnMessageCallback([this](const ix::WebSocketMessagePtr &message) {
             auto msg = Response::from_json(message->str);
             onWsResponse(msg);
         });
     }
 
-    void NodeManager::wait() {
+    void LightNodeManager::wait() {
 
         std::unique_lock l(blocking_mutex);
         blocking_cv.wait(l);
     }
 
-    void NodeManager::onRemoteMessage(int id, const PeerMessage &message) {
+    void LightNodeManager::onRemoteMessage(int id, const PeerMessage &message) {
 
-        if (message.type == PeerMessageType::AddTransaction) {
-            auto transaction = Transaction::from_json(message.content);
-            spdlog::info("NodeManager: Transaction from {}", id);
-            m_tx_dispatcher.dispatch(Event::TransactionReceived, transaction);
-        } else if (message.type == PeerMessageType::AddBlock) {
-            auto block = Block::from_json(message.content);
-            m_block_dispatcher.dispatch(Event::BlockReceived, block);
-        } else if (message.type == PeerMessageType::PeerTypeRequest) {
+
+       if (message.type == PeerMessageType::PeerTypeRequest) {
 
             spdlog::info("LightNodeManager: PeerType Requested");
             auto channel = peer_map.get_channel(id);
             channel->send(
                     PeerMessage{
                             PeerMessageType::PeerTypeResponse,
-                            PeerType::Full
+                            PeerType::Light
                     }
             );
         } else if (message.type == PeerMessageType::PeerTypeResponse) {
             auto peer_type = message.content.get<PeerType>();
 
-            spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
+            spdlog::info("LightNodeManager: Setting PeerType of {} to {}", id, message.content.dump());
             peer_map.set_peer_type(id, peer_type);
         }
     }
 
-    void NodeManager::broadcast_message(const PeerMessage &message) {
+    void LightNodeManager::broadcast_message(const PeerMessage &message) {
 
         peer_map.broadcast(message, my_id);
     }
 
-    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Block)> listener) {
-
-        m_block_dispatcher.appendListener(event, listener);
-    }
-
-    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Transaction)> listener) {
-
-        m_tx_dispatcher.appendListener(event, listener);
-    }
-
-    int NodeManager::id() const {
+    int LightNodeManager::id() const {
 
         return my_id;
     }

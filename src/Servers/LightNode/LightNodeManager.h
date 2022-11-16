@@ -8,10 +8,6 @@
 #include <future>
 
 #include "spdlog/spdlog.h"
-#include "eventpp/eventdispatcher.h"
-#include "nlohmann/json.hpp"
-#include "ixwebsocket/IXWebSocketMessage.h"
-#include "ixwebsocket/IXWebSocket.h"
 
 #include "PeerMap.h"
 #include "Message.h"
@@ -19,21 +15,11 @@
 #include "PeerMessage.h"
 #include "Block.h"
 #include "TransactionPool.h"
+#include "ixwebsocket/IXWebSocket.h"
 
 namespace krapi {
 
-    class NodeManager {
-    public:
-        enum class Event {
-            TransactionReceived,
-            BlockReceived,
-        };
-    private:
-        using TxEventDispatcher = eventpp::EventDispatcher<Event, void(Transaction)>;
-        using BlockEventDispatcher = eventpp::EventDispatcher<Event, void(Block)>;
-
-        TxEventDispatcher m_tx_dispatcher;
-        BlockEventDispatcher m_block_dispatcher;
+    class LightNodeManager {
 
         PeerMap peer_map;
         std::mutex blocking_mutex;
@@ -54,15 +40,11 @@ namespace krapi {
 
     public:
 
-        NodeManager();
+        LightNodeManager();
 
         void wait();
 
         void broadcast_message(const PeerMessage &);
-
-        void append_listener(Event event, std::function<void(Block)> listener);
-
-        void append_listener(Event event, std::function<void(Transaction)> listener);
 
         [[nodiscard]]
         int id() const;

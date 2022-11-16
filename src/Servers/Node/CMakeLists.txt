@@ -7,20 +7,8 @@ set(
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.h
-        ${CMAKE_CURRENT_LIST_DIR}/PeerMap.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/PeerMap.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Block.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Block.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/BlockHeader.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/BlockHeader.h
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/TransactionPool.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/TransactionPool.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Miner.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Miner.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Transaction.h
-        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Transaction.cpp
 )
 add_executable(node ${NODESOURCES})
 target_include_directories(
@@ -39,4 +27,8 @@ target_link_libraries(
         ixwebsocket
         merklecpp
         shared_models
+        blockchain_models
+        miner
+        peer_map
+        transaction_pool
 )

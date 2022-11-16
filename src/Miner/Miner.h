@@ -2,8 +2,7 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef NODE_BLOCKCHAIN_MINER_H
-#define NODE_BLOCKCHAIN_MINER_H
+#pragma once
 
 #include <functional>
 #include "Block.h"
@@ -41,5 +40,3 @@ namespace krapi {
     };
 
 } // krapi
-
-#endif //NODE_BLOCKCHAIN_MINER_H

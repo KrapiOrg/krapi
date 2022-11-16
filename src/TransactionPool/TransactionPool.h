@@ -2,8 +2,7 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef NODE_BLOCKCHAIN_TRANSACTIONPOOL_H
-#define NODE_BLOCKCHAIN_TRANSACTIONPOOL_H
+#pragma once
 
 #include <thread>
 #include <unordered_set>
@@ -56,5 +55,3 @@ namespace krapi {
     };
 
 } // krapi
-
-#endif //NODE_BLOCKCHAIN_TRANSACTIONPOOL_H
