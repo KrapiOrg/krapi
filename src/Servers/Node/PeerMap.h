@@ -2,13 +2,14 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef SHARED_MODELS_PEERMAP_H
-#define SHARED_MODELS_PEERMAP_H
+#ifndef NODE_PEERMAP_H
+#define NODE_PEERMAP_H
 
 #include <unordered_map>
 #include <mutex>
 #include <memory>
 #include "rtc/peerconnection.hpp"
+#include "PeerMessage.h"
 
 namespace krapi {
 
@@ -27,11 +28,8 @@ namespace krapi {
 
         std::shared_ptr<rtc::PeerConnection> get_peer(int id);
 
-        void send_to(int id);
-
-        void broadcast(std::string message);
+        void broadcast(PeerMessage message, int my_id);
     };
-
 
 
 } // krapi

@@ -4,6 +4,7 @@
 
 #include "PeerMap.h"
 
+
 namespace krapi {
     void PeerMap::add_peer(int id, std::shared_ptr<rtc::PeerConnection> peer_connection) {
 
@@ -27,17 +28,25 @@ namespace krapi {
         return peer_map[id];
     }
 
-    void PeerMap::send_to(int id) {
+    void PeerMap::broadcast(PeerMessage message, int my_id) {
+        auto old_ignore_list = message.ignore_list;
+        auto new_ignore_list = message.ignore_list;
 
-    }
-
-    void PeerMap::broadcast(std::string message) {
+        new_ignore_list.insert(my_id);
 
         for (auto &[id, channel]: channel_map) {
+            new_ignore_list.insert(id);
+        }
+        message.ignore_list = new_ignore_list;
 
-            if (channel->isOpen()) {
+        auto message_str = message.to_string();
+        for (auto &[id, channel]: channel_map) {
+            if (!old_ignore_list.contains(id)) {
 
-                channel->send(message);
+                if (channel->isOpen()) {
+
+                    channel->send(message_str);
+                }
             }
         }
     }

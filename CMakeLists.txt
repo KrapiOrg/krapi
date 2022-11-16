@@ -19,6 +19,8 @@ set(NO_EXAMPLES ON)
 set(NO_TESTS ON)
 set(NO_WEBSOCKET ON)
 add_subdirectory(libs/libdatachannel)
+set(MERKLECPP_TRACE_ENABLED ON)
+add_subdirectory(libs/merklecpp)
 add_subdirectory(test)
 
 # General Includes

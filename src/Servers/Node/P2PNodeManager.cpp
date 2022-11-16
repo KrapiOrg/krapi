@@ -5,13 +5,13 @@
 #include "P2PNodeManager.h"
 
 namespace krapi {
-    std::shared_ptr<rtc::PeerConnection> P2PNodeManager::create_connection(int id) {
+    std::shared_ptr<rtc::PeerConnection> P2PNodeManager::create_connection(int peer_id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
 
-        pc->onLocalDescription([this, id](const rtc::Description &description) {
+        pc->onLocalDescription([this, peer_id](const rtc::Description &description) {
             auto desc = nlohmann::json{
-                    {"id",          id},
+                    {"id",          peer_id},
                     {"type",        description.typeString()},
                     {"description", std::string(description)}
             };
@@ -19,9 +19,9 @@ namespace krapi {
             ws.send(msg);
         });
 
-        pc->onLocalCandidate([this, id](const rtc::Candidate &candidate) {
+        pc->onLocalCandidate([this, peer_id](const rtc::Candidate &candidate) {
             auto cand = nlohmann::json{
-                    {"id",        id},
+                    {"id",        peer_id},
                     {"type",      "candidate"},
                     {"candidate", std::string(candidate)},
                     {"mid",       candidate.mid()}
@@ -30,17 +30,16 @@ namespace krapi {
             ws.send(msg);
         });
 
-        pc->onDataChannel([id, this](std::shared_ptr<rtc::DataChannel> remote_channel) {
+        pc->onDataChannel([peer_id, this](std::shared_ptr<rtc::DataChannel> answerer_channel) {
 
-            remote_channel->onMessage([id](auto data) {
-
-                spdlog::info("P2PNodeManager: Message from {}, received; {}", id, std::get<std::string>(data));
+            answerer_channel->onMessage([peer_id, this](auto data) {
+                auto str_data = std::get<std::string>(data);
+                onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
             });
-
-            peer_map.add_channel(id, remote_channel);
+            peer_map.add_channel(peer_id, answerer_channel);
         });
 
-        peer_map.add_peer(id, pc);
+        peer_map.add_peer(peer_id, pc);
         return pc;
     }
 
@@ -53,16 +52,12 @@ namespace krapi {
                 auto peer_id = rsp.content.get<int>();
                 spdlog::info("P2PNodeManager: Peer {} is avaliable", peer_id);
                 auto pc = create_connection(peer_id);
-                auto local_channel = pc->createDataChannel("krapi");
-
-                local_channel->onMessage([peer_id](auto data) {
-
-                    spdlog::info("P2PNodeManager: Message from {}, received; {}", peer_id,
-                                 std::get<std::string>(data));
+                auto offerer_channel = pc->createDataChannel("krapi");
+                offerer_channel->onMessage([this, peer_id](auto data) {
+                    auto str_data = std::get<std::string>(data);
+                    onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
                 });
-
-                peer_map.add_channel(peer_id, local_channel);
-
+                peer_map.add_channel(peer_id, offerer_channel);
             }
                 break;
             case ResponseType::RTCSetup: {
@@ -132,5 +127,37 @@ namespace krapi {
 
         std::unique_lock l(blocking_mutex);
         blocking_cv.wait(l);
+    }
+
+    void P2PNodeManager::onRemoteMessage(int id, const PeerMessage &message) {
+
+        if (message.type == PeerMessageType::AddTransaction) {
+            auto transaction = Transaction::from_json(message.content);
+            spdlog::info("P2PNodeManager: Transaction from {}", id);
+            m_tx_dispatcher.dispatch(Event::TransactionReceived, transaction);
+        } else if (message.type == PeerMessageType::AddBlock) {
+            auto block = Block::from_json(message.content);
+            m_block_dispatcher.dispatch(Event::BlockReceived, block);
+        }
+    }
+
+    void P2PNodeManager::broadcast_message(const PeerMessage &message) {
+
+        peer_map.broadcast(message, my_id);
+    }
+
+    void P2PNodeManager::append_listener(P2PNodeManager::Event event, std::function<void(Block)> listener) {
+
+        m_block_dispatcher.appendListener(event, listener);
+    }
+
+    void P2PNodeManager::append_listener(P2PNodeManager::Event event, std::function<void(Transaction)> listener) {
+
+        m_tx_dispatcher.appendListener(event, listener);
+    }
+
+    int P2PNodeManager::id() const {
+
+        return my_id;
     }
 } // krapi

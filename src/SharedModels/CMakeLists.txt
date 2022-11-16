@@ -7,7 +7,6 @@ add_library(
         shared_models
         ${MODELSPREFIX}/Message.h
         ${MODELSPREFIX}/Response.h
-        ${MODELSPREFIX}/Transaction.h
 )
 target_link_libraries(shared_models PRIVATE nlohmann_json)
 set_target_properties(shared_models PROPERTIES LINKER_LANGUAGE CXX)
