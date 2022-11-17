@@ -9,9 +9,17 @@
 using namespace krapi;
 using namespace std::chrono_literals;
 
-int main() {
+int main(int argc, char *argv[]) {
 
-    auto blockchain = Blockchain::from_disk("blockchain");
+    std::string path;
+
+    if (argc == 2) {
+        path = std::string{argv[1]};
+    } else {
+        path = "blockchain";
+    }
+
+    auto blockchain = Blockchain::from_disk(path);
     auto miner = Miner(blockchain.last());
     auto transaction_pool = TransactionPool();
 
@@ -27,10 +35,10 @@ int main() {
 
     manager.append_listener(
             NodeManager::Event::BlockReceived,
-            [&blockchain](Block block) {
+            [path, &blockchain](Block block) {
                 spdlog::info("Main: Received Block {}", block.to_json().dump(4));
                 blockchain.add(block);
-                block.to_disk("blockchain");
+                block.to_disk(path);
             }
     );
 
@@ -46,7 +54,7 @@ int main() {
             Miner::Event::BlockMined, [&](Block block) {
                 spdlog::info("Main: Mined block {}", block.to_json().dump(4));
                 blockchain.add(block);
-                block.to_disk("blockchain");
+                block.to_disk(path);
                 manager.broadcast_message(PeerMessage{PeerMessageType::AddBlock, block.to_json()});
             }
     );
