@@ -15,8 +15,8 @@ namespace krapi {
         namespace fs = std::filesystem;
 
         if (!fs::exists(path)) {
-            spdlog::error("Could not find {}", path.string());
-            exit(1);
+            spdlog::error("Could not find {}, creating...", path.string());
+            fs::create_directory(path);
         }
 
         if (!fs::exists(path / "genesis.json")) {
