@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
     auto blockchain = Blockchain::from_disk(path);
     auto miner = Miner(blockchain.last());
-    auto transaction_pool = TransactionPool();
+    auto transaction_pool = TransactionPool(10);
 
     NodeManager manager;
 
