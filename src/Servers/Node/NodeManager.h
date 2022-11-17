@@ -64,6 +64,10 @@ namespace krapi {
 
         void append_listener(Event event, std::function<void(Transaction)> listener);
 
+        void append_listener(PeerMap::Event event, std::function<void(int)> listener);
+
+        PeerType get_peer_type(int id);
+
         [[nodiscard]]
         int id() const;
     };

@@ -60,7 +60,7 @@ namespace krapi {
                 auto offerer_channel = pc->createDataChannel("krapi");
                 offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
 
-                    if(auto offerer_channel = woc.lock())
+                    if (auto offerer_channel = woc.lock())
                         offerer_channel->send(PeerMessage{PeerMessageType::PeerTypeRequest});
                 });
                 offerer_channel->onMessage([this, peer_id](auto data) {
@@ -162,7 +162,6 @@ namespace krapi {
         } else if (message.type == PeerMessageType::PeerTypeResponse) {
             auto peer_type = message.content.get<PeerType>();
 
-            spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
             peer_map.set_peer_type(id, peer_type);
         }
     }
@@ -182,8 +181,18 @@ namespace krapi {
         m_tx_dispatcher.appendListener(event, listener);
     }
 
+    void NodeManager::append_listener(PeerMap::Event event, std::function<void(int)> listener) {
+
+        peer_map.append_listener(event, listener);
+    }
+
     int NodeManager::id() const {
 
         return my_id;
+    }
+
+    PeerType NodeManager::get_peer_type(int id) {
+
+        return peer_map.get_peer_type(id);
     }
 } // krapi

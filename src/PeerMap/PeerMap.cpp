@@ -69,14 +69,22 @@ namespace krapi {
 
     void PeerMap::set_peer_type(int id, PeerType type) {
 
-        std::lock_guard l(mutex);
-        peer_type_map[id] = type;
+        {
+            std::lock_guard l(mutex);
+            peer_type_map[id] = type;
+        }
+        m_dispatcher.dispatch(Event::PeerTypeKnown, id);
     }
 
     PeerType PeerMap::get_peer_type(int id) {
 
         std::lock_guard l(mutex);
         return peer_type_map[id];
+    }
+
+    void PeerMap::append_listener(PeerMap::Event event, std::function<void(int)> callback) {
+
+        m_dispatcher.appendListener(event, callback);
     }
 
 } // krapi

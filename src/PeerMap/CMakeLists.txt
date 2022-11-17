@@ -8,4 +8,5 @@ target_link_libraries(
         peer_map PRIVATE
         datachannel
         nlohmann_json
+        eventpp
 )
