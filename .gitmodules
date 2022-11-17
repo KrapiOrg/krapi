@@ -25,9 +25,9 @@
 [submodule "libs/libdatachannel"]
 	path = libs/libdatachannel
 	url = https://github.com/paullouisageneau/libdatachannel/
-[submodule "libs/IXWebSocket"]
-	path = libs/IXWebSocket
-	url = https://github.com/machinezone/IXWebSocket
 [submodule "libs/merklecpp"]
 	path = libs/merklecpp
 	url = https://github.com/KrapiOrg/merklecpp
+[submodule "libs/IXWebSocket"]
+	path = libs/IXWebSocket
+	url = https://github.com/KrapiOrg/IXWebSocket
