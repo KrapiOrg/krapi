@@ -4,6 +4,7 @@
 
 using namespace krapi;
 using namespace CryptoPP;
+using namespace std::chrono;
 using namespace std::chrono_literals;
 
 int main() {
@@ -18,9 +19,11 @@ int main() {
             [&]() {
                 while (true) {
                     spdlog::info("Main: Sending TX#{}", message_count);
+                    auto timestamp = (uint64_t) duration_cast<milliseconds>(
+                            system_clock::now().time_since_epoch()).count();
                     std::string tx_hash;
                     StringSource s(
-                            fmt::format("{}{}{}{}", "send_tx", 0, 1, message_count),
+                            fmt::format("{}{}{}{}{}{}", "send_tx", "tx_status_pending", timestamp, 0, 1, message_count),
                             true,
                             new HashFilter(sha_256, new HexEncoder(new StringSink(tx_hash)))
                     );
@@ -29,7 +32,9 @@ int main() {
                                     PeerMessageType::AddTransaction,
                                     Transaction{
                                             TransactionType::Send,
+                                            TransactionStatus::Pending,
                                             tx_hash,
+                                            timestamp,
                                             0,
                                             1
                                     }.to_json()

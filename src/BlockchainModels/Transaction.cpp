@@ -5,9 +5,18 @@
 
 namespace krapi {
 
-    Transaction::Transaction(TransactionType type, std::string hash, int from, int to) :
+    Transaction::Transaction(
+            TransactionType type,
+            TransactionStatus status,
+            std::string hash,
+            uint64_t timestamp,
+            int from,
+            int to
+    ) :
             m_type(type),
+            m_status(status),
             m_hash(std::move(hash)),
+            m_timestamp(timestamp),
             m_from(from),
             m_to(to) {
 
@@ -20,7 +29,9 @@ namespace krapi {
 
         return Transaction{
                 json["type"].get<TransactionType>(),
+                json["status"].get<TransactionStatus>(),
                 json["hash"].get<std::string>(),
+                json["timestamp"].get<uint64_t>(),
                 json["from"].get<int>(),
                 json["to"].get<int>()
         };
@@ -30,12 +41,16 @@ namespace krapi {
 
         return {
                 {"type", nlohmann::json(m_type)},
+                {"status", m_status},
                 {"hash", m_hash},
+                {"timestamp", m_timestamp},
                 {"from", m_from},
-                {"to",   m_to}
+                {"to", m_to}
         };
     }
+
     bool Transaction::operator==(const Transaction &) const = default;
+
     TransactionType Transaction::type() const {
 
         return m_type;
@@ -59,5 +74,15 @@ namespace krapi {
     std::array<CryptoPP::byte, 32> Transaction::byte_hash() const {
 
         return m_byte_hash;
+    }
+
+    TransactionStatus Transaction::status() const {
+
+        return m_status;
+    }
+
+    uint64_t Transaction::timestamp() const {
+
+        return m_timestamp;
     }
 }

@@ -18,11 +18,25 @@ namespace krapi {
         { TransactionType::Send, "send_tx" }
     })
 
+    enum class TransactionStatus {
+        Pending,
+        Verified,
+        Rejected
+    };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(TransactionStatus, {
+        { TransactionStatus::Pending, "tx_status_pending" },
+        { TransactionStatus::Verified, "tx_status_verified" },
+        { TransactionStatus::Rejected, "tx_status_rejected" }
+    })
+
     class Transaction {
     public:
         explicit Transaction(
                 TransactionType type,
+                TransactionStatus status,
                 std::string hash,
+                uint64_t timestamp,
                 int from,
                 int to
         );
@@ -36,6 +50,12 @@ namespace krapi {
 
         [[nodiscard]]
         TransactionType type() const;
+
+        [[nodiscard]]
+        TransactionStatus status() const;
+
+        [[nodiscard]]
+        uint64_t timestamp() const;
 
         [[nodiscard]]
         int from() const;
@@ -52,7 +72,9 @@ namespace krapi {
 
     private:
         TransactionType m_type;
+        TransactionStatus m_status;
         std::string m_hash;
+        uint64_t m_timestamp;
         int m_from;
         int m_to;
 
