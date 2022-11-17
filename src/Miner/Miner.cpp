@@ -47,7 +47,7 @@ namespace krapi {
             );
 
             spdlog::info("Miner: Produced Hash: {}", block_hash);
-            if (block_hash.starts_with("00")) {
+            if (block_hash.starts_with("0000")) {
                 auto block = Block{
                         BlockHeader{
                                 block_hash,
