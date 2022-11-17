@@ -29,8 +29,6 @@ namespace krapi {
         ix::WebSocket ws;
         int my_id;
 
-        TransactionPool m_transaction_pool;
-
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
         void onWsResponse(const Response &);
