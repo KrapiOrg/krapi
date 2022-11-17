@@ -63,7 +63,8 @@ namespace krapi {
 
             file << to_json().dump(4);
         } else {
-            spdlog::error("Failed to load block from {}");
+
+            spdlog::error("Failed to save block to {}", path.string());
             exit(1);
         }
     }
