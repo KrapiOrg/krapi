@@ -16,6 +16,7 @@ target_link_libraries(
         cryptopp
         eventpp
         ixwebsocket
+        effolkronium_random
         blockchain_models
         transaction_pool
         peer_map
