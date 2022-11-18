@@ -46,6 +46,8 @@ namespace krapi {
 
         [[nodiscard]]
         int id() const;
+
+        std::optional<int> get_random_light_node();
     };
 
 } // krapi

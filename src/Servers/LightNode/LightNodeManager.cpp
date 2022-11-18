@@ -4,6 +4,7 @@
 
 #include "LightNodeManager.h"
 #include "PeerType.h"
+#include "effolkronium/random.hpp"
 
 namespace krapi {
     std::shared_ptr<rtc::PeerConnection> LightNodeManager::create_connection(int peer_id) {
@@ -60,7 +61,7 @@ namespace krapi {
                 auto offerer_channel = pc->createDataChannel("krapi");
                 offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
 
-                    if(auto offerer_channel = woc.lock())
+                    if (auto offerer_channel = woc.lock())
                         offerer_channel->send(PeerMessage{PeerMessageType::PeerTypeRequest});
                 });
                 offerer_channel->onMessage([this, peer_id](auto data) {
@@ -143,7 +144,7 @@ namespace krapi {
     void LightNodeManager::onRemoteMessage(int id, const PeerMessage &message) {
 
 
-       if (message.type == PeerMessageType::PeerTypeRequest) {
+        if (message.type == PeerMessageType::PeerTypeRequest) {
 
             spdlog::info("LightNodeManager: PeerType Requested");
             auto channel = peer_map.get_channel(id);
@@ -169,5 +170,18 @@ namespace krapi {
     int LightNodeManager::id() const {
 
         return my_id;
+    }
+
+    std::optional<int> LightNodeManager::get_random_light_node() {
+
+        using Random = effolkronium::random_static;
+
+        auto ids = peer_map.get_light_node_ids();
+        if (!ids.empty()) {
+
+            auto random_index = Random::get(0, static_cast<int>(ids.size()) - 1);
+            return ids[random_index];
+        }
+        return {};
     }
 } // krapi

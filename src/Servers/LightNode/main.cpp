@@ -21,7 +21,15 @@ int main() {
             [&]() {
                 auto random = Random();
                 while (true) {
-                    spdlog::info("Main: Sending TX#{}", message_count);
+                    std::this_thread::sleep_for(5s);
+                    auto random_receiver = node_manager.get_random_light_node();
+
+                    if (!random_receiver.has_value()) {
+                        spdlog::warn("There are no peers to send transactions to.");
+                        continue;
+                    }
+
+                    spdlog::info("Main: Sending TX#{} to {}", message_count, random_receiver.value());
                     auto timestamp = (uint64_t) duration_cast<milliseconds>(
                             system_clock::now().time_since_epoch()).count();
                     std::string tx_hash;
@@ -42,13 +50,12 @@ int main() {
                                             TransactionStatus::Pending,
                                             tx_hash,
                                             timestamp,
-                                            0,
-                                            1
+                                            node_manager.id(),
+                                            random_receiver.value()
                                     }.to_json()
                             }
                     );
                     message_count++;
-                    std::this_thread::sleep_for(5s);
                 }
 
             }

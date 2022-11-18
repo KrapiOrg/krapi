@@ -52,6 +52,8 @@ namespace krapi {
         void broadcast(PeerMessage message, int my_id);
 
         void append_listener(Event, std::function<void(int)>);
+
+        std::vector<int> get_light_node_ids();
     };
 
 

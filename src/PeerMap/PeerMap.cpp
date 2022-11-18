@@ -87,4 +87,25 @@ namespace krapi {
         m_dispatcher.appendListener(event, callback);
     }
 
+    std::vector<int> PeerMap::get_light_node_ids() {
+
+        auto ptm = std::unordered_map<int, PeerType>{};
+        auto cm = std::unordered_map<int, std::shared_ptr<rtc::DataChannel>>{};
+
+        {
+            std::lock_guard l(mutex);
+            ptm = peer_type_map;
+            cm = channel_map;
+        }
+        auto ans = std::vector<int>{};
+        for (auto &[id, channel]: cm) {
+            if (channel->isOpen()) {
+                if (ptm.contains(id) && ptm[id] == PeerType::Light) {
+                    ans.push_back(id);
+                }
+            }
+        }
+        return ans;
+    }
+
 } // krapi
