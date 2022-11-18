@@ -44,7 +44,7 @@ int main() {
 
                 spdlog::info(
                         "Transaction {} status changed from {} to {}",
-                        transaction.hash().substr(6),
+                        transaction.hash().substr(0, 6),
                         to_string(before),
                         to_string(after)
                 );
