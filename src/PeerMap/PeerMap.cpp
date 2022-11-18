@@ -33,12 +33,12 @@ namespace krapi {
         return channel_map[id];
     }
 
-    void PeerMap::broadcast(PeerMessage message, int my_id) {
+    void PeerMap::broadcast(PeerMessage message) {
 
         auto old_ignore_list = message.ignore_list;
         auto new_ignore_list = message.ignore_list;
 
-        new_ignore_list.insert(my_id);
+        new_ignore_list.insert(message.peer_id);
 
         for (auto &[id, channel]: channel_map) {
             new_ignore_list.insert(id);
@@ -65,6 +65,19 @@ namespace krapi {
                 }
             }
         }
+    }
+
+    void PeerMap::send_message(int id, PeerMessage message) {
+
+
+        std::lock_guard l(mutex);
+        if (channel_map.contains(id)) {
+
+            auto dc = channel_map[id];
+            dc->send(message);
+        }
+
+
     }
 
     void PeerMap::set_peer_type(int id, PeerType type) {
@@ -107,5 +120,6 @@ namespace krapi {
         }
         return ans;
     }
+
 
 } // krapi

@@ -6,6 +6,8 @@ add_executable(
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/LightNodeManager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/LightNodeManager.h
+        ${CMAKE_CURRENT_LIST_DIR}/Wallet.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/Wallet.h
 )
 
 target_link_libraries(

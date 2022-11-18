@@ -24,6 +24,20 @@ namespace krapi {
         Rejected
     };
 
+    inline std::string to_string(TransactionStatus status) {
+
+        switch (status) {
+
+            case TransactionStatus::Pending:
+                return "Pending";
+            case TransactionStatus::Verified:
+                return "Verified";
+            case TransactionStatus::Rejected:
+                return "Rejected";
+        }
+        return {};
+    }
+
     NLOHMANN_JSON_SERIALIZE_ENUM(TransactionStatus, {
         { TransactionStatus::Pending, "tx_status_pending" },
         { TransactionStatus::Verified, "tx_status_verified" },
@@ -66,13 +80,14 @@ namespace krapi {
         [[nodiscard]]
         std::string hash() const;
 
+        bool set_status(TransactionStatus) const;
 
         [[nodiscard]]
         std::array<CryptoPP::byte, 32> byte_hash() const;
 
     private:
         TransactionType m_type;
-        TransactionStatus m_status;
+        mutable TransactionStatus m_status;
         std::string m_hash;
         uint64_t m_timestamp;
         int m_from;

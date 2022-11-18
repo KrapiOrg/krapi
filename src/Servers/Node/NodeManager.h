@@ -60,6 +60,8 @@ namespace krapi {
 
         void broadcast_message(const PeerMessage &);
 
+        void send_message(int, PeerMessage);
+
         void append_listener(Event event, std::function<void(Block)> listener);
 
         void append_listener(Event event, std::function<void(Transaction)> listener);

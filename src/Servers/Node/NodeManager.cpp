@@ -156,6 +156,7 @@ namespace krapi {
             channel->send(
                     PeerMessage{
                             PeerMessageType::PeerTypeResponse,
+                            my_id,
                             PeerType::Full
                     }
             );
@@ -168,7 +169,7 @@ namespace krapi {
 
     void NodeManager::broadcast_message(const PeerMessage &message) {
 
-        peer_map.broadcast(message, my_id);
+        peer_map.broadcast(message);
     }
 
     void NodeManager::append_listener(NodeManager::Event event, std::function<void(Block)> listener) {
@@ -194,5 +195,10 @@ namespace krapi {
     PeerType NodeManager::get_peer_type(int id) {
 
         return peer_map.get_peer_type(id);
+    }
+
+    void NodeManager::send_message(int id, PeerMessage message) {
+
+        peer_map.send_message(id, std::move(message));
     }
 } // krapi

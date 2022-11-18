@@ -13,7 +13,8 @@ namespace krapi {
         PeerTypeResponse,
         AddTransaction,
         RemoveTransactions,
-        AddBlock
+        AddBlock,
+        SetTransactionStatus
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -22,10 +23,12 @@ namespace krapi {
         { PeerMessageType::AddTransaction, "add_transaction" },
         { PeerMessageType::RemoveTransactions, "remove_transactions" },
         { PeerMessageType::AddBlock, "add_block" },
+        { PeerMessageType::SetTransactionStatus, "set_transaction_status" },
     })
 
     struct PeerMessage {
         PeerMessageType type;
+        int peer_id;
         nlohmann::json content;
         std::unordered_set<int> ignore_list;
 
@@ -33,8 +36,9 @@ namespace krapi {
         nlohmann::json to_json() const {
 
             return {
-                    {"type",        type},
-                    {"content",     content},
+                    {"type", type},
+                    {"peer_id", peer_id},
+                    {"content", content},
                     {"ignore_list", ignore_list}
             };
         }
@@ -54,6 +58,7 @@ namespace krapi {
 
             return PeerMessage{
                     json["type"].get<PeerMessageType>(),
+                    json["peer_id"].get<int>(),
                     json["content"].get<nlohmann::json>(),
                     json["ignore_list"].get<std::unordered_set<int>>()
             };

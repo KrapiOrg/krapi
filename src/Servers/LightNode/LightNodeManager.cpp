@@ -141,7 +141,7 @@ namespace krapi {
         blocking_cv.wait(l);
     }
 
-    void LightNodeManager::onRemoteMessage(int id, const PeerMessage &message) {
+    void LightNodeManager::onRemoteMessage(int id, PeerMessage message) {
 
 
         if (message.type == PeerMessageType::PeerTypeRequest) {
@@ -151,6 +151,7 @@ namespace krapi {
             channel->send(
                     PeerMessage{
                             PeerMessageType::PeerTypeResponse,
+                            my_id,
                             PeerType::Light
                     }
             );
@@ -160,11 +161,13 @@ namespace krapi {
             spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
             peer_map.set_peer_type(id, peer_type);
         }
+
+        m_dispatcher.dispatch(message.type, message);
     }
 
-    void LightNodeManager::broadcast_message(const PeerMessage &message) {
+    void LightNodeManager::broadcast_message(PeerMessage message) {
 
-        peer_map.broadcast(message, my_id);
+        peer_map.broadcast(std::move(message));
     }
 
     int LightNodeManager::id() const {
@@ -183,5 +186,13 @@ namespace krapi {
             return ids[random_index];
         }
         return {};
+    }
+
+    void LightNodeManager::append_listener(
+            PeerMessageType message_type,
+            std::function<void(PeerMessage)> callback
+    ) {
+
+        m_dispatcher.appendListener(message_type, callback);
     }
 } // krapi

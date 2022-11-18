@@ -48,6 +48,10 @@ namespace krapi {
 
             spdlog::info("Miner: Produced Hash: {}", block_hash);
             if (block_hash.starts_with("0000")) {
+
+                for(auto &transaction : batch)
+                    transaction.set_status(TransactionStatus::Verified);
+
                 auto block = Block{
                         BlockHeader{
                                 block_hash,

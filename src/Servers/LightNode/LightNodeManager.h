@@ -16,10 +16,17 @@
 #include "Block.h"
 #include "TransactionPool.h"
 #include "ixwebsocket/IXWebSocket.h"
+#include "eventpp/eventdispatcher.h"
+#include "Content/SetTransactionStatusContent.h"
 
 namespace krapi {
 
     class LightNodeManager {
+
+    private:
+
+        using PeerMessageDispatcher = eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)>;
+        PeerMessageDispatcher m_dispatcher;
 
         PeerMap peer_map;
         std::mutex blocking_mutex;
@@ -33,16 +40,18 @@ namespace krapi {
 
         void onWsResponse(const Response &);
 
-        void onRemoteMessage(int id, const PeerMessage &);
+        void onRemoteMessage(int id, PeerMessage);
 
 
     public:
 
         LightNodeManager();
 
+        void append_listener(PeerMessageType, std::function<void(PeerMessage)>);
+
         void wait();
 
-        void broadcast_message(const PeerMessage &);
+        void broadcast_message(PeerMessage);
 
         [[nodiscard]]
         int id() const;

@@ -49,7 +49,9 @@ namespace krapi {
 
         std::shared_ptr<rtc::DataChannel> get_channel(int id);
 
-        void broadcast(PeerMessage message, int my_id);
+        void broadcast(PeerMessage message);
+
+        void send_message(int id, PeerMessage message);
 
         void append_listener(Event, std::function<void(int)>);
 

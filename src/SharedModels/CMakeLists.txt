@@ -9,6 +9,7 @@ add_library(
         ${MODELSPREFIX}/Response.h
         ${MODELSPREFIX}/PeerMessage.h
         ${MODELSPREFIX}/PeerType.h
+        ${MODELSPREFIX}/Content/SetTransactionStatusContent.h
 )
 target_link_libraries(shared_models PRIVATE nlohmann_json)
 set_target_properties(shared_models PROPERTIES LINKER_LANGUAGE CXX)

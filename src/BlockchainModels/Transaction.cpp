@@ -40,12 +40,12 @@ namespace krapi {
     nlohmann::json Transaction::to_json() const {
 
         return {
-                {"type", nlohmann::json(m_type)},
-                {"status", m_status},
-                {"hash", m_hash},
+                {"type",      nlohmann::json(m_type)},
+                {"status",    m_status},
+                {"hash",      m_hash},
                 {"timestamp", m_timestamp},
-                {"from", m_from},
-                {"to", m_to}
+                {"from",      m_from},
+                {"to",        m_to}
         };
     }
 
@@ -84,5 +84,14 @@ namespace krapi {
     uint64_t Transaction::timestamp() const {
 
         return m_timestamp;
+    }
+
+    bool Transaction::set_status(TransactionStatus status) const {
+
+        if (m_status != TransactionStatus::Verified) {
+            m_status = status;
+            return true;
+        }
+        return false;
     }
 }

@@ -5,6 +5,7 @@
 #include "Blockchain/Blockchain.h"
 #include "Miner.h"
 #include "TransactionPool.h"
+#include "Content/SetTransactionStatusContent.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;
@@ -51,11 +52,46 @@ int main(int argc, char *argv[]) {
     );
 
     miner.append_listener(
+            Miner::Event::BlockMined,
+            [&](Block block) {
+
+                for (const auto &transaction: block.transactions()) {
+
+                    manager.send_message(
+                            transaction.from(),
+                            PeerMessage{
+                                    PeerMessageType::SetTransactionStatus,
+                                    manager.id(),
+                                    SetTransactionStatusContent{
+                                            TransactionStatus::Verified,
+                                            transaction.hash()
+                                    }.to_json()
+                            }
+                    );
+                    manager.send_message(
+                            transaction.to(),
+                            PeerMessage{
+                                PeerMessageType::AddTransaction,
+                                manager.id(),
+                                transaction.to_json()
+                            }
+                    );
+                }
+            }
+    );
+
+    miner.append_listener(
             Miner::Event::BlockMined, [&](Block block) {
                 spdlog::info("Main: Mined block {}", block.to_json().dump(4));
                 blockchain.add(block);
                 block.to_disk(path);
-                manager.broadcast_message(PeerMessage{PeerMessageType::AddBlock, block.to_json()});
+                manager.broadcast_message(
+                        PeerMessage{
+                                PeerMessageType::AddBlock,
+                                manager.id(),
+                                block.to_json()
+                        }
+                );
             }
     );
 
