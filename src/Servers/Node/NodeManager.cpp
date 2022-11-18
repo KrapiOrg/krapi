@@ -151,7 +151,7 @@ namespace krapi {
             m_block_dispatcher.dispatch(Event::BlockReceived, block);
         } else if (message.type == PeerMessageType::PeerTypeRequest) {
 
-            spdlog::info("LightNodeManager: PeerType Requested");
+            spdlog::info("NodeManager: PeerType Requested");
             auto channel = peer_map.get_channel(id);
             channel->send(
                     PeerMessage{

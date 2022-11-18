@@ -56,7 +56,7 @@ namespace krapi {
             case ResponseType::PeerAvailable: {
 
                 auto peer_id = rsp.content.get<int>();
-                spdlog::info("LightP2PNodeManager: Peer {} is avaliable", peer_id);
+                spdlog::info("NodeManager: Peer {} is available", peer_id);
                 auto pc = create_connection(peer_id);
                 auto offerer_channel = pc->createDataChannel("krapi");
                 offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
@@ -122,13 +122,13 @@ namespace krapi {
                 if (response.type == ResponseType::PeerIdentity)
                     barrier.set_value(response.content.get<int>());
                 else
-                    spdlog::info("LightP2PNodeManager: Expected a PeerIdentity response, got {}", response.to_string());
+                    spdlog::info("NodeManager: Expected a PeerIdentity response, got {}", response.to_string());
             }
         });
         ws.start();
-        spdlog::info("LightP2PNodeManager: Waiting for identity from signaling server...");
+        spdlog::info("NodeManager: Waiting for identity from signaling server...");
         my_id = future.get();
-        spdlog::info("LightP2PNodeManager: Aquired identity {}", my_id);
+        spdlog::info("NodeManager: Acquired identity {}", my_id);
         ws.setOnMessageCallback([this](const ix::WebSocketMessagePtr &message) {
             auto msg = Response::from_json(message->str);
             onWsResponse(msg);
@@ -146,7 +146,7 @@ namespace krapi {
 
         if (message.type == PeerMessageType::PeerTypeRequest) {
 
-            spdlog::info("LightNodeManager: PeerType Requested");
+            spdlog::info("NodeManager: PeerType Requested");
             auto channel = peer_map.get_channel(id);
             channel->send(
                     PeerMessage{
