@@ -91,4 +91,9 @@ namespace krapi {
 
         return m_transactions;
     }
+
+    bool Block::operator==(const Block& other) const {
+
+        return m_header.m_hash == other.m_header.m_hash;
+    }
 } // krapi

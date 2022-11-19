@@ -5,8 +5,8 @@
 #include "Blockchain.h"
 
 namespace krapi {
-    Blockchain::Blockchain(std::list<Block> blocks)
-            : m_blocks(std::move(blocks)) {
+    Blockchain::Blockchain(std::unordered_map<std::string, Block> blocks) : m_blocks(std::move(blocks)) {
+
 
     }
 
@@ -47,23 +47,17 @@ namespace krapi {
             genesis.to_disk(path);
         }
 
-        std::list<Block> blocks;
-
+        std::unordered_map<std::string, Block> blocks;
 
         for (const auto &entry: fs::directory_iterator(path)) {
             if (entry.is_regular_file()) {
                 if (auto block = Block::from_disk(entry.path())) {
-                    blocks.push_back(block.value());
+
+                    blocks.insert({block.value().hash(), block.value()});
                 }
             }
 
         }
-
-        blocks.sort(
-                [](const Block &a, const Block &b) {
-                    return a.header().previous_hash() == b.hash();
-                }
-        );
 
         return Blockchain(blocks);
     }
@@ -71,7 +65,7 @@ namespace krapi {
     void Blockchain::add(Block block) {
 
         std::lock_guard l(m_blocks_mutex);
-        m_blocks.push_back(block);
+        m_blocks.insert({block.hash(), block});
     }
 
     void Blockchain::save_to_disk(const std::filesystem::path &path) {
@@ -89,7 +83,7 @@ namespace krapi {
 
         std::lock_guard l(m_blocks_mutex);
 
-        for (const auto &block: m_blocks) {
+        for (const auto &[hash, block]: m_blocks) {
             block.to_disk(path);
         }
     }
@@ -97,20 +91,69 @@ namespace krapi {
     void Blockchain::dump() {
 
         std::lock_guard l(m_blocks_mutex);
-        for (const auto &block: m_blocks) {
+        for (const auto &[hash, block]: m_blocks) {
 
-            spdlog::info("Blockchain: Block {}", block.to_json().dump(4));
+            spdlog::info("== Block: {}", hash.substr(0, 10));
         }
     }
 
     Block Blockchain::last() {
 
         std::lock_guard l(m_blocks_mutex);
-        return m_blocks.back();
+
+        return std::max_element(
+                m_blocks.begin(), m_blocks.end(),
+                [](const std::pair<std::string, Block> &a, const std::pair<std::string, Block> &b) {
+                    return a.second.header().timestamp() < b.second.header().timestamp();
+                }
+        )->second;
     }
 
     Blockchain::~Blockchain() {
 
         spdlog::error("DROPPED BLOCKCHAIN !!!!");
+    }
+
+    std::list<Block> Blockchain::get_after(std::string hash) {
+
+        std::lock_guard l(m_blocks_mutex);
+        auto blocks = std::list<Block>{};
+        auto blk = m_blocks[hash];
+        for (const auto &[hash, block]: m_blocks) {
+            if (block.header().timestamp() > blk.header().timestamp()) {
+                blocks.push_back(block);
+            }
+        }
+
+        return blocks;
+    }
+
+    bool Blockchain::append_to_end(std::list<Block> blocks) {
+
+        std::lock_guard l(m_blocks_mutex);
+
+        auto last_block = std::max_element(
+                m_blocks.begin(), m_blocks.end(),
+                [](const std::pair<std::string, Block> &a, const std::pair<std::string, Block> &b) {
+                    return a.second.header().timestamp() < b.second.header().timestamp();
+                }
+        )->second;
+
+        auto block_with_last_block_as_prev = std::find_if(
+                blocks.begin(),
+                blocks.end(),
+                [&](const Block &block) {
+                    return block.header().previous_hash() == last_block.hash();
+                }
+        );
+
+        if (block_with_last_block_as_prev == blocks.end())
+            return false;
+
+        for (const auto &block: blocks) {
+            m_blocks.insert({block.hash(), block});
+        }
+
+        return true;
     }
 } // krapi

@@ -21,9 +21,11 @@ namespace krapi {
             BatchAdded,
             BatchRemoved,
             BatchSizeReached,
+            TransactionRejectedPoolClosed
         };
     private:
         std::mutex m_pool_mutex;
+        std::atomic<bool> m_closed;
         std::unordered_set<Transaction> m_pool;
         using TxEventDispatcher = eventpp::EventDispatcher<Event, void(Transaction)>;
         using BatchEventDispatcher = eventpp::EventDispatcher<Event, void(std::unordered_set<Transaction>)>;
@@ -52,6 +54,10 @@ namespace krapi {
         void append_listener(Event event, std::function<void(std::unordered_set<Transaction>)> listener);
 
         int batchsize() const;
+
+        bool is_pool_closed() const;
+        void open_pool();
+        void close_pool();
     };
 
 } // krapi

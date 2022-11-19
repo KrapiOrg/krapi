@@ -40,14 +40,25 @@ int main() {
 
     wallet.append_listener(
             Wallet::Event::TransactionStatusChanged,
-            [](Transaction transaction, TransactionStatus before, TransactionStatus after) {
+            [&node_manager](Transaction transaction, TransactionStatus before, TransactionStatus after) {
 
                 spdlog::info(
-                        "Transaction {} status changed from {} to {}",
+                        "Main: Transaction {} status changed from {} to {}",
                         transaction.hash().substr(0, 6),
                         to_string(before),
                         to_string(after)
                 );
+                if (after == TransactionStatus::Rejected) {
+                    spdlog::info("Main: Rebroadcasting rejected transaction {}", transaction.hash().substr(0, 6));
+                    transaction.set_status(TransactionStatus::Pending);
+                    node_manager.broadcast_message(
+                            PeerMessage{
+                                    PeerMessageType::AddTransaction,
+                                    node_manager.id(),
+                                    transaction.to_json()
+                            }
+                    );
+                }
             }
     );
 

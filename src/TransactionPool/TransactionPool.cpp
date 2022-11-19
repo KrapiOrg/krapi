@@ -16,11 +16,18 @@ namespace krapi {
         }
     }
 
-    TransactionPool::TransactionPool(int batchsize) : m_batchsize(batchsize) {
+    TransactionPool::TransactionPool(int batchsize) :
+            m_batchsize(batchsize),
+            m_closed(false) {
 
     }
 
     bool TransactionPool::add(const Transaction &transaction) {
+
+        if (m_closed) {
+            m_tx_events.dispatch(Event::TransactionRejectedPoolClosed, transaction);
+            return false;
+        }
 
         bool added{false};
 
@@ -100,5 +107,26 @@ namespace krapi {
     int TransactionPool::batchsize() const {
 
         return m_batchsize;
+    }
+
+    bool TransactionPool::is_pool_closed() const {
+
+        return m_closed;
+    }
+
+    void TransactionPool::open_pool() {
+
+        m_closed = false;
+    }
+
+    void TransactionPool::close_pool() {
+
+        m_closed = true;
+        std::lock_guard l(m_pool_mutex);
+        for (const auto &transaction: m_pool) {
+
+            m_tx_events.dispatch(Event::TransactionRejectedPoolClosed, transaction);
+        }
+        m_pool.clear();
     }
 } // krapi

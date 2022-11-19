@@ -6,6 +6,7 @@
 #include "Miner.h"
 #include "TransactionPool.h"
 #include "Content/SetTransactionStatusContent.h"
+#include "Content/SyncBlockchainResponseContent.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;
@@ -21,10 +22,32 @@ int main(int argc, char *argv[]) {
     }
 
     auto blockchain = Blockchain::from_disk(path);
-    auto miner = Miner(blockchain.last());
-    auto transaction_pool = TransactionPool(10);
+    auto miner = Miner();
+    miner.set_latest_hash(blockchain.last().hash());
+    auto transaction_pool = TransactionPool(15);
 
     NodeManager manager;
+
+    transaction_pool.append_listener(
+            TransactionPool::Event::TransactionRejectedPoolClosed,
+            [&manager](Transaction transaction) {
+                spdlog::warn(
+                        "Main: Transaction pool is closed, transaction {} has been rejected",
+                        transaction.hash().substr(0, 6)
+                );
+                manager.send_message(
+                        transaction.from(),
+                        PeerMessage{
+                                PeerMessageType::SetTransactionStatus,
+                                manager.id(),
+                                SetTransactionStatusContent{
+                                        TransactionStatus::Rejected,
+                                        transaction.hash()
+                                }.to_json()
+                        }
+                );
+            }
+    );
 
     manager.append_listener(
             PeerMessageType::AddTransaction,
@@ -38,12 +61,99 @@ int main(int argc, char *argv[]) {
 
     manager.append_listener(
             PeerMessageType::AddBlock,
-            [path, &blockchain](PeerMessage message) {
-                auto block = Block::from_json(message.content);
+            [&, path](PeerMessage message) {
+                auto received_block = Block::from_json(message.content);
 
-                spdlog::info("Main: Received Block {}", block.to_json().dump(4));
-                blockchain.add(block);
-                block.to_disk(path);
+                spdlog::info("Main: AddBlock, {}", received_block.to_json().dump(4));
+
+                spdlog::info("Main: AddBlock, Closing pool");
+                transaction_pool.close_pool();
+                spdlog::info("Main: AddBlock, Cancelling mining jobs");
+                miner.cancel_all();
+
+                auto current_last_hash = blockchain.last().hash();
+
+                if (current_last_hash != received_block.header().previous_hash()) {
+                    spdlog::warn(
+                            "Main: AddBlock, requesting blockchain sync"
+                    );
+                    manager.broadcast_message(
+                            PeerMessage{
+                                    PeerMessageType::SyncBlockchainRequest,
+                                    manager.id(),
+                                    current_last_hash
+                            }
+                    );
+                } else {
+
+                    miner.set_latest_hash(received_block.hash());
+                    blockchain.add(received_block);
+                    received_block.to_disk(path);
+                    transaction_pool.open_pool();
+                }
+            }
+    );
+
+    manager.append_listener(
+            PeerMessageType::SyncBlockchainRequest,
+            [&blockchain, &manager](PeerMessage message) {
+
+                spdlog::info("Main: SyncBlockchainRequest from {}", message.peer_id);
+
+                auto block_hash = message.content.get<std::string>();
+                auto blocks = blockchain.get_after(block_hash);
+                spdlog::info(
+                        "Main: SyncBlockchainRequest, Responding with {} blocks after {}",
+                        blocks.size(),
+                        block_hash.substr(0, 10)
+                );
+                for (const auto &blk: blocks) {
+                    spdlog::info("Main: SyncBlockchainRequest, {}", blk.hash());
+                }
+
+                manager.send_message(
+                        message.peer_id,
+                        PeerMessage{
+                                PeerMessageType::SyncBlockchainResponse,
+                                manager.id(),
+                                SyncBlockchainResponseContent{
+                                        std::move(blocks)
+                                }.to_json()
+                        }
+                );
+            }
+    );
+
+    manager.append_listener(
+            PeerMessageType::SyncBlockchainResponse,
+            [&, path](PeerMessage message) {
+                auto content = SyncBlockchainResponseContent::from_json(message.content);
+                spdlog::warn("Main: SyncBlockchainResponse, closing pool");
+                transaction_pool.close_pool();
+                spdlog::warn("Main: SyncBlockchainResponse, cancelling all jobs in the miner");
+                miner.cancel_all();
+                if (!blockchain.append_to_end(content.blocks())) {
+
+                    spdlog::warn("Main: SyncBlockchainResponse, Failed to append...");
+
+                    for (const auto &block: content.blocks()) {
+
+                        spdlog::warn("Main: SyncBlockchainResponse, Block {}", block.hash().substr(0, 10));
+                    }
+                    spdlog::warn("Main: Blockchain State");
+                    blockchain.dump();
+                } else {
+                    spdlog::info("Main: SyncBlockchainResponse, State after appending");
+                    blockchain.dump();
+
+                    for (const auto &block: content.blocks())
+                        block.to_disk(path);
+                    auto last_hash = blockchain.last().hash();
+                    spdlog::info("Main: SyncBlockchainResponse, Setting miners hash to: {}", last_hash);
+                    miner.set_latest_hash(last_hash);
+                    spdlog::info("Main: SyncBlockchainResponse, Opening Transaction Pool");
+                    transaction_pool.open_pool();
+                }
             }
     );
 
@@ -78,6 +188,26 @@ int main(int argc, char *argv[]) {
                                     PeerMessageType::AddTransaction,
                                     manager.id(),
                                     transaction.to_json()
+                            }
+                    );
+                }
+            }
+    );
+
+    miner.append_listener(
+            Miner::BatchEvent::BatchCancelled,
+            [&](std::unordered_set<Transaction> cancelled_transactions) {
+                spdlog::warn("Main: A batch is being cancelled");
+                for (const auto &cancelled_transaction: cancelled_transactions) {
+                    manager.send_message(
+                            cancelled_transaction.from(),
+                            PeerMessage{
+                                    PeerMessageType::SetTransactionStatus,
+                                    manager.id(),
+                                    SetTransactionStatusContent{
+                                            TransactionStatus::Rejected,
+                                            cancelled_transaction.hash()
+                                    }.to_json()
                             }
                     );
                 }

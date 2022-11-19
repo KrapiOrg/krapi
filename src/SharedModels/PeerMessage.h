@@ -14,7 +14,9 @@ namespace krapi {
         AddTransaction,
         RemoveTransactions,
         AddBlock,
-        SetTransactionStatus
+        SetTransactionStatus,
+        SyncBlockchainRequest,
+        SyncBlockchainResponse
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -24,6 +26,8 @@ namespace krapi {
         { PeerMessageType::RemoveTransactions, "remove_transactions" },
         { PeerMessageType::AddBlock, "add_block" },
         { PeerMessageType::SetTransactionStatus, "set_transaction_status" },
+        { PeerMessageType::SyncBlockchainRequest, "sync_blockchain_request" },
+        { PeerMessageType::SyncBlockchainResponse, "sync_blockchain_response" },
     })
 
     struct PeerMessage {
@@ -36,9 +40,9 @@ namespace krapi {
         nlohmann::json to_json() const {
 
             return {
-                    {"type", type},
-                    {"peer_id", peer_id},
-                    {"content", content},
+                    {"type",        type},
+                    {"peer_id",     peer_id},
+                    {"content",     content},
                     {"ignore_list", ignore_list}
             };
         }

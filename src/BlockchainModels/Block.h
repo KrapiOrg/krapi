@@ -45,6 +45,8 @@ namespace krapi {
         [[nodiscard]]
         std::unordered_set<Transaction> transactions() const;
 
+        bool operator==(const Block &) const;
+
     private:
         BlockHeader m_header;
         std::unordered_set<Transaction> m_transactions;
@@ -58,14 +60,14 @@ namespace std {
             auto byte_hash = block.hash_bytes();
 
             size_t x = 0;
-            x |= static_cast<unsigned long>(byte_hash[0]) << 0;
-            x |= static_cast<unsigned long>(byte_hash[1]) << 8;
-            x |= static_cast<unsigned long>(byte_hash[2]) << 16;
-            x |= static_cast<unsigned long>(byte_hash[3]) << 24;
-            x |= static_cast<unsigned long>(byte_hash[4]) << 32;
-            x |= static_cast<unsigned long>(byte_hash[5]) << 40;
-            x |= static_cast<unsigned long>(byte_hash[6]) << 48;
-            x |= static_cast<unsigned long>(byte_hash[7]) << 56;
+            x |= static_cast<unsigned long>(byte_hash[10]) << 0;
+            x |= static_cast<unsigned long>(byte_hash[11]) << 8;
+            x |= static_cast<unsigned long>(byte_hash[12]) << 16;
+            x |= static_cast<unsigned long>(byte_hash[13]) << 24;
+            x |= static_cast<unsigned long>(byte_hash[14]) << 32;
+            x |= static_cast<unsigned long>(byte_hash[15]) << 40;
+            x |= static_cast<unsigned long>(byte_hash[16]) << 48;
+            x |= static_cast<unsigned long>(byte_hash[17]) << 56;
 
             return x;
         }

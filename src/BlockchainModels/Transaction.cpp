@@ -88,10 +88,11 @@ namespace krapi {
 
     bool Transaction::set_status(TransactionStatus status) const {
 
-        if (m_status != TransactionStatus::Verified) {
-            m_status = status;
-            return true;
+        if (m_status == TransactionStatus::Verified) {
+            return false;
         }
-        return false;
+
+        m_status = status;
+        return true;
     }
 }
