@@ -117,6 +117,11 @@ namespace krapi {
     std::list<Block> Blockchain::get_after(std::string hash) {
 
         std::lock_guard l(m_blocks_mutex);
+
+        if (!m_blocks.contains(hash)) {
+            spdlog::info("Blockchain: GetAfter, {} is not found");
+            return {};
+        }
         auto blocks = std::list<Block>{};
         auto blk = m_blocks[hash];
         for (const auto &[hash, block]: m_blocks) {
@@ -124,6 +129,11 @@ namespace krapi {
                 blocks.push_back(block);
             }
         }
+        spdlog::info("Blockchain: Blocks after {} are...", hash.substr(0, 10));
+        for (const auto &blk: blocks) {
+            spdlog::info("Blockchain: {}", blk.hash().substr(0, 10));
+        }
+
 
         return blocks;
     }

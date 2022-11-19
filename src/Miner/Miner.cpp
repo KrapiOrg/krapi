@@ -55,8 +55,8 @@ namespace krapi {
                     new HashFilter(Miner::sha_256, new HexEncoder(new StringSink(block_hash)))
             );
 
-            spdlog::info("Miner: Produced Hash: {}", block_hash);
             if (block_hash.starts_with("0000")) {
+                spdlog::info("Miner: Mined and Produced Hash: {}", block_hash);
 
                 for (auto &transaction: batch)
                     transaction.set_status(TransactionStatus::Verified);

@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     auto blockchain = Blockchain::from_disk(path);
     auto miner = Miner();
     miner.set_latest_hash(blockchain.last().hash());
-    auto transaction_pool = TransactionPool(15);
+    auto transaction_pool = TransactionPool(5);
 
     NodeManager manager;
 
@@ -85,7 +85,10 @@ int main(int argc, char *argv[]) {
                             }
                     );
                 } else {
-
+                    spdlog::warn(
+                            "Main: AddBlock, setting miner latest to {}",
+                            received_block.hash().substr(0, 10)
+                    );
                     miner.set_latest_hash(received_block.hash());
                     blockchain.add(received_block);
                     received_block.to_disk(path);
@@ -98,10 +101,11 @@ int main(int argc, char *argv[]) {
             PeerMessageType::SyncBlockchainRequest,
             [&blockchain, &manager](PeerMessage message) {
 
-                spdlog::info("Main: SyncBlockchainRequest from {}", message.peer_id);
-
                 auto block_hash = message.content.get<std::string>();
+                spdlog::info("Main: SyncBlockchainRequest from {}, with {}", message.peer_id, block_hash);
+
                 auto blocks = blockchain.get_after(block_hash);
+
                 spdlog::info(
                         "Main: SyncBlockchainRequest, Responding with {} blocks after {}",
                         blocks.size(),
@@ -132,7 +136,10 @@ int main(int argc, char *argv[]) {
                 transaction_pool.close_pool();
                 spdlog::warn("Main: SyncBlockchainResponse, cancelling all jobs in the miner");
                 miner.cancel_all();
-                if (!blockchain.append_to_end(content.blocks())) {
+
+                if (content.blocks().empty()) {
+                    transaction_pool.open_pool();
+                } else if (!blockchain.append_to_end(content.blocks())) {
 
                     spdlog::warn("Main: SyncBlockchainResponse, Failed to append...");
 
@@ -168,7 +175,8 @@ int main(int argc, char *argv[]) {
     miner.append_listener(
             Miner::Event::BlockMined,
             [&](Block block) {
-
+                spdlog::info("Main: BlockMined, Settings latest hash");
+                miner.set_latest_hash(block.hash());
                 for (const auto &transaction: block.transactions()) {
 
                     manager.send_message(
