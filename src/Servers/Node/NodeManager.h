@@ -23,17 +23,12 @@
 namespace krapi {
 
     class NodeManager {
-    public:
-        enum class Event {
-            TransactionReceived,
-            BlockReceived,
-        };
-    private:
-        using TxEventDispatcher = eventpp::EventDispatcher<Event, void(Transaction)>;
-        using BlockEventDispatcher = eventpp::EventDispatcher<Event, void(Block)>;
 
-        TxEventDispatcher m_tx_dispatcher;
-        BlockEventDispatcher m_block_dispatcher;
+    private:
+
+        using PeerMessageEventDispatcher = eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)>;
+
+        PeerMessageEventDispatcher m_dispatcher;
 
         PeerMap peer_map;
         std::mutex blocking_mutex;
@@ -62,9 +57,7 @@ namespace krapi {
 
         void send_message(int, PeerMessage);
 
-        void append_listener(Event event, std::function<void(Block)> listener);
-
-        void append_listener(Event event, std::function<void(Transaction)> listener);
+        void append_listener(PeerMessageType, std::function<void(PeerMessage)> listener);
 
         void append_listener(PeerMap::Event event, std::function<void(int)> listener);
 

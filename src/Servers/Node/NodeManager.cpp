@@ -142,14 +142,7 @@ namespace krapi {
 
     void NodeManager::onRemoteMessage(int id, const PeerMessage &message) {
 
-        if (message.type == PeerMessageType::AddTransaction) {
-            auto transaction = Transaction::from_json(message.content);
-            spdlog::info("NodeManager: Transaction from {}", id);
-            m_tx_dispatcher.dispatch(Event::TransactionReceived, transaction);
-        } else if (message.type == PeerMessageType::AddBlock) {
-            auto block = Block::from_json(message.content);
-            m_block_dispatcher.dispatch(Event::BlockReceived, block);
-        } else if (message.type == PeerMessageType::PeerTypeRequest) {
+        if (message.type == PeerMessageType::PeerTypeRequest) {
 
             spdlog::info("NodeManager: PeerType Requested");
             auto channel = peer_map.get_channel(id);
@@ -165,6 +158,9 @@ namespace krapi {
 
             spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
             peer_map.set_peer_type(id, peer_type);
+        } else {
+
+            m_dispatcher.dispatch(message.type, message);
         }
     }
 
@@ -173,14 +169,9 @@ namespace krapi {
         peer_map.broadcast(message);
     }
 
-    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Block)> listener) {
+    void NodeManager::append_listener(PeerMessageType type, std::function<void(PeerMessage)> listener) {
 
-        m_block_dispatcher.appendListener(event, listener);
-    }
-
-    void NodeManager::append_listener(NodeManager::Event event, std::function<void(Transaction)> listener) {
-
-        m_tx_dispatcher.appendListener(event, listener);
+        m_dispatcher.appendListener(type, listener);
     }
 
     void NodeManager::append_listener(PeerMap::Event event, std::function<void(int)> listener) {

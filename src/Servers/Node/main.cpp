@@ -27,16 +27,20 @@ int main(int argc, char *argv[]) {
     NodeManager manager;
 
     manager.append_listener(
-            NodeManager::Event::TransactionReceived,
-            [&transaction_pool](Transaction transaction) {
+            PeerMessageType::AddTransaction,
+            [&transaction_pool](PeerMessage message) {
+                auto transaction = Transaction::from_json(message.content);
+
                 spdlog::info("Main: Received Transaction {}", transaction.to_json().dump(4));
                 transaction_pool.add(transaction);
             }
     );
 
     manager.append_listener(
-            NodeManager::Event::BlockReceived,
-            [path, &blockchain](Block block) {
+            PeerMessageType::AddBlock,
+            [path, &blockchain](PeerMessage message) {
+                auto block = Block::from_json(message.content);
+
                 spdlog::info("Main: Received Block {}", block.to_json().dump(4));
                 blockchain.add(block);
                 block.to_disk(path);
@@ -71,9 +75,9 @@ int main(int argc, char *argv[]) {
                     manager.send_message(
                             transaction.to(),
                             PeerMessage{
-                                PeerMessageType::AddTransaction,
-                                manager.id(),
-                                transaction.to_json()
+                                    PeerMessageType::AddTransaction,
+                                    manager.id(),
+                                    transaction.to_json()
                             }
                     );
                 }
