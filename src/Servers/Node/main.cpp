@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 int main(int argc, char *argv[]) {
 
-    constexpr int BATCH_SZE = 5;
+    constexpr int BATCH_SZE = 20;
     std::string path;
 
     if (argc == 2) {
