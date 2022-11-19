@@ -71,7 +71,7 @@ int main() {
                 [&]() {
 
                     while (true) {
-
+                        std::this_thread::sleep_for(1s);
                         auto random_receiver = node_manager.get_random_light_node();
 
                         if (!random_receiver.has_value()) {
