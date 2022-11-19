@@ -114,54 +114,6 @@ namespace krapi {
         spdlog::error("DROPPED BLOCKCHAIN !!!!");
     }
 
-    std::list<Block> Blockchain::get_after(std::string hash) {
-
-        std::lock_guard l(m_blocks_mutex);
-
-        if (!m_blocks.contains(hash)) {
-            spdlog::info("Blockchain: {} is not found", hash.substr(0, 10));
-            return {};
-        }
-        auto blocks = std::list<Block>{};
-        auto block_to_look_for_blocks_after = m_blocks[hash];
-
-        for (const auto &[hash, block]: m_blocks) {
-            if (block.header().timestamp() > block_to_look_for_blocks_after.header().timestamp()) {
-                blocks.push_back(block);
-            }
-        }
-        return blocks;
-    }
-
-    bool Blockchain::append_to_end(std::list<Block> blocks) {
-
-        std::lock_guard l(m_blocks_mutex);
-
-        auto last_block = std::max_element(
-                m_blocks.begin(), m_blocks.end(),
-                [](const std::pair<std::string, Block> &a, const std::pair<std::string, Block> &b) {
-                    return a.second.header().timestamp() < b.second.header().timestamp();
-                }
-        )->second;
-
-        auto block_with_last_block_as_prev = std::find_if(
-                blocks.begin(),
-                blocks.end(),
-                [&](const Block &block) {
-                    return block.header().previous_hash() == last_block.hash();
-                }
-        );
-
-        if (block_with_last_block_as_prev == blocks.end())
-            return false;
-
-        for (const auto &block: blocks) {
-            m_blocks.insert({block.hash(), block});
-        }
-
-        return true;
-    }
-
     bool Blockchain::contains(std::string hash) {
 
         std::lock_guard l(m_blocks_mutex);

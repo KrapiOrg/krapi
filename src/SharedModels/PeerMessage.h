@@ -13,13 +13,8 @@ namespace krapi {
         PeerTypeResponse,
         AddTransaction,
         RemoveTransactions,
-        AddBlock,
-        BlockMinedNotification,
         SetTransactionStatus,
         SyncBlockchain,
-        SyncBlockchainResponse,
-        StopOperationsBecauseNodeMinedBlock,
-        ResumeOperations,
         RequestBlocks,
         BlocksResponse
     };
@@ -29,12 +24,8 @@ namespace krapi {
         { PeerMessageType::PeerTypeResponse, "peer_type_response" },
         { PeerMessageType::AddTransaction, "add_transaction" },
         { PeerMessageType::RemoveTransactions, "remove_transactions" },
-        { PeerMessageType::AddBlock, "add_block" },
         { PeerMessageType::SetTransactionStatus, "set_transaction_status" },
         { PeerMessageType::SyncBlockchain, "sync_blockchain_request" },
-        { PeerMessageType::SyncBlockchainResponse, "sync_blockchain_response" },
-        { PeerMessageType::StopOperationsBecauseNodeMinedBlock, "stop_mining_because_node_mined_block" },
-        { PeerMessageType::ResumeOperations, "resume_operations" },
         { PeerMessageType::RequestBlocks, "request_blocks" },
         { PeerMessageType::BlocksResponse, "blocks_response" }
     })

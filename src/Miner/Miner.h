@@ -19,18 +19,12 @@ namespace krapi {
         enum class Event {
             BlockMined
         };
-        enum class BatchEvent {
-            BatchSubmitted,
-            BatchCancelled
-        };
     private:
         using OnBlockMinedCallback = void(Block);
-        using OnBatchEventCallback = void(std::unordered_set<Transaction>);
+
         using BlockEventsDispatcher = eventpp::EventDispatcher<Event, OnBlockMinedCallback>;
-        using BatchEventDispatcher = eventpp::EventDispatcher<BatchEvent, OnBatchEventCallback>;
 
         BlockEventsDispatcher m_dispatcher;
-        BatchEventDispatcher m_batch_dispatcher;
 
         static inline CryptoPP::SHA256 sha_256;
 
@@ -44,8 +38,6 @@ namespace krapi {
 
         std::mutex m_mutex;
         std::vector<std::future<void>> m_futures;
-        std::vector<std::unordered_set<Transaction>> m_batches;
-        std::vector<std::unordered_set<Transaction>> m_to_skip;
 
         std::string m_latest_hash;
         std::atomic<bool> m_stopped;
@@ -55,19 +47,9 @@ namespace krapi {
 
         void mine(std::unordered_set<Transaction>);
 
-        void stop();
-
-        void resume();
-
-        bool is_stopped();
-
         void set_latest_hash(std::string);
 
         void append_listener(Event, const std::function<OnBlockMinedCallback> &callback);
-
-        void append_listener(BatchEvent, const std::function<OnBatchEventCallback> &callback);
-
-        void skip_when_cancelling(const std::unordered_set<Transaction> &batch);
     };
 
 } // krapi

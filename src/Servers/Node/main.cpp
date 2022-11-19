@@ -5,8 +5,8 @@
 #include "Blockchain/Blockchain.h"
 #include "Miner.h"
 #include "TransactionPool.h"
-#include "Content/SetTransactionStatusContent.h"
 #include "Content/BlocksResponseContent.h"
+#include "Content/SetTransactionStatusContent.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;

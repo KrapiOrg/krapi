@@ -25,8 +25,6 @@ namespace krapi {
 
         void save_to_disk(const std::filesystem::path &path);
 
-        std::list<Block> get_after(std::string hash);
-
         void dump();
 
         Block last();
@@ -35,10 +33,9 @@ namespace krapi {
 
         std::vector<std::string> get_hashes();
 
-        ~Blockchain();
-
-        bool append_to_end(std::list<Block> blocks);
         bool contains(std::string hash);
+
+        ~Blockchain();
     };
 
 } // krapi

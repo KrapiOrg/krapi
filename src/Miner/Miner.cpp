@@ -87,24 +87,7 @@ namespace krapi {
                 m_futures.emplace_back(
                         std::async(std::launch::async, std::bind_front(&Miner::async_mine, this, batch))
                 );
-                m_batches.push_back(batch);
             }
-            m_batch_dispatcher.dispatch(BatchEvent::BatchSubmitted, batch);
-        }
-    }
-
-    void Miner::stop() {
-
-        m_stopped = true;
-        {
-            std::lock_guard l(m_mutex);
-            for (int i = 0; auto &f: m_futures) {
-                f.get();
-                if(std::find(m_to_skip.begin(),m_to_skip.end(),m_batches[i]) == m_to_skip.end())
-                    m_batch_dispatcher.dispatch(BatchEvent::BatchCancelled, m_batches[i++]);
-            }
-            m_futures.clear();
-            m_batches.clear();
         }
     }
 
@@ -119,11 +102,6 @@ namespace krapi {
         m_dispatcher.appendListener(event, callback);
     }
 
-    void Miner::append_listener(BatchEvent event, const std::function<OnBatchEventCallback> &callback) {
-
-        m_batch_dispatcher.appendListener(event, callback);
-    }
-
     void Miner::krapi_hash_function(
             const merkle::HashT<32> &l,
             const merkle::HashT<32> &r,
@@ -134,22 +112,4 @@ namespace krapi {
         Miner::sha_256.Update(r.bytes, 32);
         Miner::sha_256.Final(out.bytes);
     }
-
-    void Miner::resume() {
-
-        m_stopped = false;
-    }
-
-    bool Miner::is_stopped() {
-
-        return m_stopped;
-    }
-
-    void Miner::skip_when_cancelling(const std::unordered_set<Transaction> &batch) {
-        std::lock_guard l(m_mutex);
-        m_to_skip.push_back(batch);
-        spdlog::info("ADDED TO SKIP");
-    }
-
-
 } // krapi
