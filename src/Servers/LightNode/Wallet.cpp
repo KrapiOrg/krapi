@@ -33,25 +33,10 @@ namespace krapi {
                     );
                     m_confirmations[hash]++;
                     spdlog::info(
-                            "Wallet: Set status of {} to {}",
+                            "Wallet: Transaction {} has {} confirmations",
                             transaction.hash().substr(0, 6),
-                            to_string(status)
+                            m_confirmations[hash]
                     );
-                } else {
-
-                    spdlog::warn(
-                            "Wallet: Did not to set status of {} to {}",
-                            transaction.hash().substr(0, 6),
-                            to_string(status)
-                    );
-                    if (status == TransactionStatus::Verified) {
-                        m_confirmations[hash]++;
-                        spdlog::info(
-                                "Wallet: Transaction {} has {} confirmations",
-                                transaction.hash().substr(0, 6),
-                                m_confirmations[hash]
-                        );
-                    }
                 }
             }
         }
@@ -60,9 +45,8 @@ namespace krapi {
     Transaction Wallet::create_transaction(int my_id, int receiver_id) {
 
         auto timestamp = (uint64_t) duration_cast<microseconds>(
-                system_clock::now().time_since_epoch()).count();
-
-        spdlog::info("Wallet: timestamping with {}", timestamp);
+                system_clock::now().time_since_epoch()
+        ).count();
 
         std::string tx_hash;
         StringSource s(
@@ -96,13 +80,9 @@ namespace krapi {
         m_transaction_status_change_dispatcher.appendListener(event, callback);
     }
 
-    void Wallet::add_transaction(Transaction transaction) {
+    bool Wallet::add_transaction(Transaction transaction) {
 
         std::lock_guard l(m_mutex);
-        auto res = m_transactions.emplace(transaction.hash(), transaction);
-
-        if (!res.second) {
-            spdlog::warn("Wallet: Did not add transaction {}", transaction.to_json().dump(4));
-        }
+        return m_transactions.emplace(transaction.hash(), transaction).second;
     }
 } // krapi

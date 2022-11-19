@@ -7,12 +7,16 @@
 namespace krapi {
     void TransactionPool::dispatch_if_batchsize_reached() {
 
-        std::lock_guard l(m_pool_mutex);
-        if (m_pool.size() == m_batchsize) {
 
-            m_batch_events.dispatch(Event::BatchSizeReached, m_pool);
-            m_pool.clear();
-            m_batch_events.dispatch(Event::PoolCleared, m_pool);
+        auto pool = std::unordered_set<Transaction>{};
+        {
+            std::lock_guard l(m_pool_mutex);
+            pool = m_pool;
+        }
+
+        if (pool.size() >= m_batchsize) {
+
+            m_batch_events.dispatch(Event::BatchSizeReached, pool);
         }
     }
 
@@ -24,11 +28,6 @@ namespace krapi {
 
     bool TransactionPool::add(const Transaction &transaction) {
 
-        if (m_closed) {
-            m_tx_events.dispatch(Event::TransactionRejectedPoolClosed, transaction);
-            return false;
-        }
-
         bool added{false};
 
         {
@@ -37,60 +36,28 @@ namespace krapi {
         }
 
         if (added) {
+
             m_tx_events.dispatch(Event::TransactionAdded, transaction);
             dispatch_if_batchsize_reached();
         }
         return added;
     }
 
-    bool TransactionPool::add(const std::unordered_set<Transaction> &transactions) {
+    void TransactionPool::restore(const Transaction &transaction) {
 
-        {
-            std::lock_guard l(m_pool_mutex);
-            for (const auto &transaction: transactions) {
-                if (m_pool.contains(transaction))
-                    return false;
-            }
 
-            for (const auto &transaction: transactions) {
-                m_pool.insert(transaction);
-            }
-        }
-        m_batch_events.dispatch(Event::BatchAdded, transactions);
-        dispatch_if_batchsize_reached();
-        return true;
+        std::lock_guard l(m_pool_mutex);
+        m_pool.insert(transaction);
     }
 
-    bool TransactionPool::remove(const Transaction &transaction) {
+    void TransactionPool::restore(const std::unordered_set<Transaction> &transactions) {
 
-        bool removed{false};
-        {
-            std::lock_guard l(m_pool_mutex);
-            removed = m_pool.erase(transaction) == 1;
+
+        std::lock_guard l(m_pool_mutex);
+
+        for (const auto &transaction: transactions) {
+            m_pool.insert(transaction);
         }
-        if (removed) {
-            m_tx_events.dispatch(Event::TransactionRemoved, transaction);
-        }
-        return removed;
-    }
-
-    bool TransactionPool::remove(const std::unordered_set<Transaction> &transactions) {
-
-        {
-            std::lock_guard l(m_pool_mutex);
-            for (const auto &transaction: transactions) {
-                if (m_pool.contains(transaction))
-                    return false;
-            }
-
-            for (const auto &transaction: transactions) {
-                m_pool.erase(transaction);
-            }
-        }
-
-        m_batch_events.dispatch(Event::BatchRemoved, transactions);
-
-        return true;
     }
 
     void TransactionPool::append_listener(TransactionPool::Event event, std::function<void(Transaction)> listener) {
@@ -117,16 +84,25 @@ namespace krapi {
     void TransactionPool::open_pool() {
 
         m_closed = false;
+        dispatch_if_batchsize_reached();
     }
 
     void TransactionPool::close_pool() {
 
         m_closed = true;
-        std::lock_guard l(m_pool_mutex);
-        for (const auto &transaction: m_pool) {
+    }
 
-            m_tx_events.dispatch(Event::TransactionRejectedPoolClosed, transaction);
-        }
+    void TransactionPool::clear_pool() {
+
+        std::lock_guard l(m_pool_mutex);
         m_pool.clear();
+    }
+
+    void TransactionPool::remove(const std::unordered_set<Transaction> &transactions) {
+
+        std::lock_guard l(m_pool_mutex);
+        for (const auto &transaction: transactions) {
+            m_pool.erase(transaction);
+        }
     }
 } // krapi

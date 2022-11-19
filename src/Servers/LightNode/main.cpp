@@ -15,8 +15,6 @@ int main() {
     LightNodeManager node_manager;
     Wallet wallet;
 
-    int message_count = 0;
-
 
     node_manager.append_listener(
             PeerMessageType::SetTransactionStatus,
@@ -33,8 +31,9 @@ int main() {
 
                 auto transaction = Transaction::from_json(message.content);
 
-                spdlog::info("Main: Received transaction {}", transaction.to_json().dump(4));
-                wallet.add_transaction(transaction);
+                if (wallet.add_transaction(transaction)) {
+                    spdlog::info("Main: Added {} to wallet", transaction.hash().substr(0, 10));
+                }
             }
     );
 
@@ -43,13 +42,13 @@ int main() {
             [&node_manager](Transaction transaction, TransactionStatus before, TransactionStatus after) {
 
                 spdlog::info(
-                        "Main: Transaction {} status changed from {} to {}",
-                        transaction.hash().substr(0, 6),
+                        "Main: {} status changed from {} to {}",
+                        transaction.hash().substr(0, 10),
                         to_string(before),
                         to_string(after)
                 );
                 if (after == TransactionStatus::Rejected) {
-                    spdlog::info("Main: Rebroadcasting rejected transaction {}", transaction.hash().substr(0, 6));
+                    spdlog::info("Main: Rebroadcasting {}", transaction.hash().substr(0, 10));
                     transaction.set_status(TransactionStatus::Pending);
                     node_manager.broadcast_message(
                             PeerMessage{
@@ -72,27 +71,28 @@ int main() {
                 [&]() {
 
                     while (true) {
-                        std::this_thread::sleep_for(5s);
+                        std::cin.get();
                         auto random_receiver = node_manager.get_random_light_node();
 
                         if (!random_receiver.has_value()) {
                             spdlog::warn("There are no peers to send transactions to.");
                             continue;
                         }
-
-                        spdlog::info("Main: Sending TX#{} to {}", message_count, random_receiver.value());
+                        auto tx = wallet.create_transaction(
+                                node_manager.id(),
+                                random_receiver.value()
+                        );
+                        spdlog::info(
+                                "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_receiver.value()
+                        );
 
                         node_manager.broadcast_message(
                                 PeerMessage{
                                         PeerMessageType::AddTransaction,
                                         node_manager.id(),
-                                        wallet.create_transaction(
-                                                node_manager.id(),
-                                                random_receiver.value()
-                                        ).to_json()
+                                        tx.to_json()
                                 }
                         );
-                        message_count++;
                     }
 
                 }

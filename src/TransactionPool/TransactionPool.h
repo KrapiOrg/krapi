@@ -20,8 +20,7 @@ namespace krapi {
             PoolCleared,
             BatchAdded,
             BatchRemoved,
-            BatchSizeReached,
-            TransactionRejectedPoolClosed
+            BatchSizeReached
         };
     private:
         std::mutex m_pool_mutex;
@@ -43,11 +42,11 @@ namespace krapi {
 
         bool add(const Transaction &transaction);
 
-        bool add(const std::unordered_set<Transaction> &transactions);
+        void restore(const Transaction &transaction);
 
-        bool remove(const Transaction &transaction);
+        void restore(const std::unordered_set<Transaction> &transactions);
 
-        bool remove(const std::unordered_set<Transaction> &transactions);
+        void remove(const std::unordered_set<Transaction> &transactions);
 
         void append_listener(Event event, std::function<void(Transaction)> listener);
 
@@ -56,8 +55,12 @@ namespace krapi {
         int batchsize() const;
 
         bool is_pool_closed() const;
+
         void open_pool();
+
         void close_pool();
+
+        void clear_pool();
     };
 
 } // krapi

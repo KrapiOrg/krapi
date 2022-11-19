@@ -31,9 +31,14 @@ namespace krapi {
 
         Block last();
 
+        Block get_block(std::string);
+
+        std::vector<std::string> get_hashes();
+
         ~Blockchain();
 
         bool append_to_end(std::list<Block> blocks);
+        bool contains(std::string hash);
     };
 
 } // krapi

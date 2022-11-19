@@ -9,11 +9,11 @@
 #include "Block.h"
 
 namespace krapi {
-    struct SyncBlockchainResponseContent {
+    struct BlocksResponseContent {
         std::list<Block> m_blocks;
     public:
 
-        explicit SyncBlockchainResponseContent(
+        explicit BlocksResponseContent(
                 std::list<Block> blocks
         ) :
                 m_blocks(std::move(blocks)) {
@@ -26,7 +26,7 @@ namespace krapi {
             return m_blocks;
         }
 
-        static SyncBlockchainResponseContent from_json(nlohmann::json json) {
+        static BlocksResponseContent from_json(nlohmann::json json) {
 
             auto blocks = std::list<Block>{};
 
@@ -34,7 +34,7 @@ namespace krapi {
                 blocks.push_back(Block::from_json(json_block));
             }
 
-            return SyncBlockchainResponseContent{std::move(blocks)};
+            return BlocksResponseContent{std::move(blocks)};
         }
 
         [[nodiscard]]

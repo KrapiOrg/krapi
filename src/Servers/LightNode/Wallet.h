@@ -39,7 +39,7 @@ namespace krapi {
 
     public:
 
-        void add_transaction(Transaction);
+        bool add_transaction(Transaction);
         void set_transaction_status(TransactionStatus, std::string);
 
         Transaction create_transaction(int my_id, int receiver_id);

@@ -45,22 +45,29 @@ namespace krapi {
         std::mutex m_mutex;
         std::vector<std::future<void>> m_futures;
         std::vector<std::unordered_set<Transaction>> m_batches;
+        std::vector<std::unordered_set<Transaction>> m_to_skip;
 
         std::string m_latest_hash;
-        std::atomic<bool> m_cancelled;
+        std::atomic<bool> m_stopped;
 
     public:
         explicit Miner();
 
         void mine(std::unordered_set<Transaction>);
 
-        void cancel_all();
+        void stop();
+
+        void resume();
+
+        bool is_stopped();
 
         void set_latest_hash(std::string);
 
         void append_listener(Event, const std::function<OnBlockMinedCallback> &callback);
 
         void append_listener(BatchEvent, const std::function<OnBatchEventCallback> &callback);
+
+        void skip_when_cancelling(const std::unordered_set<Transaction> &batch);
     };
 
 } // krapi

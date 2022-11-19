@@ -13,22 +13,20 @@ using namespace std::chrono;
 
 namespace krapi {
 
-    Miner::Miner() : m_cancelled(false) {
+    Miner::Miner() : m_stopped(false) {
 
     }
 
     void Miner::async_mine(std::unordered_set<Transaction> batch) {
 
-        spdlog::info("Miner: starting miner to mine the following transactions...");
-        for (const auto &tx: batch) {
-            spdlog::info("Miner: {}", tx.to_json().dump());
-        }
+        spdlog::info("Miner: job started");
+
         auto previous_hash = std::string{};
         {
             std::lock_guard l(m_mutex);
             previous_hash = m_latest_hash;
         }
-        spdlog::info("Miner: PreviousHash: {}\n", previous_hash);
+        spdlog::info("Miner: PreviousHash: {}\n", previous_hash.substr(0, 10));
 
         merkle::TreeT<32, krapi_hash_function> tree;
         for (const auto &tx: batch) {
@@ -37,16 +35,16 @@ namespace krapi {
 
         auto merkle_root = tree.root().to_string(32, false);
 
-        spdlog::info("Miner: MerkleRoot: {}\n", merkle_root);
+        //spdlog::info("Miner: MerkleRoot: {}\n", merkle_root);
 
         auto timestamp = (uint64_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
-        spdlog::info("Miner: TimeStamp: {}\n", timestamp);
+        //spdlog::info("Miner: TimeStamp: {}\n", timestamp);
 
 
         for (uint64_t nonce = 0;; nonce++) {
 
-            if (m_cancelled) break;
+            if (m_stopped) break;
 
             auto block_hash = std::string{};
             StringSource s2(
@@ -55,8 +53,8 @@ namespace krapi {
                     new HashFilter(Miner::sha_256, new HexEncoder(new StringSink(block_hash)))
             );
 
-            if (block_hash.starts_with("0000")) {
-                spdlog::info("Miner: Mined and Produced Hash: {}", block_hash);
+            if (block_hash.starts_with("00")) {
+                //spdlog::info("Miner: Mined and Produced Hash: {}", block_hash.substr(0,10));
 
                 for (auto &transaction: batch)
                     transaction.set_status(TransactionStatus::Verified);
@@ -71,7 +69,7 @@ namespace krapi {
                         },
                         batch
                 };
-                if (!m_cancelled) {
+                if (!m_stopped) {
                     m_dispatcher.dispatch(Event::BlockMined, block);
                     break;
                 }
@@ -81,29 +79,33 @@ namespace krapi {
 
     void Miner::mine(std::unordered_set<Transaction> batch) {
 
-        {
-            std::lock_guard l(m_mutex);
-            m_futures.emplace_back(
-                    std::async(std::launch::async, std::bind_front(&Miner::async_mine, this, batch))
-            );
-            m_batches.push_back(batch);
+        if (!m_stopped) {
+            {
+
+                std::lock_guard l(m_mutex);
+
+                m_futures.emplace_back(
+                        std::async(std::launch::async, std::bind_front(&Miner::async_mine, this, batch))
+                );
+                m_batches.push_back(batch);
+            }
+            m_batch_dispatcher.dispatch(BatchEvent::BatchSubmitted, batch);
         }
-        m_batch_dispatcher.dispatch(BatchEvent::BatchSubmitted, batch);
     }
 
-    void Miner::cancel_all() {
+    void Miner::stop() {
 
-        m_cancelled = true;
+        m_stopped = true;
         {
             std::lock_guard l(m_mutex);
             for (int i = 0; auto &f: m_futures) {
                 f.get();
-                m_batch_dispatcher.dispatch(BatchEvent::BatchCancelled, m_batches[i++]);
+                if(std::find(m_to_skip.begin(),m_to_skip.end(),m_batches[i]) == m_to_skip.end())
+                    m_batch_dispatcher.dispatch(BatchEvent::BatchCancelled, m_batches[i++]);
             }
             m_futures.clear();
+            m_batches.clear();
         }
-        m_cancelled = false;
-        spdlog::info("Miner: Cancelled all batches!");
     }
 
     void Miner::set_latest_hash(std::string hash) {
@@ -131,6 +133,22 @@ namespace krapi {
         Miner::sha_256.Update(l.bytes, 32);
         Miner::sha_256.Update(r.bytes, 32);
         Miner::sha_256.Final(out.bytes);
+    }
+
+    void Miner::resume() {
+
+        m_stopped = false;
+    }
+
+    bool Miner::is_stopped() {
+
+        return m_stopped;
+    }
+
+    void Miner::skip_when_cancelling(const std::unordered_set<Transaction> &batch) {
+        std::lock_guard l(m_mutex);
+        m_to_skip.push_back(batch);
+        spdlog::info("ADDED TO SKIP");
     }
 
 

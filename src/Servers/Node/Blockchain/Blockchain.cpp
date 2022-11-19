@@ -119,22 +119,17 @@ namespace krapi {
         std::lock_guard l(m_blocks_mutex);
 
         if (!m_blocks.contains(hash)) {
-            spdlog::info("Blockchain: GetAfter, {} is not found");
+            spdlog::info("Blockchain: {} is not found", hash.substr(0, 10));
             return {};
         }
         auto blocks = std::list<Block>{};
-        auto blk = m_blocks[hash];
+        auto block_to_look_for_blocks_after = m_blocks[hash];
+
         for (const auto &[hash, block]: m_blocks) {
-            if (block.header().timestamp() > blk.header().timestamp()) {
+            if (block.header().timestamp() > block_to_look_for_blocks_after.header().timestamp()) {
                 blocks.push_back(block);
             }
         }
-        spdlog::info("Blockchain: Blocks after {} are...", hash.substr(0, 10));
-        for (const auto &blk: blocks) {
-            spdlog::info("Blockchain: {}", blk.hash().substr(0, 10));
-        }
-
-
         return blocks;
     }
 
@@ -165,5 +160,28 @@ namespace krapi {
         }
 
         return true;
+    }
+
+    bool Blockchain::contains(std::string hash) {
+
+        std::lock_guard l(m_blocks_mutex);
+        return m_blocks.contains(hash);
+    }
+
+    Block Blockchain::get_block(std::string hash) {
+
+        std::lock_guard l(m_blocks_mutex);
+        return m_blocks.find(hash)->second;
+    }
+
+    std::vector<std::string> Blockchain::get_hashes() {
+
+        std::lock_guard l(m_blocks_mutex);
+        auto ans = std::vector<std::string>{};
+
+        for (const auto &[hash, block]: m_blocks) {
+            ans.push_back(hash);
+        }
+        return ans;
     }
 } // krapi
