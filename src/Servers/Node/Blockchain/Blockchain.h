@@ -23,7 +23,6 @@ namespace krapi {
 
         void add(Block block);
 
-        void save_to_disk(const std::filesystem::path &path);
 
         void dump();
 

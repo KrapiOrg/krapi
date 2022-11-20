@@ -68,26 +68,6 @@ namespace krapi {
         m_blocks.insert({block.hash(), block});
     }
 
-    void Blockchain::save_to_disk(const std::filesystem::path &path) {
-
-        namespace fs = std::filesystem;
-
-        if (!fs::exists(path)) {
-            spdlog::error("Could not find {}", path.string());
-            exit(1);
-        }
-        if (!fs::is_directory(path)) {
-            spdlog::error("{} is not a directory", path.string());
-            exit(1);
-        }
-
-        std::lock_guard l(m_blocks_mutex);
-
-        for (const auto &[hash, block]: m_blocks) {
-            block.to_disk(path);
-        }
-    }
-
     void Blockchain::dump() {
 
         std::lock_guard l(m_blocks_mutex);
