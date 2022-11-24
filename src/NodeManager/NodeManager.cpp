@@ -126,7 +126,7 @@ namespace krapi {
         ws.start();
         spdlog::info("NodeManager: Waiting for identity from signaling server...");
         my_id = future.get();
-        spdlog::info("NodeManager: Aquired identity {}", my_id);
+        spdlog::info("NodeManager: Acquired identity {}", my_id);
 
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,
