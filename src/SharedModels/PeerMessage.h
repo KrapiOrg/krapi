@@ -17,7 +17,9 @@ namespace krapi {
         SetTransactionStatus,
         SyncBlockchain,
         RequestBlocks,
-        BlocksResponse
+        BlocksResponse,
+        BlockHeadersRequest,
+        BlockHeadersResponse
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -28,7 +30,9 @@ namespace krapi {
         { PeerMessageType::SetTransactionStatus, "set_transaction_status" },
         { PeerMessageType::SyncBlockchain, "sync_blockchain_request" },
         { PeerMessageType::RequestBlocks, "request_blocks" },
-        { PeerMessageType::BlocksResponse, "blocks_response" }
+        { PeerMessageType::BlocksResponse, "blocks_response" },
+        { PeerMessageType::BlockHeadersRequest, "block_headers_request" },
+        { PeerMessageType::BlockHeadersResponse, "block_headers_response" }
     })
 
     class PeerMessage {

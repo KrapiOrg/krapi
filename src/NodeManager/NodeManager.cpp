@@ -99,8 +99,11 @@ namespace krapi {
         }
     }
 
-    NodeManager::NodeManager(PeerType peer_type) {
-
+    NodeManager::NodeManager(
+            PeerType peer_type
+    ) :
+            full_peer_count(0),
+            light_peer_count(0) {
 
         std::promise<int> barrier;
         auto future = barrier.get_future();
@@ -181,19 +184,61 @@ namespace krapi {
             std::shared_ptr<rtc::DataChannel> channel
     ) {
 
-
-        channel_map.emplace(
-                id,
-                std::make_shared<KrapiRTCDataChannel>(
-                        std::move(channel),
-                        [this](const PeerMessage &message) {
-                            m_dispatcher.dispatch(message.type(), message);
-                        },
-                        [id, this]() {
-                            channel_map.erase(id);
-                        }
-                )
+        auto krapi_channel = std::make_shared<KrapiRTCDataChannel>(std::move(channel));
+        krapi_channel->append_listener(
+                KrapiRTCDataChannel::Event::Message,
+                [this](const PeerMessage &message) {
+                    m_dispatcher.dispatch(message.type(), message);
+                }
         );
+
+        krapi_channel->append_listener(
+                KrapiRTCDataChannel::Event::Open,
+                [&, id, this]() {
+                    send(
+                            id,
+                            PeerMessage{
+                                    PeerMessageType::PeerTypeRequest,
+                                    my_id,
+                                    PeerMessage::create_tag()
+                            },
+                            [&, this](PeerMessage resp) {
+                                auto peer_type = resp.content().get<PeerType>();
+                                peer_type_map[id] = peer_type;
+
+                                if (peer_type == PeerType::Full) {
+
+                                    full_peer_count++;
+                                } else {
+
+                                    light_peer_count++;
+                                }
+
+                                peer_threshold_cv.notify_one();
+                            }
+                    );
+
+                }
+        );
+        krapi_channel->append_listener(
+                KrapiRTCDataChannel::Event::Close,
+                [id, this]() {
+
+                    if (peer_type_map[id] == PeerType::Full) {
+
+                        full_peer_count--;
+                    } else {
+
+                        light_peer_count--;
+                    }
+
+                    channel_map.erase(id);
+                    peer_type_map.erase(id);
+                }
+        );
+
+
+        channel_map.emplace(id, std::move(krapi_channel));
     }
 
     void NodeManager::broadcast(
@@ -209,22 +254,11 @@ namespace krapi {
                 peer_channel->send(message, callback);
             } else {
 
-                auto resp = peer_channel->send(
-                        PeerMessage{
-                                PeerMessageType::PeerTypeRequest,
-                                message.peer_id(),
-                                PeerMessage::create_tag()
-                        }
-                ).get();
+                if (peer_type_map[id] == PeerType::Full) {
 
-                auto peer_type = resp.content().get<PeerType>();
-                if (peer_type != PeerType::Light) {
-
-                    peer_channel->send(message);
+                    peer_channel->send(message, callback);
                 }
             }
-
-
         }
     }
 
@@ -249,5 +283,23 @@ namespace krapi {
             ans.push_back(std::move(channel));
         }
         return ans;
+    }
+
+    void NodeManager::wait_for(PeerType peer_type, int peer_count) {
+
+        std::unique_lock l(peer_threshold_mutex);
+        if (peer_type == PeerType::Full) {
+
+            peer_threshold_cv.wait(l, [peer_count, this]() {
+
+                return full_peer_count >= peer_count;
+            });
+        } else {
+
+            peer_threshold_cv.wait(l, [peer_count, this]() {
+
+                return light_peer_count >= peer_count;
+            });
+        }
     }
 } // krapi

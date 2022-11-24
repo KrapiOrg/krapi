@@ -85,5 +85,7 @@ int main(int argc, char *argv[]) {
             }
     );
 
+    manager.wait_for(PeerType::Full, 1);
+
     manager.wait();
 }

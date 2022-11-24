@@ -35,6 +35,12 @@ namespace krapi {
 
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> peer_map;
         std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>> channel_map;
+        std::unordered_map<int, PeerType> peer_type_map;
+
+        std::atomic<int> full_peer_count;
+        std::atomic<int> light_peer_count;
+        std::mutex peer_threshold_mutex;
+        std::condition_variable peer_threshold_cv;
 
         void add_peer_connection(
                 int id,
@@ -48,13 +54,15 @@ namespace krapi {
 
     public:
 
-        explicit NodeManager(PeerType peer_type = PeerType::Full);
+        explicit NodeManager(
+                PeerType peer_type = PeerType::Full
+        );
 
         std::vector<std::shared_ptr<KrapiRTCDataChannel>> get_channels();
 
         void broadcast(
-                const PeerMessage& message,
-                const std::optional<PeerMessageCallback>& callback = std::nullopt,
+                const PeerMessage &message,
+                const std::optional<PeerMessageCallback> &callback = std::nullopt,
                 bool include_light_nodes = false
         );
 
@@ -66,9 +74,11 @@ namespace krapi {
 
         void wait();
 
+        void wait_for(PeerType, int);
+
         void append_listener(
                 PeerMessageType,
-                const std::function<void(PeerMessage)>& listener
+                const std::function<void(PeerMessage)> &listener
         );
 
         [[nodiscard]]

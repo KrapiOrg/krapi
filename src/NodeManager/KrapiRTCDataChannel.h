@@ -5,32 +5,37 @@
 #pragma once
 
 #include <future>
+#include <chrono>
+#include "eventpp/eventdispatcher.h"
 #include "spdlog/spdlog.h"
 #include "rtc/datachannel.hpp"
 #include "PeerMessage.h"
+
+using namespace std::chrono_literals;
 
 namespace krapi {
 
     using PeerMessageCallback = std::function<void(PeerMessage)>;
 
     class KrapiRTCDataChannel {
-
+    public:
+        enum class Event {
+            Open,
+            Close,
+            Message
+        };
+    private:
+        eventpp::EventDispatcher<Event, void()> m_void_dispatcher;
+        eventpp::EventDispatcher<Event, void(PeerMessage)> m_message_dispatcher;
         std::shared_ptr<rtc::DataChannel> m_channel;
         std::unordered_map<int, std::promise<PeerMessage>> m_tagged_messages;
         std::unordered_map<int, std::optional<PeerMessageCallback>> m_callbacks;
-        PeerMessageCallback m_on_message;
-        std::function<void()> m_on_close;
 
     public:
 
         explicit KrapiRTCDataChannel(
-                std::shared_ptr<rtc::DataChannel> channel,
-                PeerMessageCallback on_message,
-                std::function<void()> on_close
-        ) :
-                m_channel(std::move(channel)),
-                m_on_message(std::move(on_message)),
-                m_on_close(std::move(on_close)) {
+                std::shared_ptr<rtc::DataChannel> channel
+        ) : m_channel(std::move(channel)) {
 
             m_channel->onMessage(
                     [this](rtc::message_variant rtc_message) {
@@ -39,24 +44,30 @@ namespace krapi {
                         auto message = PeerMessage::from_json(message_json);
                         auto tag = message.tag();
 
-                        m_on_message(message);
-
                         if (m_tagged_messages.contains(tag)) {
 
                             m_tagged_messages[tag].set_value(message);
 
-                            if (m_callbacks[tag]) {
+                            if (m_callbacks[tag].has_value()) {
+
                                 m_callbacks[tag].value()(message);
                             }
-                            m_tagged_messages.erase(tag);
-                            m_callbacks.erase(tag);
+
                         }
-
-
+                        m_message_dispatcher.dispatch(Event::Message, message);
                     }
-            );
-        }
 
+            );
+
+            m_channel->onOpen([this]() {
+
+                m_void_dispatcher.dispatch(Event::Open);
+            });
+            m_channel->onClosed([this]() {
+
+                m_void_dispatcher.dispatch(Event::Close);
+            });
+        }
 
         // Returns the message tag and a future handle
         std::shared_future<PeerMessage> send(
@@ -64,13 +75,18 @@ namespace krapi {
                 std::optional<PeerMessageCallback> callback = std::nullopt
         ) {
 
+
             int tag = message.tag();
-            m_tagged_messages[tag] = std::promise<PeerMessage>{};
+            if (!m_tagged_messages.contains(tag)) {
 
-            m_channel->send(std::move(message));
+                m_tagged_messages[tag] = std::promise<PeerMessage>{};
 
-            m_callbacks[tag] = std::move(callback);
-            return m_tagged_messages[tag].get_future();
+                m_channel->send(std::move(message));
+
+                m_callbacks[tag] = std::move(callback);
+                return m_tagged_messages[tag].get_future();
+            }
+            return {};
         }
 
         [[nodiscard]]
@@ -83,6 +99,16 @@ namespace krapi {
         bool is_open() const {
 
             return m_channel->isOpen();
+        }
+
+        void append_listener(Event event, const std::function<void(PeerMessage)> &callback) {
+
+            m_message_dispatcher.appendListener(event, callback);
+        }
+
+        void append_listener(Event event, const std::function<void()> &callback) {
+
+            m_void_dispatcher.appendListener(event, callback);
         }
     };
 
