@@ -9,13 +9,32 @@ namespace krapi {
     void PeerMap::add_peer(int id, std::shared_ptr<rtc::PeerConnection> peer_connection) {
 
         std::lock_guard l(mutex);
+        peer_connection->onStateChange([id, this](rtc::PeerConnection::State state) {
+            if (state == rtc::PeerConnection::State::Closed) {
+                peer_map.erase(id);
+            }
+        });
         peer_map.emplace(id, std::move(peer_connection));
     }
 
-    void PeerMap::add_channel(int id, std::shared_ptr<rtc::DataChannel> channel) {
+    void PeerMap::add_channel(
+            int id,
+            std::shared_ptr<rtc::DataChannel> channel,
+            std::optional<PeerMessageCallback> callback
+    ) {
 
         std::lock_guard l(mutex);
-        channel_map.emplace(id, std::move(channel));
+
+        channel_map.emplace(
+                id,
+                std::make_shared<KrapiRTCDataChannel>(
+                        std::move(channel),
+                        [id, this]() {
+                            channel_map.erase(id);
+                        },
+                        std::move(callback)
+                )
+        );
     }
 
     bool PeerMap::contains_peer(int id) {
@@ -28,98 +47,76 @@ namespace krapi {
         return peer_map[id];
     }
 
-    std::shared_ptr<rtc::DataChannel> PeerMap::get_channel(int id) {
+    void PeerMap::broadcast(
+            PeerMessage message,
+            std::optional<PeerMessageCallback> callback,
+            bool include_light_nodes
+    ) {
 
-        return channel_map[id];
-    }
+        auto cm = std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>>{};
 
-    void PeerMap::broadcast(PeerMessage message) {
-
-        auto old_ignore_list = message.ignore_list;
-        auto new_ignore_list = message.ignore_list;
-
-        new_ignore_list.insert(message.peer_id);
-
-        for (auto &[id, channel]: channel_map) {
-            new_ignore_list.insert(id);
-        }
-        message.ignore_list = new_ignore_list;
-        auto cm = std::unordered_map<int, std::shared_ptr<rtc::DataChannel>>{};
-        auto ct = std::unordered_map<int, PeerType>{};
         {
             std::lock_guard l(mutex);
             cm = channel_map;
-            ct = peer_type_map;
         }
-        auto message_str = message.to_string();
-        for (auto &[id, channel]: cm) {
 
-            if (ct.contains(id) && ct[id] == PeerType::Light)
-                continue;
+        for (auto &[id, peer_channel]: cm) {
 
-            if (!old_ignore_list.contains(id)) {
+            if (include_light_nodes) {
 
-                if (channel->isOpen()) {
+                peer_channel->send(message, callback);
+            } else {
 
-                    channel->send(message_str);
+                auto resp = peer_channel->send(
+                        PeerMessage{
+                                PeerMessageType::PeerTypeRequest,
+                                message.peer_id(),
+                                PeerMessage::create_tag()
+                        }
+                ).get();
+
+                if (resp.type() == PeerMessageType::PeerTypeResponse) {
+
+                    auto peer_type = resp.content().get<PeerType>();
+                    if (peer_type != PeerType::Light) {
+
+                        if (peer_channel->is_open()) {
+
+                            peer_channel->send(message);
+                        }
+
+                    }
                 }
             }
+
+
         }
     }
 
-    void PeerMap::send_message(int id, PeerMessage message) {
+    std::shared_future<PeerMessage> PeerMap::send_message(
+            int id,
+            PeerMessage message,
+            std::optional<PeerMessageCallback> callback
+    ) {
 
 
         std::lock_guard l(mutex);
         if (channel_map.contains(id)) {
 
             auto dc = channel_map[id];
-            dc->send(message);
+            return dc->send(std::move(message), std::move(callback));
         }
-
-
+        return {};
     }
 
-    void PeerMap::set_peer_type(int id, PeerType type) {
-
-        {
-            std::lock_guard l(mutex);
-            peer_type_map[id] = type;
-        }
-        m_dispatcher.dispatch(Event::PeerTypeKnown, id);
-    }
-
-    PeerType PeerMap::get_peer_type(int id) {
+    std::vector<std::shared_ptr<KrapiRTCDataChannel>> PeerMap::get_channels() {
 
         std::lock_guard l(mutex);
-        return peer_type_map[id];
-    }
-
-    void PeerMap::append_listener(PeerMap::Event event, std::function<void(int)> callback) {
-
-        m_dispatcher.appendListener(event, callback);
-    }
-
-    std::vector<int> PeerMap::get_light_node_ids() {
-
-        auto ptm = std::unordered_map<int, PeerType>{};
-        auto cm = std::unordered_map<int, std::shared_ptr<rtc::DataChannel>>{};
-
-        {
-            std::lock_guard l(mutex);
-            ptm = peer_type_map;
-            cm = channel_map;
-        }
-        auto ans = std::vector<int>{};
-        for (auto &[id, channel]: cm) {
-            if (channel->isOpen()) {
-                if (ptm.contains(id) && ptm[id] == PeerType::Light) {
-                    ans.push_back(id);
-                }
-            }
+        std::vector<std::shared_ptr<KrapiRTCDataChannel>> ans;
+        for (auto [id, channel]: channel_map) {
+            ans.push_back(std::move(channel));
         }
         return ans;
     }
-
 
 } // krapi

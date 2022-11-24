@@ -1,30 +1,22 @@
 //
-// Created by mythi on 12/11/22.
+// Created by mythi on 24/11/22.
 //
 
 #pragma once
 
 #include <condition_variable>
-#include <future>
-
-#include "spdlog/spdlog.h"
-#include "eventpp/eventdispatcher.h"
-#include "nlohmann/json.hpp"
-#include "ixwebsocket/IXWebSocketMessage.h"
 #include "ixwebsocket/IXWebSocket.h"
-
-#include "PeerMap.h"
-#include "Message.h"
-#include "Response.h"
-#include "PeerMessage.h"
-#include "Block.h"
+#include "rtc/peerconnection.hpp"
+#include "eventpp/eventdispatcher.h"
 #include "TransactionPool.h"
+#include "PeerMap.h"
+#include "PeerMessage.h"
+#include "Response.h"
 
 namespace krapi {
 
     class NodeManager {
-
-    private:
+    protected:
 
         using PeerMessageEventDispatcher = eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)>;
 
@@ -44,27 +36,29 @@ namespace krapi {
 
         void onWsResponse(const Response &);
 
-        void onRemoteMessage(int id, const PeerMessage &);
-
 
     public:
 
-        NodeManager();
+        NodeManager(PeerType peer_type = PeerType::Full);
 
         void wait();
 
         void broadcast_message(const PeerMessage &);
 
-        void send_message(int, PeerMessage);
+        std::shared_future<PeerMessage> send_message(
+                int,
+                PeerMessage,
+                std::optional<PeerMessageCallback> = std::nullopt
+        );
 
-        void append_listener(PeerMessageType, std::function<void(PeerMessage)> listener);
-
-        void append_listener(PeerMap::Event event, std::function<void(int)> listener);
-
-        PeerType get_peer_type(int id);
+        void append_listener(
+                PeerMessageType,
+                std::function<void(PeerMessage)> listener
+        );
 
         [[nodiscard]]
         int id() const;
+
     };
 
 } // krapi

@@ -30,74 +30,26 @@ int main(int argc, char *argv[]) {
     NodeManager manager;
 
     manager.append_listener(
+            PeerMessageType::PeerTypeRequest,
+            [&manager](PeerMessage message) {
+                manager.send_message(
+                        message.peer_id(),
+                        PeerMessage{
+                            PeerMessageType::PeerTypeResponse,
+                            manager.id(),
+                            message.tag(),
+                            PeerType::Full
+                        }
+                );
+            }
+    );
+
+    manager.append_listener(
             PeerMessageType::AddTransaction,
             [&transaction_pool](PeerMessage message) {
-                auto transaction = Transaction::from_json(message.content);
+                auto transaction = Transaction::from_json(message.content());
                 spdlog::info("Main: Received Transaction {}", transaction.hash().substr(0, 10));
                 transaction_pool.add(transaction);
-            }
-    );
-
-    manager.append_listener(
-            PeerMessageType::SyncBlockchain,
-            [&](PeerMessage message) {
-                auto offered_hashes = message.content.get<std::vector<std::string>>();
-
-                auto needed_hashes = std::vector<std::string>();
-                for (const auto &hash: offered_hashes) {
-
-                    if (!blockchain.contains(hash)) {
-                        needed_hashes.push_back(hash);
-                    }
-                }
-
-                manager.broadcast_message(
-
-                        PeerMessage{
-                                PeerMessageType::RequestBlocks,
-                                manager.id(),
-                                needed_hashes
-                        }
-                );
-            }
-    );
-
-    manager.append_listener(
-            PeerMessageType::RequestBlocks,
-            [&](PeerMessage message) {
-                auto needed_hashes = message.content.get<std::vector<std::string>>();
-
-                auto response_blocks = std::list<Block>();
-                for (const auto &hash: needed_hashes) {
-                    if (blockchain.contains(hash)) {
-                        response_blocks.push_back(blockchain.get_block(hash));
-                    }
-                }
-                manager.send_message(
-                        message.peer_id,
-                        PeerMessage{
-                                PeerMessageType::BlocksResponse,
-                                manager.id(),
-                                BlocksResponseContent{
-                                        response_blocks
-                                }.to_json()
-                        }
-                );
-            }
-    );
-
-
-    manager.append_listener(
-            PeerMessageType::BlocksResponse,
-            [&, path](PeerMessage message) {
-                auto blocks = BlocksResponseContent::from_json(message.content).blocks();
-                for (const auto &block: blocks) {
-                    if (!blockchain.contains(block.hash())) {
-
-                        blockchain.add(block);
-                        block.to_disk(path);
-                    }
-                }
             }
     );
 
@@ -120,14 +72,6 @@ int main(int argc, char *argv[]) {
                 blockchain.add(block);
                 block.to_disk(path);
 
-                manager.broadcast_message(
-                        PeerMessage{
-                                PeerMessageType::SyncBlockchain,
-                                manager.id(),
-                                blockchain.get_hashes()
-                        }
-                );
-
 
                 for (const auto &transaction: block.transactions()) {
 
@@ -136,6 +80,7 @@ int main(int argc, char *argv[]) {
                             PeerMessage{
                                     PeerMessageType::SetTransactionStatus,
                                     manager.id(),
+                                    PeerMessage::create_tag(),
                                     SetTransactionStatusContent{
                                             TransactionStatus::Verified,
                                             transaction.hash()
@@ -147,6 +92,7 @@ int main(int argc, char *argv[]) {
                             PeerMessage{
                                     PeerMessageType::AddTransaction,
                                     manager.id(),
+                                    PeerMessage::create_tag(),
                                     transaction.to_json()
                             }
                     );

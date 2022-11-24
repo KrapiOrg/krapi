@@ -15,12 +15,11 @@ int main() {
     LightNodeManager node_manager;
     Wallet wallet;
 
-
     node_manager.append_listener(
             PeerMessageType::SetTransactionStatus,
             [&](PeerMessage message) {
 
-                auto content = SetTransactionStatusContent::from_json(message.content);
+                auto content = SetTransactionStatusContent::from_json(message.content());
                 wallet.set_transaction_status(content.status(), content.hash());
             }
     );
@@ -29,7 +28,7 @@ int main() {
             PeerMessageType::AddTransaction,
             [&](PeerMessage message) {
 
-                auto transaction = Transaction::from_json(message.content);
+                auto transaction = Transaction::from_json(message.content());
 
                 if (wallet.add_transaction(transaction)) {
                     spdlog::info("Main: Added {} to wallet", transaction.hash().substr(0, 10));
@@ -90,6 +89,7 @@ int main() {
                                 PeerMessage{
                                         PeerMessageType::AddTransaction,
                                         node_manager.id(),
+                                        PeerMessage::create_tag(),
                                         tx.to_json()
                                 }
                         );

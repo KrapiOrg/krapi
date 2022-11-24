@@ -22,4 +22,5 @@ target_link_libraries(
         blockchain_models
         transaction_pool
         peer_map
+        node_manager
 )

@@ -1,14 +1,30 @@
 //
-// Created by mythi on 12/11/22.
+// Created by mythi on 24/11/22.
 //
 
+#include <sstream>
 #include "NodeManager.h"
-#include "PeerType.h"
+#include "Message.h"
+
+#include "spdlog/spdlog.h"
 
 namespace krapi {
     std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int peer_id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
+
+        pc->onStateChange(
+                [peer_id](rtc::PeerConnection::State state) {
+                    std::stringstream ss;
+                    ss << state;
+                    spdlog::info("PeerConnection to {} state: {}", peer_id, ss.str());
+                }
+        );
+        pc->onGatheringStateChange([peer_id](rtc::PeerConnection::GatheringState state) {
+            std::stringstream ss;
+            ss << state;
+            spdlog::info("PeerConnection to {} gathering state: {}", peer_id, ss.str());
+        });
 
         pc->onLocalDescription([this, peer_id](const rtc::Description &description) {
             auto desc = nlohmann::json{
@@ -31,17 +47,21 @@ namespace krapi {
             ws.send(msg);
         });
 
-        pc->onDataChannel([peer_id, this](std::shared_ptr<rtc::DataChannel> answerer_channel) {
-            answerer_channel->onOpen([acw = std::weak_ptr(answerer_channel)]() {
+        pc->onDataChannel([this, peer_id](std::shared_ptr<rtc::DataChannel> answerer_channel) {
 
-                if (auto ac = acw.lock())
-                    ac->send(PeerMessage{PeerMessageType::PeerTypeRequest});
+            answerer_channel->onClosed([]() {
+                spdlog::info("ANSWERER CHANNEL CLOSED");
             });
-            answerer_channel->onMessage([peer_id, this](auto data) {
-                auto str_data = std::get<std::string>(data);
-                onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
+            answerer_channel->onError([](std::string err) {
+                spdlog::info("ANSWERER Channel ERROR:", err);
             });
-            peer_map.add_channel(peer_id, answerer_channel);
+            peer_map.add_channel(
+                    peer_id,
+                    answerer_channel,
+                    [this](PeerMessage message) {
+                        m_dispatcher.dispatch(message.type(), message);
+                    }
+            );
         });
 
         peer_map.add_peer(peer_id, pc);
@@ -58,17 +78,19 @@ namespace krapi {
                 spdlog::info("NodeManager: Peer {} is avaliable", peer_id);
                 auto pc = create_connection(peer_id);
                 auto offerer_channel = pc->createDataChannel("krapi");
-                offerer_channel->onOpen([woc = std::weak_ptr(offerer_channel)]() {
-
-                    if (auto offerer_channel = woc.lock())
-                        offerer_channel->send(PeerMessage{PeerMessageType::PeerTypeRequest});
+                offerer_channel->onClosed([]() {
+                    spdlog::info("OFFERER CHANNEL CLOSED");
                 });
-                offerer_channel->onMessage([this, peer_id](auto data) {
-                    auto str_data = std::get<std::string>(data);
-                    onRemoteMessage(peer_id, PeerMessage::from_json(str_data));
+                offerer_channel->onError([](std::string err) {
+                    spdlog::info("OFFERER Channel ERROR:", err);
                 });
-
-                peer_map.add_channel(peer_id, offerer_channel);
+                peer_map.add_channel(
+                        peer_id,
+                        offerer_channel,
+                        [this](PeerMessage message) {
+                            m_dispatcher.dispatch(message.type(), message);
+                        }
+                );
             }
                 break;
             case ResponseType::RTCSetup: {
@@ -84,6 +106,7 @@ namespace krapi {
 
                     spdlog::info("Answering to {}", peer_id);
                     pc = create_connection(peer_id);
+
                 } else {
                     return;
                 }
@@ -106,7 +129,8 @@ namespace krapi {
         }
     }
 
-    NodeManager::NodeManager() {
+    NodeManager::NodeManager(PeerType peer_type) {
+
 
         std::promise<int> barrier;
         auto future = barrier.get_future();
@@ -132,36 +156,28 @@ namespace krapi {
             auto msg = Response::from_json(message->str);
             onWsResponse(msg);
         });
+
+        m_dispatcher.appendListener(
+                PeerMessageType::PeerTypeRequest,
+                [this, peer_type](PeerMessage message) {
+
+                    send_message(
+                            message.peer_id(),
+                            PeerMessage{
+                                    PeerMessageType::PeerTypeResponse,
+                                    id(),
+                                    message.tag(),
+                                    peer_type
+                            }
+                    );
+                }
+        );
     }
 
     void NodeManager::wait() {
 
         std::unique_lock l(blocking_mutex);
         blocking_cv.wait(l);
-    }
-
-    void NodeManager::onRemoteMessage(int id, const PeerMessage &message) {
-
-        if (message.type == PeerMessageType::PeerTypeRequest) {
-
-            spdlog::info("NodeManager: PeerType Requested");
-            auto channel = peer_map.get_channel(id);
-            channel->send(
-                    PeerMessage{
-                            PeerMessageType::PeerTypeResponse,
-                            my_id,
-                            PeerType::Full
-                    }
-            );
-        } else if (message.type == PeerMessageType::PeerTypeResponse) {
-            auto peer_type = message.content.get<PeerType>();
-
-            spdlog::info("NodeManager: Setting PeerType of {} to {}", id, message.content.dump());
-            peer_map.set_peer_type(id, peer_type);
-        } else {
-
-            m_dispatcher.dispatch(message.type, message);
-        }
     }
 
     void NodeManager::broadcast_message(const PeerMessage &message) {
@@ -174,23 +190,17 @@ namespace krapi {
         m_dispatcher.appendListener(type, listener);
     }
 
-    void NodeManager::append_listener(PeerMap::Event event, std::function<void(int)> listener) {
-
-        peer_map.append_listener(event, listener);
-    }
-
     int NodeManager::id() const {
 
         return my_id;
     }
 
-    PeerType NodeManager::get_peer_type(int id) {
+    std::shared_future<PeerMessage> NodeManager::send_message(
+            int id,
+            PeerMessage message,
+            std::optional<PeerMessageCallback> callback
+    ) {
 
-        return peer_map.get_peer_type(id);
-    }
-
-    void NodeManager::send_message(int id, PeerMessage message) {
-
-        peer_map.send_message(id, std::move(message));
+        return peer_map.send_message(id, std::move(message), std::move(callback));
     }
 } // krapi

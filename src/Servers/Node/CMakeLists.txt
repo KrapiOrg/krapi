@@ -5,8 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(
         NODESOURCES
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/NodeManager.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/NodeManager.h
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
 )
@@ -31,4 +29,5 @@ target_link_libraries(
         miner
         peer_map
         transaction_pool
+        node_manager
 )
