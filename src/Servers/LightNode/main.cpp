@@ -2,6 +2,7 @@
 
 #include "effolkronium/random.hpp"
 
+#include "Content/SetTransactionStatusContent.h"
 #include "LightNodeManager.h"
 #include "Wallet.h"
 
@@ -12,10 +13,10 @@ using Random = effolkronium::random_static;
 
 int main() {
 
-    LightNodeManager node_manager;
+    LightNodeManager manager;
     Wallet wallet;
 
-    node_manager.append_listener(
+    manager.append_listener(
             PeerMessageType::SetTransactionStatus,
             [&](PeerMessage message) {
 
@@ -24,7 +25,7 @@ int main() {
             }
     );
 
-    node_manager.append_listener(
+    manager.append_listener(
             PeerMessageType::AddTransaction,
             [&](PeerMessage message) {
 
@@ -38,7 +39,7 @@ int main() {
 
     wallet.append_listener(
             Wallet::Event::TransactionStatusChanged,
-            [&node_manager](Transaction transaction, TransactionStatus before, TransactionStatus after) {
+            [&manager](Transaction transaction, TransactionStatus before, TransactionStatus after) {
 
                 spdlog::info(
                         "Main: {} status changed from {} to {}",
@@ -49,10 +50,10 @@ int main() {
                 if (after == TransactionStatus::Rejected) {
                     spdlog::info("Main: Rebroadcasting {}", transaction.hash().substr(0, 10));
                     transaction.set_status(TransactionStatus::Pending);
-                    node_manager.broadcast_message(
+                    manager.broadcast(
                             PeerMessage{
                                     PeerMessageType::AddTransaction,
-                                    node_manager.id(),
+                                    manager.id(),
                                     transaction.to_json()
                             }
                     );
@@ -71,24 +72,24 @@ int main() {
 
                     while (true) {
                         std::this_thread::sleep_for(1s);
-                        auto random_receiver = node_manager.get_random_light_node();
+                        auto random_receiver = manager.get_random_light_node();
 
                         if (!random_receiver.has_value()) {
                             spdlog::warn("There are no peers to send transactions to.");
                             continue;
                         }
                         auto tx = wallet.create_transaction(
-                                node_manager.id(),
+                                manager.id(),
                                 random_receiver.value()
                         );
                         spdlog::info(
                                 "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_receiver.value()
                         );
 
-                        node_manager.broadcast_message(
+                        manager.broadcast(
                                 PeerMessage{
                                         PeerMessageType::AddTransaction,
-                                        node_manager.id(),
+                                        manager.id(),
                                         PeerMessage::create_tag(),
                                         tx.to_json()
                                 }
@@ -101,5 +102,5 @@ int main() {
         spdlog::info("This node does not send transactions!");
     }
     (void) thread;
-    node_manager.wait();
+    manager.wait();
 }

@@ -27,7 +27,7 @@ target_link_libraries(
         shared_models
         blockchain_models
         miner
-        peer_map
+
         transaction_pool
         node_manager
 )

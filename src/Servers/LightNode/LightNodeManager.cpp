@@ -3,7 +3,6 @@
 //
 
 #include "LightNodeManager.h"
-#include "PeerType.h"
 #include "effolkronium/random.hpp"
 
 namespace krapi {
@@ -13,7 +12,7 @@ namespace krapi {
 
         using Random = effolkronium::random_static;
         auto ids = std::vector<int>{};
-        for (auto &channel: peer_map.get_channels()) {
+        for (auto &channel: get_channels()) {
 
             if(!channel->is_open())
                 continue;

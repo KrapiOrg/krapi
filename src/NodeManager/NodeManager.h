@@ -9,9 +9,10 @@
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "TransactionPool.h"
-#include "PeerMap.h"
 #include "PeerMessage.h"
 #include "Response.h"
+#include "KrapiRTCDataChannel.h"
+#include "PeerType.h"
 
 namespace krapi {
 
@@ -22,7 +23,6 @@ namespace krapi {
 
         PeerMessageEventDispatcher m_dispatcher;
 
-        PeerMap peer_map;
         std::mutex blocking_mutex;
         std::condition_variable blocking_cv;
 
@@ -30,30 +30,47 @@ namespace krapi {
         ix::WebSocket ws;
         int my_id;
 
-        TransactionPool m_transaction_pool;
-
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
         void onWsResponse(const Response &);
 
+        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> peer_map;
+        std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>> channel_map;
+
+        void add_peer_connection(
+                int id,
+                std::shared_ptr<rtc::PeerConnection> peer_connection
+        );
+
+        void add_channel(
+                int id,
+                std::shared_ptr<rtc::DataChannel> channel,
+                std::optional<PeerMessageCallback> callback = std::nullopt
+        );
 
     public:
 
-        NodeManager(PeerType peer_type = PeerType::Full);
+        explicit NodeManager(PeerType peer_type = PeerType::Full);
+
+        std::vector<std::shared_ptr<KrapiRTCDataChannel>> get_channels();
+
+        void broadcast(
+                const PeerMessage& message,
+                const std::optional<PeerMessageCallback>& callback = std::nullopt,
+                bool include_light_nodes = false
+        );
+
+        std::shared_future<PeerMessage> send(
+                int id,
+                PeerMessage message,
+                std::optional<PeerMessageCallback> callback = std::nullopt
+        );
 
         void wait();
 
-        void broadcast_message(const PeerMessage &);
-
-        std::shared_future<PeerMessage> send_message(
-                int,
-                PeerMessage,
-                std::optional<PeerMessageCallback> = std::nullopt
-        );
-
         void append_listener(
                 PeerMessageType,
-                std::function<void(PeerMessage)> listener
+                const std::function<void(PeerMessage)>& listener
         );
 
         [[nodiscard]]

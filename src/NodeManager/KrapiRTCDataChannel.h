@@ -39,6 +39,10 @@ namespace krapi {
                         auto message = PeerMessage::from_json(message_json);
                         auto tag = message.tag();
 
+                        if (m_on_message) {
+
+                            m_on_message.value()(message);
+                        }
 
                         if (m_tagged_messages.contains(tag)) {
 
@@ -51,10 +55,7 @@ namespace krapi {
                             m_callbacks.erase(tag);
                         }
 
-                        if (m_on_message) {
 
-                            m_on_message.value()(message);
-                        }
                     }
             );
         }

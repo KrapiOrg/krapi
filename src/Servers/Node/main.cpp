@@ -30,21 +30,6 @@ int main(int argc, char *argv[]) {
     NodeManager manager;
 
     manager.append_listener(
-            PeerMessageType::PeerTypeRequest,
-            [&manager](PeerMessage message) {
-                manager.send_message(
-                        message.peer_id(),
-                        PeerMessage{
-                            PeerMessageType::PeerTypeResponse,
-                            manager.id(),
-                            message.tag(),
-                            PeerType::Full
-                        }
-                );
-            }
-    );
-
-    manager.append_listener(
             PeerMessageType::AddTransaction,
             [&transaction_pool](PeerMessage message) {
                 auto transaction = Transaction::from_json(message.content());
@@ -75,7 +60,7 @@ int main(int argc, char *argv[]) {
 
                 for (const auto &transaction: block.transactions()) {
 
-                    manager.send_message(
+                    manager.send(
                             transaction.from(),
                             PeerMessage{
                                     PeerMessageType::SetTransactionStatus,
@@ -87,7 +72,7 @@ int main(int argc, char *argv[]) {
                                     }.to_json()
                             }
                     );
-                    manager.send_message(
+                    manager.send(
                             transaction.to(),
                             PeerMessage{
                                     PeerMessageType::AddTransaction,

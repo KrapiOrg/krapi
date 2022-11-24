@@ -21,6 +21,6 @@ target_link_libraries(
         effolkronium_random
         blockchain_models
         transaction_pool
-        peer_map
+
         node_manager
 )

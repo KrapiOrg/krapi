@@ -6,6 +6,8 @@ add_library(
         node_manager
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.h
+        ${CMAKE_CURRENT_LIST_DIR}/KrapiRTCDataChannel.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/KrapiRTCDataChannel.h
 )
 
 target_link_libraries(
@@ -18,6 +20,5 @@ target_link_libraries(
         datachannel
         eventpp
         transaction_pool
-        peer_map
         shared_models
 )

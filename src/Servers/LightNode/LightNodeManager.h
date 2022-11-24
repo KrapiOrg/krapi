@@ -4,20 +4,6 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <future>
-
-#include "spdlog/spdlog.h"
-
-#include "PeerMap.h"
-#include "Message.h"
-#include "Response.h"
-#include "PeerMessage.h"
-#include "Block.h"
-#include "TransactionPool.h"
-#include "ixwebsocket/IXWebSocket.h"
-#include "eventpp/eventdispatcher.h"
-#include "Content/SetTransactionStatusContent.h"
 #include "NodeManager.h"
 
 namespace krapi {
