@@ -11,19 +11,6 @@ namespace krapi {
 
         auto pc = std::make_shared<rtc::PeerConnection>(rtc_config);
 
-//        pc->onStateChange(
-//                [peer_id](rtc::PeerConnection::State state) {
-//                    std::stringstream ss;
-//                    ss << state;
-//                    spdlog::info("PeerConnection to {} state: {}", peer_id, ss.str());
-//                }
-//        );
-//        pc->onGatheringStateChange([peer_id](rtc::PeerConnection::GatheringState state) {
-//            std::stringstream ss;
-//            ss << state;
-//            spdlog::info("PeerConnection to {} gathering state: {}", peer_id, ss.str());
-//        });
-
         pc->onLocalDescription([this, peer_id](const rtc::Description &description) {
             auto desc = nlohmann::json{
                     {"id",          peer_id},
