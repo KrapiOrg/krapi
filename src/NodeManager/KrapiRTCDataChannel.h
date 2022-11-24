@@ -18,19 +18,19 @@ namespace krapi {
         std::shared_ptr<rtc::DataChannel> m_channel;
         std::unordered_map<int, std::promise<PeerMessage>> m_tagged_messages;
         std::unordered_map<int, std::optional<PeerMessageCallback>> m_callbacks;
-        std::optional<PeerMessageCallback> m_on_message;
+        PeerMessageCallback m_on_message;
         std::function<void()> m_on_close;
 
     public:
 
         explicit KrapiRTCDataChannel(
                 std::shared_ptr<rtc::DataChannel> channel,
-                std::function<void()> on_close,
-                std::optional<PeerMessageCallback> on_message = std::nullopt
+                PeerMessageCallback on_message,
+                std::function<void()> on_close
         ) :
                 m_channel(std::move(channel)),
-                m_on_close(std::move(on_close)),
-                m_on_message(std::move(on_message)) {
+                m_on_message(std::move(on_message)),
+                m_on_close(std::move(on_close)) {
 
             m_channel->onMessage(
                     [this](rtc::message_variant rtc_message) {
@@ -39,10 +39,7 @@ namespace krapi {
                         auto message = PeerMessage::from_json(message_json);
                         auto tag = message.tag();
 
-                        if (m_on_message) {
-
-                            m_on_message.value()(message);
-                        }
+                        m_on_message(message);
 
                         if (m_tagged_messages.contains(tag)) {
 

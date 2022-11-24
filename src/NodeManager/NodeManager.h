@@ -43,8 +43,7 @@ namespace krapi {
 
         void add_channel(
                 int id,
-                std::shared_ptr<rtc::DataChannel> channel,
-                std::optional<PeerMessageCallback> callback = std::nullopt
+                std::shared_ptr<rtc::DataChannel> channel
         );
 
     public:

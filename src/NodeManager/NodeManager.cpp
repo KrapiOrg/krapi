@@ -38,10 +38,7 @@ namespace krapi {
 
             add_channel(
                     peer_id,
-                    answerer_channel,
-                    [this](const PeerMessage &message) {
-                        m_dispatcher.dispatch(message.type(), message);
-                    }
+                    answerer_channel
             );
         });
 
@@ -62,10 +59,7 @@ namespace krapi {
 
                 add_channel(
                         peer_id,
-                        offerer_channel,
-                        [this](const PeerMessage &message) {
-                            m_dispatcher.dispatch(message.type(), message);
-                        }
+                        offerer_channel
                 );
             }
                 break;
@@ -184,8 +178,7 @@ namespace krapi {
 
     void NodeManager::add_channel(
             int id,
-            std::shared_ptr<rtc::DataChannel> channel,
-            std::optional<PeerMessageCallback> callback
+            std::shared_ptr<rtc::DataChannel> channel
     ) {
 
 
@@ -193,10 +186,12 @@ namespace krapi {
                 id,
                 std::make_shared<KrapiRTCDataChannel>(
                         std::move(channel),
+                        [this](const PeerMessage &message) {
+                            m_dispatcher.dispatch(message.type(), message);
+                        },
                         [id, this]() {
                             channel_map.erase(id);
-                        },
-                        std::move(callback)
+                        }
                 )
         );
     }
