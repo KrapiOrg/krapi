@@ -61,6 +61,9 @@ int main() {
             }
     );
 
+    spdlog::info("Waiting for at least 1 other light node to connect");
+    manager.wait_for(PeerType::Light, 1);
+
     auto shouldBeASender = Random::get(0, 1);
     // If we are a sender, create transactions and send them to all connected peers.
     std::thread thread;
@@ -72,12 +75,8 @@ int main() {
 
                     while (true) {
                         std::this_thread::sleep_for(1s);
-                        auto random_receiver = manager.get_random_light_node();
+                        auto random_receiver = manager.random_light_node();
 
-                        if (!random_receiver.has_value()) {
-                            spdlog::warn("There are no peers to send transactions to.");
-                            continue;
-                        }
                         auto tx = wallet.create_transaction(
                                 manager.id(),
                                 random_receiver.value()

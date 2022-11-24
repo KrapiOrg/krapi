@@ -14,7 +14,9 @@ namespace krapi {
     public:
         LightNodeManager();
 
-        std::optional<int> get_random_light_node();
+        std::vector<int> peer_ids_of_type(PeerType type);
+
+        std::optional<int> random_light_node();
     };
 
 } // krapi

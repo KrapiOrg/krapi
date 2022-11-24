@@ -7,30 +7,13 @@
 
 namespace krapi {
 
+    LightNodeManager::LightNodeManager() : NodeManager(PeerType::Light) {
 
-    std::optional<int> LightNodeManager::get_random_light_node() {
+    }
+    std::optional<int> LightNodeManager::random_light_node() {
 
         using Random = effolkronium::random_static;
-        auto ids = std::vector<int>{};
-        for (auto &channel: get_channels()) {
-
-            if(!channel->is_open())
-                continue;
-
-            auto resp = channel->send(
-                    PeerMessage{
-                            PeerMessageType::PeerTypeRequest,
-                            my_id,
-                            PeerMessage::create_tag()
-                    }
-            ).get();
-
-            auto type = resp.content().get<PeerType>();
-
-            if (type == PeerType::Light) {
-                ids.push_back(resp.peer_id());
-            }
-        }
+        auto ids = peer_ids_of_type(PeerType::Light);
 
         if (!ids.empty()) {
 
@@ -40,7 +23,15 @@ namespace krapi {
         return {};
     }
 
-    LightNodeManager::LightNodeManager() : NodeManager(PeerType::Light) {
 
+
+    std::vector<int> LightNodeManager::peer_ids_of_type(PeerType type) {
+
+        std::vector<int> ans;
+        for (const auto &[id, tp]: peer_type_map)  {
+            if(tp == type)
+                ans.push_back(id);
+        }
+        return ans;
     }
 } // krapi
