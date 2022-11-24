@@ -207,13 +207,7 @@ namespace krapi {
             bool include_light_nodes
     ) {
 
-        auto cm = std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>>{};
-
-        {
-            cm = channel_map;
-        }
-
-        for (auto &[id, peer_channel]: cm) {
+        for (auto &[id, peer_channel]: channel_map) {
 
             if (include_light_nodes) {
 
@@ -248,8 +242,7 @@ namespace krapi {
 
         if (channel_map.contains(id)) {
 
-            auto dc = channel_map[id];
-            return dc->send(std::move(message), std::move(callback));
+            return channel_map[id]->send(std::move(message), std::move(callback));
         }
         return {};
     }
