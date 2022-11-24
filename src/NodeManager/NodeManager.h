@@ -10,9 +10,9 @@
 #include "eventpp/eventdispatcher.h"
 #include "TransactionPool.h"
 #include "PeerMessage.h"
-#include "Response.h"
 #include "KrapiRTCDataChannel.h"
 #include "PeerType.h"
+#include "SignalingMessage.h"
 
 namespace krapi {
 
@@ -32,7 +32,7 @@ namespace krapi {
 
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
-        void on_signaling_message(const Response &);
+        void on_signaling_message(const SignalingMessage &rsp);
 
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> peer_map;
         std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>> channel_map;

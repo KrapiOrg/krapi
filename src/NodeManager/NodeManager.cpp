@@ -4,8 +4,6 @@
 
 #include <sstream>
 #include "NodeManager.h"
-#include "Message.h"
-
 #include "spdlog/spdlog.h"
 
 namespace krapi {
@@ -32,7 +30,7 @@ namespace krapi {
                     {"type",        description.typeString()},
                     {"description", std::string(description)}
             };
-            auto msg = Message{MessageType::RTCSetup, desc};
+            auto msg = SignalingMessage{SignalingMessageType::RTCSetup, desc};
             ws.send(msg);
         });
 
@@ -43,7 +41,7 @@ namespace krapi {
                     {"candidate", std::string(candidate)},
                     {"mid",       candidate.mid()}
             };
-            auto msg = Message{MessageType::RTCSetup, cand};
+            auto msg = SignalingMessage{SignalingMessageType::RTCSetup, cand};
             ws.send(msg);
         });
 
@@ -64,11 +62,11 @@ namespace krapi {
         return pc;
     }
 
-    void NodeManager::on_signaling_message(const Response &rsp) {
+    void NodeManager::on_signaling_message(const SignalingMessage &rsp) {
 
         switch (rsp.type) {
 
-            case ResponseType::PeerAvailable: {
+            case SignalingMessageType::PeerAvailable: {
 
                 auto peer_id = rsp.content.get<int>();
                 spdlog::info("NodeManager: Peer {} is available", peer_id);
@@ -84,7 +82,7 @@ namespace krapi {
                 );
             }
                 break;
-            case ResponseType::RTCSetup: {
+            case SignalingMessageType::RTCSetup: {
 
                 auto peer_id = rsp.content["id"].get<int>();
                 auto type = rsp.content["type"].get<std::string>();
@@ -129,24 +127,25 @@ namespace krapi {
         ws.setOnMessageCallback([&](const ix::WebSocketMessagePtr &message) {
             if (message->type == ix::WebSocketMessageType::Open) {
 
-                ws.send(Message{MessageType::GetIdentitiy});
+                ws.send(SignalingMessage{SignalingMessageType::IdentityRequest});
             } else if (message->type == ix::WebSocketMessageType::Message) {
 
-                auto response = Response::from_json(message->str);
-                if (response.type == ResponseType::PeerIdentity)
-                    barrier.set_value(response.content.get<int>());
-                else
-                    spdlog::info("NodeManager: Expected a PeerIdentity response, got {}", response.to_string());
+                auto msg_json = nlohmann::json::parse(message->str);
+                auto msg = SignalingMessage::from_json(msg_json);
+
+                if (msg.type == SignalingMessageType::IdentityResponse) {
+
+                    barrier.set_value(msg.content.get<int>());
+                } else {
+
+                    on_signaling_message(msg);
+                }
             }
         });
         ws.start();
         spdlog::info("NodeManager: Waiting for identity from signaling server...");
         my_id = future.get();
         spdlog::info("NodeManager: Aquired identity {}", my_id);
-        ws.setOnMessageCallback([this](const ix::WebSocketMessagePtr &message) {
-            auto msg = Response::from_json(message->str);
-            on_signaling_message(msg);
-        });
 
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,

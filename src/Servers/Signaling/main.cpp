@@ -7,8 +7,7 @@
 #include "spdlog/spdlog.h"
 #include "ixwebsocket/IXWebSocketServer.h"
 #include "ixwebsocket/IXSetThreadName.h"
-#include "Message.h"
-#include "Response.h"
+#include "SignalingMessage.h"
 
 
 using namespace krapi;
@@ -34,7 +33,7 @@ namespace krapi {
     class WebSocketServer : public ix::SocketServer {
 
         using OnMessageCallback = std::function<void(std::shared_ptr<ix::ConnectionState> connectionState, WebSocket &,
-                                                     const Message &)>;
+                                                     const SignalingMessage &)>;
         OnMessageCallback m_onMessage;
 
         std::mutex m_clients_mutex;
@@ -57,7 +56,8 @@ namespace krapi {
                             spdlog::info("WebSocketServer: {} just opened a connection", wsRaw->id());
                         } else if (msg->type == ix::WebSocketMessageType::Message) {
 
-                            m_onMessage(connectionState, *wsRaw, Message::from_json(nlohmann::json::parse(msg->str)));
+                            m_onMessage(connectionState, *wsRaw,
+                                        SignalingMessage::from_json(nlohmann::json::parse(msg->str)));
                         }
                     }
             );
@@ -119,7 +119,7 @@ namespace krapi {
 
             for (const auto &[id, ws]: clients()) {
                 if (id != p) {
-                    ws->send(Response{ResponseType::PeerAvailable, p}.to_string());
+                    ws->send(SignalingMessage{SignalingMessageType::PeerAvailable, p}.to_string());
                     do {
                         std::chrono::duration<double, std::milli> duration(500);
                         std::this_thread::sleep_for(duration);
@@ -162,24 +162,27 @@ int main(int argc, char **argv) {
             [&](
                     std::shared_ptr<ix::ConnectionState> state,
                     krapi::WebSocket &ws,
-                    const krapi::Message &message
+                    const krapi::SignalingMessage &message
             ) {
-                if (message.type == MessageType::GetIdentitiy) {
-                    auto response = Response{ResponseType::PeerIdentity, ws.id()};
+                if (message.type == SignalingMessageType::IdentityRequest) {
+                    auto response = SignalingMessage{SignalingMessageType::IdentityResponse, ws.id()};
                     ws.send(response.to_string());
                     server.peer_update(ws.id());
-                } else if (message.type == MessageType::GetAvailablePeers) {
+                } else if (message.type == SignalingMessageType::AvailablePeersRequest) {
                     auto client_ids = server.client_ids();
                     client_ids.erase(ws.id());
-                    auto response = Response{ResponseType::AvailablePeers, std::move(client_ids)};
+                    auto response = SignalingMessage{
+                            SignalingMessageType::AvailablePeersResponse,
+                            std::move(client_ids)
+                    };
                     ws.send(response.to_string());
-                } else if (message.type == MessageType::RTCSetup) {
+                } else if (message.type == SignalingMessageType::RTCSetup) {
                     auto clients = server.clients();
                     auto id = message.content["id"].get<int>();
 
                     if (clients.contains(id)) {
 
-                        auto response = Response{ResponseType::RTCSetup, message.content};
+                        auto response = SignalingMessage{SignalingMessageType::RTCSetup, message.content};
                         response.content["id"] = ws.id();
                         clients[id]->send(response.to_json().dump());
                     }
