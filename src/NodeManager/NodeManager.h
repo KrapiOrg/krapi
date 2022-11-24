@@ -8,7 +8,6 @@
 #include "ixwebsocket/IXWebSocket.h"
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
-#include "TransactionPool.h"
 #include "PeerMessage.h"
 #include "KrapiRTCDataChannel.h"
 #include "PeerType.h"
