@@ -64,7 +64,7 @@ namespace krapi {
         return pc;
     }
 
-    void NodeManager::onWsResponse(const Response &rsp) {
+    void NodeManager::on_signaling_message(const Response &rsp) {
 
         switch (rsp.type) {
 
@@ -145,7 +145,7 @@ namespace krapi {
         spdlog::info("NodeManager: Aquired identity {}", my_id);
         ws.setOnMessageCallback([this](const ix::WebSocketMessagePtr &message) {
             auto msg = Response::from_json(message->str);
-            onWsResponse(msg);
+            on_signaling_message(msg);
         });
 
         m_dispatcher.appendListener(
