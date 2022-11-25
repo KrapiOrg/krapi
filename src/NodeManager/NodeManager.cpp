@@ -243,8 +243,15 @@ namespace krapi {
 
                         self->light_peer_count++;
                     }
+                    // LightNodes have no concept of state
+                    PeerState state;
+                    if (peer_type == PeerType::Light) {
 
-                    auto state = self->request_peer_state(id);
+                        state = PeerState::Open;
+                    } else {
+
+                        state = self->request_peer_state(id);
+                    }
                     self->peer_threshold_cv.notify_one();
                     spdlog::info("NodeManager: Initial State of {} is {}", id, to_string(state));
                 }

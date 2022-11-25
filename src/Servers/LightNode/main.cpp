@@ -89,28 +89,18 @@ int main() {
                                 random_id
                         );
 
-                        auto randoms_peer_state = manager->request_peer_state(random_id);
+                        spdlog::info(
+                                "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_id
+                        );
+                        manager->broadcast(
+                                PeerMessage{
+                                        PeerMessageType::AddTransaction,
+                                        manager->id(),
+                                        PeerMessage::create_tag(),
+                                        tx.to_json()
+                                }
+                        );
 
-                        if (randoms_peer_state == PeerState::Open) {
-                            spdlog::info(
-                                    "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_id
-                            );
-                            manager->broadcast(
-                                    PeerMessage{
-                                            PeerMessageType::AddTransaction,
-                                            manager->id(),
-                                            PeerMessage::create_tag(),
-                                            tx.to_json()
-                                    }
-                            );
-                        } else {
-
-                            spdlog::info(
-                                    "Did not send transaction to {}, peer state is {}",
-                                    random_id,
-                                    to_string(randoms_peer_state)
-                            );
-                        }
                     }
 
                 }
