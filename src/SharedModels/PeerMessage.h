@@ -22,7 +22,10 @@ namespace krapi {
         BlockHeadersRequest,
         BlockHeadersResponse,
         BlockRequest,
-        BlockResponse
+        BlockResponse,
+        PeerStateRequest,
+        PeerStateResponse,
+        PeerStateUpdate
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -37,7 +40,10 @@ namespace krapi {
         { PeerMessageType::BlockHeadersRequest, "block_headers_request" },
         { PeerMessageType::BlockHeadersResponse, "block_headers_response" },
         { PeerMessageType::BlockRequest, "block_request" },
-        { PeerMessageType::BlockResponse, "block_response" }
+        { PeerMessageType::BlockResponse, "block_response" },
+        { PeerMessageType::PeerStateRequest, "peer_state_request" },
+        { PeerMessageType::PeerStateResponse, "peer_state_response" },
+        { PeerMessageType::PeerStateUpdate, "peer_state_update" }
     })
 
     class PeerMessage {

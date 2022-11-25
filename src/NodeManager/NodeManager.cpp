@@ -53,7 +53,6 @@ namespace krapi {
             case SignalingMessageType::PeerAvailable: {
 
                 auto peer_id = rsp.content.get<int>();
-                spdlog::info("NodeManager: Peer {} is available", peer_id);
                 auto pc = create_connection(peer_id);
                 auto offerer_channel = pc->createDataChannel("krapi");
 
@@ -74,7 +73,6 @@ namespace krapi {
                     pc = peer_map[peer_id];
                 } else if (type == "offer") {
 
-                    spdlog::info("Answering to {}", peer_id);
                     pc = create_connection(peer_id);
 
                 } else {
@@ -146,6 +144,20 @@ namespace krapi {
                     );
                 }
         );
+        m_dispatcher.appendListener(
+                PeerMessageType::PeerStateUpdate,
+                [this](const PeerMessage &message) {
+                    auto new_state = message.content().get<PeerState>();
+                    std::lock_guard l(map_mutex);
+                    if (peer_state_map.contains(message.peer_id())) {
+                        spdlog::info(
+                                "NodeManager: Updating State of {} to {}", message.peer_id(),
+                                to_string(new_state)
+                        );
+                        peer_state_map[message.peer_id()] = new_state;
+                    }
+                }
+        );
     }
 
     void NodeManager::wait() {
@@ -188,6 +200,8 @@ namespace krapi {
                     }
                 }
         );
+
+        std::lock_guard l(map_mutex);
         peer_map.emplace(id, std::move(peer_connection));
     }
 
@@ -206,30 +220,33 @@ namespace krapi {
 
         krapi_channel->append_listener(
                 KrapiRTCDataChannel::Event::Open,
-                [&, id, this]() {
-                    send(
+                [id, wthis = weak_from_this()]() {
+                    auto self = wthis.lock();
+                    if (!self)
+                        return;
+
+                    auto resp1 = self->send(
                             id,
                             PeerMessage{
                                     PeerMessageType::PeerTypeRequest,
-                                    my_id,
+                                    self->my_id,
                                     PeerMessage::create_tag()
-                            },
-                            [&, this](PeerMessage resp) {
-                                auto peer_type = resp.content().get<PeerType>();
-                                peer_type_map[id] = peer_type;
-
-                                if (peer_type == PeerType::Full) {
-
-                                    full_peer_count++;
-                                } else {
-
-                                    light_peer_count++;
-                                }
-
-                                peer_threshold_cv.notify_one();
                             }
-                    );
+                    ).get();
+                    auto peer_type = resp1.content().get<PeerType>();
+                    self->peer_type_map[id] = peer_type;
 
+                    if (peer_type == PeerType::Full) {
+
+                        self->full_peer_count++;
+                    } else {
+
+                        self->light_peer_count++;
+                    }
+
+                    auto state = self->request_peer_state(id);
+                    self->peer_threshold_cv.notify_one();
+                    spdlog::info("NodeManager: Initial State of {} is {}", id, to_string(state));
                 }
         );
         krapi_channel->append_listener(
@@ -245,8 +262,7 @@ namespace krapi {
                     }
                 }
         );
-
-
+        std::lock_guard l(map_mutex);
         channel_map.emplace(id, std::move(krapi_channel));
     }
 
@@ -271,16 +287,21 @@ namespace krapi {
         }
     }
 
-    std::shared_future<PeerMessage> NodeManager::send(
+    std::future<PeerMessage> NodeManager::send(
             int id,
             PeerMessage message,
             std::optional<PeerMessageCallback> callback
     ) {
 
+        std::shared_ptr<KrapiRTCDataChannel> channel;
 
-        if (channel_map.contains(id)) {
+        {
+            std::lock_guard l(map_mutex);
+            channel = channel_map.find(id)->second;
+        }
+        if (channel != nullptr) {
 
-            return channel_map[id]->send(std::move(message), std::move(callback));
+            return channel->send(std::move(message), std::move(callback));
         }
         return {};
     }
@@ -325,5 +346,56 @@ namespace krapi {
     NodeManager::~NodeManager() {
 
         spdlog::error("NodeManagerByeBye :\'(");
+    }
+
+    PeerState NodeManager::request_peer_state(int id) {
+
+        if (peer_state_map.contains(id)) {
+
+            return peer_state_map[id];
+        } else {
+
+            auto resp = send(
+                    id,
+                    PeerMessage{
+                            PeerMessageType::PeerStateRequest,
+                            my_id,
+                            PeerMessage::create_tag()
+                    }
+            ).get();
+            auto state = resp.content().get<PeerState>();
+
+            {
+                std::lock_guard l(map_mutex);
+                peer_state_map[id] = state;
+            }
+            return state;
+        }
+    }
+
+    PeerState NodeManager::get_state() const {
+
+        return peer_state;
+    }
+
+    void NodeManager::update_state_to(PeerState new_state) {
+
+        if (new_state != peer_state) {
+            {
+                std::lock_guard l(peer_state_mutex);
+                peer_state = new_state;
+                spdlog::info("NodeManager: Updated Local State to {}", to_string(new_state));
+                broadcast(
+                        PeerMessage{
+                                PeerMessageType::PeerStateUpdate,
+                                my_id,
+                                PeerMessage::create_tag(),
+                                new_state
+                        },
+                        std::nullopt,
+                        true
+                );
+            }
+        }
     }
 } // krapi

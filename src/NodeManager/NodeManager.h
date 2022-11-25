@@ -34,9 +34,11 @@ namespace krapi {
 
         void on_signaling_message(const SignalingMessage &rsp);
 
+        std::recursive_mutex map_mutex;
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> peer_map;
         std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>> channel_map;
         std::unordered_map<int, PeerType> peer_type_map;
+        std::unordered_map<int, PeerState> peer_state_map;
 
         std::atomic<int> full_peer_count;
         std::atomic<int> light_peer_count;
@@ -61,6 +63,7 @@ namespace krapi {
         explicit NodeManager(
                 PeerType peer_type = PeerType::Full
         );
+
         ~NodeManager();
 
         std::vector<int> peer_ids_of_type(PeerType type);
@@ -73,7 +76,7 @@ namespace krapi {
                 bool include_light_nodes = false
         );
 
-        std::shared_future<PeerMessage> send(
+        std::future<PeerMessage> send(
                 int id,
                 PeerMessage message,
                 std::optional<PeerMessageCallback> callback = std::nullopt
@@ -87,6 +90,13 @@ namespace krapi {
                 PeerMessageType,
                 const std::function<void(PeerMessage)> &listener
         );
+
+        PeerState request_peer_state(int id);
+
+        void update_state_to(PeerState new_state);
+
+        [[nodiscard]]
+        PeerState get_state() const;
 
         [[nodiscard]]
         int id() const;

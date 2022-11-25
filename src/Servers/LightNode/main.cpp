@@ -61,6 +61,8 @@ int main() {
             }
     );
 
+    spdlog::info("Waiting for at least 1 for a full node to connect");
+    manager->wait_for(PeerType::Full, 1);
     spdlog::info("Waiting for at least 1 other light node to connect");
     manager->wait_for(PeerType::Light, 1);
 
@@ -77,28 +79,38 @@ int main() {
                         std::this_thread::sleep_for(1s);
                         auto random_receiver = manager->random_light_node();
 
-                        if(!random_receiver.has_value())
-                        {
+                        if (!random_receiver.has_value()) {
                             spdlog::warn("There a no light nodes to send transactions to");
                             continue;
                         }
-
+                        auto random_id = random_receiver.value();
                         auto tx = wallet.create_transaction(
                                 manager->id(),
-                                random_receiver.value()
-                        );
-                        spdlog::info(
-                                "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_receiver.value()
+                                random_id
                         );
 
-                        manager->broadcast(
-                                PeerMessage{
-                                        PeerMessageType::AddTransaction,
-                                        manager->id(),
-                                        PeerMessage::create_tag(),
-                                        tx.to_json()
-                                }
-                        );
+                        auto randoms_peer_state = manager->request_peer_state(random_id);
+
+                        if (randoms_peer_state == PeerState::Open) {
+                            spdlog::info(
+                                    "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_id
+                            );
+                            manager->broadcast(
+                                    PeerMessage{
+                                            PeerMessageType::AddTransaction,
+                                            manager->id(),
+                                            PeerMessage::create_tag(),
+                                            tx.to_json()
+                                    }
+                            );
+                        } else {
+
+                            spdlog::info(
+                                    "Did not send transaction to {}, peer state is {}",
+                                    random_id,
+                                    to_string(randoms_peer_state)
+                            );
+                        }
                     }
 
                 }

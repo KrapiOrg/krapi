@@ -30,6 +30,7 @@ namespace krapi {
         std::shared_ptr<rtc::DataChannel> m_channel;
         std::unordered_map<std::string, std::promise<PeerMessage>> m_tagged_messages;
         std::unordered_map<std::string, std::optional<PeerMessageCallback>> m_callbacks;
+        std::future<void> m_on_open_future;
 
     public:
 
@@ -62,7 +63,9 @@ namespace krapi {
 
             m_channel->onOpen([this]() {
 
-                m_void_dispatcher.dispatch(Event::Open);
+                m_on_open_future = std::async(std::launch::async,[this](){
+                    m_void_dispatcher.dispatch(Event::Open);
+                });
             });
             m_channel->onClosed([this]() {
 

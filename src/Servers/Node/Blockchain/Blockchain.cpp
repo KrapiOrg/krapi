@@ -66,11 +66,11 @@ namespace krapi {
 
         std::lock_guard l(m_blocks_mutex);
         m_blocks.insert({block.hash(), block});
+        m_last_block = block;
     }
 
     void Blockchain::dump() {
 
-        std::lock_guard l(m_blocks_mutex);
         for (const auto &[hash, block]: m_blocks) {
 
             spdlog::info("== Block: {}", hash.substr(0, 10));
@@ -79,14 +79,7 @@ namespace krapi {
 
     Block Blockchain::last() {
 
-        std::lock_guard l(m_blocks_mutex);
-
-        return std::max_element(
-                m_blocks.begin(), m_blocks.end(),
-                [](const std::pair<std::string, Block> &a, const std::pair<std::string, Block> &b) {
-                    return a.second.header().timestamp() < b.second.header().timestamp();
-                }
-        )->second;
+        return m_last_block;
     }
 
     Blockchain::~Blockchain() {
@@ -96,19 +89,16 @@ namespace krapi {
 
     bool Blockchain::contains(std::string hash) {
 
-        std::lock_guard l(m_blocks_mutex);
         return m_blocks.contains(hash);
     }
 
     Block Blockchain::get_block(std::string hash) {
 
-        std::lock_guard l(m_blocks_mutex);
         return m_blocks.find(hash)->second;
     }
 
     std::vector<std::string> Blockchain::get_hashes() {
 
-        std::lock_guard l(m_blocks_mutex);
         auto ans = std::vector<std::string>{};
 
         for (const auto &[hash, block]: m_blocks) {
@@ -119,12 +109,25 @@ namespace krapi {
 
     std::vector<BlockHeader> Blockchain::headers() {
 
-        std::lock_guard l(m_blocks_mutex);
         auto ans = std::vector<BlockHeader>{};
 
         for (const auto &[hash, block]: m_blocks) {
             ans.push_back(block.header());
         }
+        return ans;
+    }
+
+    std::vector<BlockHeader> Blockchain::get_all_after(const BlockHeader &header) {
+
+        std::vector<BlockHeader> ans;
+
+        for (const auto &[hash, block]: m_blocks) {
+            if (block.header().timestamp() > header.timestamp()) {
+
+                ans.push_back(block.header());
+            }
+        }
+
         return ans;
     }
 } // krapi

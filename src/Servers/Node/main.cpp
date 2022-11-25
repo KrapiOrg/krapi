@@ -25,10 +25,25 @@ int main(int argc, char *argv[]) {
 
     auto blockchain = Blockchain::from_disk(path);
     auto miner = Miner();
-    miner.set_latest_hash(blockchain.last().hash());
     auto transaction_pool = TransactionPool(BATCH_SZE);
 
     auto manager = std::make_shared<NodeManager>();
+
+    manager->append_listener(
+            PeerMessageType::PeerStateRequest,
+            [&](const PeerMessage &message) {
+
+                manager->send(
+                        message.peer_id(),
+                        PeerMessage{
+                                PeerMessageType::PeerStateResponse,
+                                manager->id(),
+                                message.tag(),
+                                manager->get_state()
+                        }
+                );
+            }
+    );
 
     manager->append_listener(
             PeerMessageType::BlockRequest,
@@ -50,7 +65,10 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockHeadersRequest,
             [&](const PeerMessage &message) {
-                auto headers = blockchain.headers();
+
+                auto latest_remote_header = BlockHeader::from_json(message.content());
+
+                auto headers = blockchain.get_all_after(latest_remote_header);
 
                 manager->send(
                         message.peer_id(),
@@ -68,7 +86,7 @@ int main(int argc, char *argv[]) {
 
     manager->append_listener(
             PeerMessageType::AddTransaction,
-            [&transaction_pool](PeerMessage message) {
+            [&transaction_pool](const PeerMessage &message) {
                 auto transaction = Transaction::from_json(message.content());
                 spdlog::info("Main: Received Transaction {}", transaction.hash().substr(0, 10));
                 transaction_pool.add(transaction);
@@ -122,9 +140,11 @@ int main(int argc, char *argv[]) {
             }
     );
 
+    manager->update_state_to(PeerState::WaitingForPeers);
     manager->wait_for(PeerType::Full, 1);
 
     {
+        manager->update_state_to(PeerState::InitialBlockDownload);
         auto ids = manager->peer_ids_of_type(PeerType::Full);
 
         auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
@@ -135,7 +155,8 @@ int main(int argc, char *argv[]) {
                     PeerMessage{
                             PeerMessageType::BlockHeadersRequest,
                             manager->id(),
-                            PeerMessage::create_tag()
+                            PeerMessage::create_tag(),
+                            blockchain.last().header().to_json()
                     }
             ).get();
 
@@ -151,7 +172,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (const auto &header: header_cache[longest_chain_peer_id]) {
-            if(blockchain.contains(header.hash()))
+            if (blockchain.contains(header.hash()))
                 continue;
 
             auto resp = manager->send(
@@ -168,6 +189,8 @@ int main(int argc, char *argv[]) {
             blockchain.add(block);
             block.to_disk(path);
         }
+        miner.set_latest_hash(blockchain.last().hash());
+        manager->update_state_to(PeerState::Open);
     }
 
     manager->wait();

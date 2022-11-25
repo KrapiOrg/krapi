@@ -16,13 +16,11 @@ namespace krapi {
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerState, {
-        {
-            { PeerState::InitialBlockDownload, "initial_block_download" },
-            { PeerState::WaitingForPeers, "waiting_for_peers" },
-            { PeerState::Closed, "closed" },
-            { PeerState::Open, "open" },
-            { PeerState::Error, "error" }
-        }
+        { PeerState::InitialBlockDownload, "initial_block_download" },
+        { PeerState::WaitingForPeers, "waiting_for_peers" },
+        { PeerState::Closed, "closed" },
+        { PeerState::Open, "open" },
+        { PeerState::Error, "error" }
     })
 
     inline std::string to_string(PeerState state) {

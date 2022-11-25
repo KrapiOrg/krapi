@@ -14,6 +14,7 @@ namespace krapi {
 
     class Blockchain {
         std::unordered_map<std::string, Block> m_blocks;
+        Block m_last_block;
         std::mutex m_blocks_mutex;
 
     public:
@@ -22,7 +23,6 @@ namespace krapi {
         static Blockchain from_disk(const std::filesystem::path &path);
 
         void add(Block block);
-
 
         void dump();
 
@@ -35,6 +35,8 @@ namespace krapi {
         std::vector<BlockHeader> headers();
 
         bool contains(std::string hash);
+
+        std::vector<BlockHeader> get_all_after(const BlockHeader &header);
 
         ~Blockchain();
     };
