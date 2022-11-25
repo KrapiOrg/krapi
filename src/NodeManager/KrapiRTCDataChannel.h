@@ -28,8 +28,8 @@ namespace krapi {
         eventpp::EventDispatcher<Event, void()> m_void_dispatcher;
         eventpp::EventDispatcher<Event, void(PeerMessage)> m_message_dispatcher;
         std::shared_ptr<rtc::DataChannel> m_channel;
-        std::unordered_map<int, std::promise<PeerMessage>> m_tagged_messages;
-        std::unordered_map<int, std::optional<PeerMessageCallback>> m_callbacks;
+        std::unordered_map<std::string, std::promise<PeerMessage>> m_tagged_messages;
+        std::unordered_map<std::string, std::optional<PeerMessageCallback>> m_callbacks;
 
     public:
 
@@ -55,6 +55,7 @@ namespace krapi {
 
                         }
                         m_message_dispatcher.dispatch(Event::Message, message);
+                        m_tagged_messages.erase(tag);
                     }
 
             );
@@ -70,14 +71,14 @@ namespace krapi {
         }
 
         // Returns the message tag and a future handle
-        std::shared_future<PeerMessage> send(
+        std::future<PeerMessage> send(
                 PeerMessage message,
                 std::optional<PeerMessageCallback> callback = std::nullopt
         ) {
 
+            if (m_channel->isOpen()) {
 
-            int tag = message.tag();
-            if (!m_tagged_messages.contains(tag)) {
+                std::string tag = message.tag();
 
                 m_tagged_messages[tag] = std::promise<PeerMessage>{};
 

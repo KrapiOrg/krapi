@@ -17,7 +17,7 @@ namespace krapi {
         std::mutex m_blocks_mutex;
 
     public:
-        explicit Blockchain(std::unordered_map<std::string,Block> blocks);
+        explicit Blockchain(std::unordered_map<std::string, Block> blocks);
 
         static Blockchain from_disk(const std::filesystem::path &path);
 
@@ -31,6 +31,8 @@ namespace krapi {
         Block get_block(std::string);
 
         std::vector<std::string> get_hashes();
+
+        std::vector<BlockHeader> headers();
 
         bool contains(std::string hash);
 

@@ -101,9 +101,9 @@ namespace krapi {
 
     NodeManager::NodeManager(
             PeerType peer_type
-    ) :
-            full_peer_count(0),
-            light_peer_count(0) {
+    ) : peer_state(PeerState::Closed),
+        full_peer_count(0),
+        light_peer_count(0) {
 
         std::promise<int> barrier;
         auto future = barrier.get_future();
@@ -170,9 +170,21 @@ namespace krapi {
     ) {
 
         peer_connection->onStateChange(
-                [id, this](rtc::PeerConnection::State state) {
-                    if (state == rtc::PeerConnection::State::Closed) {
-                        peer_map.erase(id);
+                [id, self = weak_from_this()](rtc::PeerConnection::State state) {
+
+                    switch (state) {
+                        case rtc::PeerConnection::State::Closed:
+                        case rtc::PeerConnection::State::Disconnected: {
+                            if (auto ptr = self.lock()) {
+
+                                ptr->peer_map.erase(id);
+                                ptr->channel_map.erase(id);
+                                ptr->peer_type_map.erase(id);
+                            }
+                        }
+                            break;
+                        default:
+                            break;
                     }
                 }
         );
@@ -231,9 +243,6 @@ namespace krapi {
 
                         light_peer_count--;
                     }
-
-                    channel_map.erase(id);
-                    peer_type_map.erase(id);
                 }
         );
 
@@ -285,6 +294,16 @@ namespace krapi {
         return ans;
     }
 
+    std::vector<int> NodeManager::peer_ids_of_type(PeerType type) {
+
+        std::vector<int> ans;
+        for (const auto &[id, tp]: peer_type_map) {
+            if (tp == type)
+                ans.push_back(id);
+        }
+        return ans;
+    }
+
     void NodeManager::wait_for(PeerType peer_type, int peer_count) {
 
         std::unique_lock l(peer_threshold_mutex);
@@ -301,5 +320,10 @@ namespace krapi {
                 return light_peer_count >= peer_count;
             });
         }
+    }
+
+    NodeManager::~NodeManager() {
+
+        spdlog::error("NodeManagerByeBye :\'(");
     }
 } // krapi

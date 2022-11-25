@@ -19,8 +19,8 @@ target_link_libraries(
         eventpp
         ixwebsocket
         effolkronium_random
+        stduuid
         blockchain_models
         transaction_pool
-
         node_manager
 )

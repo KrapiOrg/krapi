@@ -7,6 +7,7 @@
 #include "TransactionPool.h"
 #include "Content/BlocksResponseContent.h"
 #include "Content/SetTransactionStatusContent.h"
+#include "Content/BlockHeadersResponseContent.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;
@@ -27,9 +28,45 @@ int main(int argc, char *argv[]) {
     miner.set_latest_hash(blockchain.last().hash());
     auto transaction_pool = TransactionPool(BATCH_SZE);
 
-    NodeManager manager;
+    auto manager = std::make_shared<NodeManager>();
 
-    manager.append_listener(
+    manager->append_listener(
+            PeerMessageType::BlockRequest,
+            [&](const PeerMessage &message) {
+                auto hash = message.content().get<std::string>();
+
+                manager->send(
+                        message.peer_id(),
+                        PeerMessage{
+                                PeerMessageType::BlockResponse,
+                                manager->id(),
+                                message.tag(),
+                                blockchain.get_block(hash).to_json()
+                        }
+                );
+            }
+    );
+
+    manager->append_listener(
+            PeerMessageType::BlockHeadersRequest,
+            [&](const PeerMessage &message) {
+                auto headers = blockchain.headers();
+
+                manager->send(
+                        message.peer_id(),
+                        PeerMessage{
+                                PeerMessageType::BlockHeadersResponse,
+                                manager->id(),
+                                message.tag(),
+                                BlockHeadersResponseContent{
+                                        blockchain.headers()
+                                }.to_json()
+                        }
+                );
+            }
+    );
+
+    manager->append_listener(
             PeerMessageType::AddTransaction,
             [&transaction_pool](PeerMessage message) {
                 auto transaction = Transaction::from_json(message.content());
@@ -60,11 +97,11 @@ int main(int argc, char *argv[]) {
 
                 for (const auto &transaction: block.transactions()) {
 
-                    manager.send(
+                    manager->send(
                             transaction.from(),
                             PeerMessage{
                                     PeerMessageType::SetTransactionStatus,
-                                    manager.id(),
+                                    manager->id(),
                                     PeerMessage::create_tag(),
                                     SetTransactionStatusContent{
                                             TransactionStatus::Verified,
@@ -72,11 +109,11 @@ int main(int argc, char *argv[]) {
                                     }.to_json()
                             }
                     );
-                    manager.send(
+                    manager->send(
                             transaction.to(),
                             PeerMessage{
                                     PeerMessageType::AddTransaction,
-                                    manager.id(),
+                                    manager->id(),
                                     PeerMessage::create_tag(),
                                     transaction.to_json()
                             }
@@ -85,7 +122,53 @@ int main(int argc, char *argv[]) {
             }
     );
 
-    manager.wait_for(PeerType::Full, 1);
+    manager->wait_for(PeerType::Full, 1);
 
-    manager.wait();
+    {
+        auto ids = manager->peer_ids_of_type(PeerType::Full);
+
+        auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
+        for (const auto &id: ids) {
+
+            auto resp = manager->send(
+                    id,
+                    PeerMessage{
+                            PeerMessageType::BlockHeadersRequest,
+                            manager->id(),
+                            PeerMessage::create_tag()
+                    }
+            ).get();
+
+            auto content = BlockHeadersResponseContent::from_json(resp.content());
+            header_cache[id] = content.headers();
+        }
+
+        int longest_chain_peer_id = ids.front();
+        for (const auto &[id, headers]: header_cache) {
+            if (headers.size() > header_cache[longest_chain_peer_id].size()) {
+                longest_chain_peer_id = id;
+            }
+        }
+
+        for (const auto &header: header_cache[longest_chain_peer_id]) {
+            if(blockchain.contains(header.hash()))
+                continue;
+
+            auto resp = manager->send(
+                    longest_chain_peer_id,
+                    PeerMessage{
+                            PeerMessageType::BlockRequest,
+                            manager->id(),
+                            PeerMessage::create_tag(),
+                            header.hash()
+                    }
+            ).get();
+            auto block = Block::from_json(resp.content());
+
+            blockchain.add(block);
+            block.to_disk(path);
+        }
+    }
+
+    manager->wait();
 }

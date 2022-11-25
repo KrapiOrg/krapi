@@ -34,3 +34,6 @@
 [submodule "libs/random"]
 	path = libs/random
 	url = https://github.com/effolkronium/random
+[submodule "libs/stduuid"]
+	path = libs/stduuid
+	url = https://github.com/mariusbancila/stduuid

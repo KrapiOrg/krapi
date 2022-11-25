@@ -116,4 +116,15 @@ namespace krapi {
         }
         return ans;
     }
+
+    std::vector<BlockHeader> Blockchain::headers() {
+
+        std::lock_guard l(m_blocks_mutex);
+        auto ans = std::vector<BlockHeader>{};
+
+        for (const auto &[hash, block]: m_blocks) {
+            ans.push_back(block.header());
+        }
+        return ans;
+    }
 } // krapi

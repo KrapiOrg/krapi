@@ -12,10 +12,11 @@
 #include "KrapiRTCDataChannel.h"
 #include "PeerType.h"
 #include "SignalingMessage.h"
+#include "PeerState.h"
 
 namespace krapi {
 
-    class NodeManager {
+    class NodeManager : public std::enable_shared_from_this<NodeManager> {
     protected:
 
         using PeerMessageEventDispatcher = eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)>;
@@ -42,6 +43,9 @@ namespace krapi {
         std::mutex peer_threshold_mutex;
         std::condition_variable peer_threshold_cv;
 
+        std::mutex peer_state_mutex;
+        PeerState peer_state;
+
         void add_peer_connection(
                 int id,
                 std::shared_ptr<rtc::PeerConnection> peer_connection
@@ -57,6 +61,9 @@ namespace krapi {
         explicit NodeManager(
                 PeerType peer_type = PeerType::Full
         );
+        ~NodeManager();
+
+        std::vector<int> peer_ids_of_type(PeerType type);
 
         std::vector<std::shared_ptr<KrapiRTCDataChannel>> get_channels();
 

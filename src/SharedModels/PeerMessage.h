@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <utility>
 #include "nlohmann/json.hpp"
+#include "uuid.h"
 
 namespace krapi {
     enum class PeerMessageType {
@@ -19,7 +20,9 @@ namespace krapi {
         RequestBlocks,
         BlocksResponse,
         BlockHeadersRequest,
-        BlockHeadersResponse
+        BlockHeadersResponse,
+        BlockRequest,
+        BlockResponse
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -32,14 +35,16 @@ namespace krapi {
         { PeerMessageType::RequestBlocks, "request_blocks" },
         { PeerMessageType::BlocksResponse, "blocks_response" },
         { PeerMessageType::BlockHeadersRequest, "block_headers_request" },
-        { PeerMessageType::BlockHeadersResponse, "block_headers_response" }
+        { PeerMessageType::BlockHeadersResponse, "block_headers_response" },
+        { PeerMessageType::BlockRequest, "block_request" },
+        { PeerMessageType::BlockResponse, "block_response" }
     })
 
     class PeerMessage {
-        static inline std::atomic<int> tag_ = 0;
+
         PeerMessageType m_type;
         int m_peer_id;
-        int m_tag;
+        std::string m_tag;
         nlohmann::json m_content;
 
     public:
@@ -47,11 +52,11 @@ namespace krapi {
         explicit PeerMessage(
                 PeerMessageType type,
                 int peer_id,
-                int tag,
+                std::string tag,
                 nlohmann::json content = {}
         ) : m_type(type),
             m_peer_id(peer_id),
-            m_tag(tag),
+            m_tag(std::move(tag)),
             m_content(std::move(content)) {
 
         }
@@ -69,7 +74,7 @@ namespace krapi {
         }
 
         [[nodiscard]]
-        int tag() const {
+        std::string tag() const {
 
             return m_tag;
         }
@@ -102,9 +107,9 @@ namespace krapi {
             return to_json().dump();
         }
 
-        static int create_tag() {
+        static std::string create_tag() {
 
-            return tag_++;
+            return uuids::to_string(uuids::uuid_system_generator{}());
         }
 
         static inline PeerMessage from_json(nlohmann::json json) {
@@ -112,7 +117,7 @@ namespace krapi {
             return PeerMessage{
                     json["type"].get<PeerMessageType>(),
                     json["peer_id"].get<int>(),
-                    json["tag"].get<int>(),
+                    json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
             };
         }

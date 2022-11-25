@@ -23,15 +23,4 @@ namespace krapi {
         return {};
     }
 
-
-
-    std::vector<int> LightNodeManager::peer_ids_of_type(PeerType type) {
-
-        std::vector<int> ans;
-        for (const auto &[id, tp]: peer_type_map)  {
-            if(tp == type)
-                ans.push_back(id);
-        }
-        return ans;
-    }
 } // krapi

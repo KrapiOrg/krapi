@@ -19,6 +19,7 @@ target_link_libraries(
         cryptopp
         datachannel
         eventpp
+        stduuid
         transaction_pool
         shared_models
 )

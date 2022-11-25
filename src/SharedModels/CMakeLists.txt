@@ -10,6 +10,7 @@ add_library(
         ${CMAKE_CURRENT_LIST_DIR}/Content/SetTransactionStatusContent.h
         ${CMAKE_CURRENT_LIST_DIR}/Content/BlocksResponseContent.h
         ${CMAKE_CURRENT_LIST_DIR}/Content/BlockHeadersResponseContent.h
+        ${CMAKE_CURRENT_LIST_DIR}/PeerState.h
 )
-target_link_libraries(shared_models PRIVATE nlohmann_json)
+target_link_libraries(shared_models PRIVATE nlohmann_json stduuid)
 set_target_properties(shared_models PROPERTIES LINKER_LANGUAGE CXX)
