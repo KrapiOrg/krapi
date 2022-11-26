@@ -36,6 +36,8 @@ namespace krapi {
 
         void to_disk(const std::filesystem::path &path) const;
 
+        static void remove_from_disk(const std::filesystem::path &path, std::string hash);
+
         [[nodiscard]]
         nlohmann::json to_json() const;
 

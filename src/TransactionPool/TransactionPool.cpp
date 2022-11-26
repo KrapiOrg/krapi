@@ -5,24 +5,10 @@
 #include "TransactionPool.h"
 
 namespace krapi {
-    void TransactionPool::dispatch_if_batchsize_reached() {
 
-
-        auto pool = std::unordered_set<Transaction>{};
-        {
-            std::lock_guard l(m_pool_mutex);
-            pool = m_pool;
-        }
-
-        if (pool.size() >= m_batchsize) {
-
-            m_batch_events.dispatch(Event::BatchSizeReached, pool);
-        }
-    }
 
     TransactionPool::TransactionPool(int batchsize) :
             m_batchsize(batchsize) {
-
     }
 
     bool TransactionPool::add(const Transaction &transaction) {
@@ -37,7 +23,6 @@ namespace krapi {
         if (added) {
 
             m_tx_events.dispatch(Event::TransactionAdded, transaction);
-            dispatch_if_batchsize_reached();
         }
         return added;
     }
@@ -47,17 +32,28 @@ namespace krapi {
         m_tx_events.appendListener(event, listener);
     }
 
-    void TransactionPool::append_listener(TransactionPool::Event event,
-                                          std::function<void(std::unordered_set<Transaction>)> listener) {
-
-        m_batch_events.appendListener(event, listener);
-    }
-
     void TransactionPool::remove(const std::unordered_set<Transaction> &transactions) {
 
         std::lock_guard l(m_pool_mutex);
         for (const auto &transaction: transactions) {
             m_pool.erase(transaction);
         }
+    }
+
+    std::optional<std::unordered_set<Transaction>> TransactionPool::get_a_batch() {
+
+        std::lock_guard l(m_pool_mutex);
+
+        if (m_pool.size() < m_batchsize)
+            return {};
+
+        auto batch = std::unordered_set<Transaction>{
+                m_pool.begin(),
+                std::next(m_pool.begin(), m_batchsize)
+        };
+        for (const auto &tx: batch)
+            m_pool.erase(tx);
+
+        return batch;
     }
 } // krapi

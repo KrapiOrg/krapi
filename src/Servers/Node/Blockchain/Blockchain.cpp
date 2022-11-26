@@ -5,12 +5,8 @@
 #include "Blockchain.h"
 
 namespace krapi {
-    Blockchain::Blockchain(std::unordered_map<std::string, Block> blocks) : m_blocks(std::move(blocks)) {
 
-
-    }
-
-    Blockchain Blockchain::from_disk(const std::filesystem::path &path) {
+    std::shared_ptr<Blockchain> Blockchain::from_disk(const std::filesystem::path &path) {
 
         namespace fs = std::filesystem;
 
@@ -47,19 +43,19 @@ namespace krapi {
             genesis.to_disk(path);
         }
 
-        std::unordered_map<std::string, Block> blocks;
+        auto blockchain = std::make_shared<Blockchain>();
 
         for (const auto &entry: fs::directory_iterator(path)) {
             if (entry.is_regular_file()) {
                 if (auto block = Block::from_disk(entry.path())) {
 
-                    blocks.insert({block.value().hash(), block.value()});
+                    blockchain->add(block.value());
                 }
             }
 
         }
 
-        return Blockchain(blocks);
+        return blockchain;
     }
 
     void Blockchain::add(Block block) {
@@ -79,6 +75,7 @@ namespace krapi {
 
     Block Blockchain::last() {
 
+        std::lock_guard l(m_blocks_mutex);
         return m_last_block;
     }
 
@@ -89,16 +86,20 @@ namespace krapi {
 
     bool Blockchain::contains(std::string hash) {
 
+        std::lock_guard l(m_blocks_mutex);
         return m_blocks.contains(hash);
     }
 
-    Block Blockchain::get_block(std::string hash) {
-
-        return m_blocks.find(hash)->second;
+    std::optional<Block> Blockchain::get_block(std::string hash) {
+        std::lock_guard l(m_blocks_mutex);
+        if (m_blocks.contains(hash)) {
+            return m_blocks[hash];
+        }
+        return {};
     }
 
     std::vector<std::string> Blockchain::get_hashes() {
-
+        std::lock_guard l(m_blocks_mutex);
         auto ans = std::vector<std::string>{};
 
         for (const auto &[hash, block]: m_blocks) {
@@ -108,7 +109,7 @@ namespace krapi {
     }
 
     std::vector<BlockHeader> Blockchain::headers() {
-
+        std::lock_guard l(m_blocks_mutex);
         auto ans = std::vector<BlockHeader>{};
 
         for (const auto &[hash, block]: m_blocks) {
@@ -118,7 +119,7 @@ namespace krapi {
     }
 
     std::vector<BlockHeader> Blockchain::get_all_after(const BlockHeader &header) {
-
+        std::lock_guard l(m_blocks_mutex);
         std::vector<BlockHeader> ans;
 
         for (const auto &[hash, block]: m_blocks) {
@@ -129,5 +130,15 @@ namespace krapi {
         }
 
         return ans;
+    }
+
+    void Blockchain::remove(std::string hash) {
+
+        std::lock_guard l(m_blocks_mutex);
+
+        if (m_blocks.contains(hash)) {
+
+            m_blocks.erase(hash);
+        }
     }
 } // krapi

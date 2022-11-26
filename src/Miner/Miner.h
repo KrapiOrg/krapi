@@ -34,20 +34,9 @@ namespace krapi {
                 merkle::HashT<32> &
         );
 
-        void async_mine(std::unordered_set<Transaction>);
-
-        std::mutex m_mutex;
-        std::vector<std::future<void>> m_futures;
-
-        std::string m_latest_hash;
-        std::atomic<bool> m_stopped;
-
     public:
-        explicit Miner();
 
-        void mine(std::unordered_set<Transaction>);
-
-        void set_latest_hash(std::string);
+        void mine(std::string previous_hash, std::unordered_set<Transaction>);
 
         void append_listener(Event, const std::function<OnBlockMinedCallback> &callback);
     };

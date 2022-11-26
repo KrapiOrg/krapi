@@ -13,20 +13,13 @@ using namespace std::chrono;
 
 namespace krapi {
 
-    Miner::Miner() : m_stopped(false) {
+    void Miner::mine(std::string previous_hash, std::unordered_set<Transaction> batch) {
 
-    }
-
-    void Miner::async_mine(std::unordered_set<Transaction> batch) {
-
-        spdlog::info("Miner: job started");
-
-        auto previous_hash = std::string{};
-        {
-            std::lock_guard l(m_mutex);
-            previous_hash = m_latest_hash;
+        spdlog::info("Miner: using {} as tip", previous_hash.substr(0, 10));
+        spdlog::info("Miner: Batch...");
+        for (const auto &tx: batch) {
+            spdlog::info("=== TX#{}", tx.hash().substr(0, 10));
         }
-        spdlog::info("Miner: PreviousHash: {}\n", previous_hash.substr(0, 10));
 
         merkle::TreeT<32, krapi_hash_function> tree;
         for (const auto &tx: batch) {
@@ -35,16 +28,9 @@ namespace krapi {
 
         auto merkle_root = tree.root().to_string(32, false);
 
-        //spdlog::info("Miner: MerkleRoot: {}\n", merkle_root);
-
         auto timestamp = (uint64_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
-        //spdlog::info("Miner: TimeStamp: {}\n", timestamp);
-
-
         for (uint64_t nonce = 0;; nonce++) {
-
-            if (m_stopped) break;
 
             auto block_hash = std::string{};
             StringSource s2(
@@ -53,11 +39,12 @@ namespace krapi {
                     new HashFilter(Miner::sha_256, new HexEncoder(new StringSink(block_hash)))
             );
 
-            if (block_hash.starts_with("00")) {
-                //spdlog::info("Miner: Mined and Produced Hash: {}", block_hash.substr(0,10));
+            if (block_hash.starts_with("0000")) {
+
 
                 for (auto &transaction: batch)
                     transaction.set_status(TransactionStatus::Verified);
+
 
                 auto block = Block{
                         BlockHeader{
@@ -69,32 +56,10 @@ namespace krapi {
                         },
                         batch
                 };
-                if (!m_stopped) {
-                    m_dispatcher.dispatch(Event::BlockMined, block);
-                    break;
-                }
+                m_dispatcher.dispatch(Event::BlockMined, block);
+                break;
             }
         }
-    }
-
-    void Miner::mine(std::unordered_set<Transaction> batch) {
-
-        if (!m_stopped) {
-            {
-
-                std::lock_guard l(m_mutex);
-
-                m_futures.emplace_back(
-                        std::async(std::launch::async, std::bind_front(&Miner::async_mine, this, batch))
-                );
-            }
-        }
-    }
-
-    void Miner::set_latest_hash(std::string hash) {
-
-        std::lock_guard l(m_mutex);
-        m_latest_hash = std::move(hash);
     }
 
     void Miner::append_listener(Event event, const std::function<OnBlockMinedCallback> &callback) {

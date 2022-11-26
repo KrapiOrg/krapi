@@ -69,6 +69,17 @@ namespace krapi {
         }
     }
 
+    void Block::remove_from_disk(const std::filesystem::path &path, std::string hash) {
+
+        namespace fs = std::filesystem;
+
+        auto block_path = path / (hash + ".json");
+        if (fs::exists(path)) {
+
+            fs::remove(block_path);
+        }
+    }
+
     nlohmann::json Block::to_json() const {
 
         auto transactions = nlohmann::json::array();
@@ -92,7 +103,7 @@ namespace krapi {
         return m_transactions;
     }
 
-    bool Block::operator==(const Block& other) const {
+    bool Block::operator==(const Block &other) const {
 
         return m_header.m_hash == other.m_header.m_hash;
     }
