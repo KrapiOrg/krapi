@@ -15,10 +15,10 @@ namespace krapi {
         using Random = effolkronium::random_static;
         auto ids = peer_ids_of_type(PeerType::Light);
 
-        if (!ids.is_error()) {
+        if (!ids.empty()) {
 
-            auto random_index = Random::get(0, static_cast<int>(ids.value().size()) - 1);
-            return ids.value()[random_index];
+            auto random_index = Random::get(0, static_cast<int>(ids.size()) - 1);
+            return ids[random_index];
         }
         return {};
     }
