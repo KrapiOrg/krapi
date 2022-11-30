@@ -6,8 +6,6 @@ add_library(
         node_manager
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/NodeManager.h
-        ${CMAKE_CURRENT_LIST_DIR}/KrapiRTCDataChannel.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/KrapiRTCDataChannel.h
 )
 
 target_link_libraries(

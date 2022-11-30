@@ -10,5 +10,6 @@ target_link_libraries(
         nlohmann_json
         eventpp
         cryptopp
+        spdlog
         blockchain_models
 )

@@ -28,6 +28,7 @@ target_link_libraries(
         blockchain_models
         miner
         stduuid
+        utils
         transaction_pool
         node_manager
 )

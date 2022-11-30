@@ -95,4 +95,9 @@ namespace krapi {
         m_status = status;
         return true;
     }
+
+    bool Transaction::operator<(const Transaction &other) const {
+
+        return m_timestamp < other.m_timestamp;
+    }
 }

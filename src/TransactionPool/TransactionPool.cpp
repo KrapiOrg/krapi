@@ -3,6 +3,7 @@
 //
 
 #include "TransactionPool.h"
+#include "spdlog/spdlog.h"
 
 namespace krapi {
 
@@ -13,18 +14,33 @@ namespace krapi {
 
     bool TransactionPool::add(const Transaction &transaction) {
 
-        bool added{false};
+        bool added;
 
-        {
-            std::lock_guard l(m_pool_mutex);
-            added = m_pool.insert(transaction).second;
-        }
+        std::lock_guard l(m_pool_mutex);
+        added = m_pool.insert(transaction).second;
 
         if (added) {
 
-            m_tx_events.dispatch(Event::TransactionAdded, transaction);
+            m_blocking_cv.notify_all();
         }
         return added;
+    }
+
+    void TransactionPool::add(const std::set<Transaction> &transactions) {
+
+        std::lock_guard l(m_pool_mutex);
+
+        bool added = true;
+
+        for (const auto &transaction: transactions) {
+            if (!m_pool.insert(transaction).second) {
+                added = false;
+            }
+        }
+        if (added) {
+
+            m_blocking_cv.notify_all();
+        }
     }
 
     void TransactionPool::append_listener(TransactionPool::Event event, std::function<void(Transaction)> listener) {
@@ -32,7 +48,7 @@ namespace krapi {
         m_tx_events.appendListener(event, listener);
     }
 
-    void TransactionPool::remove(const std::unordered_set<Transaction> &transactions) {
+    void TransactionPool::remove(const std::set<Transaction> &transactions) {
 
         std::lock_guard l(m_pool_mutex);
         for (const auto &transaction: transactions) {
@@ -40,14 +56,14 @@ namespace krapi {
         }
     }
 
-    std::optional<std::unordered_set<Transaction>> TransactionPool::get_a_batch() {
+    std::optional<std::set<Transaction>> TransactionPool::get_a_batch() {
 
         std::lock_guard l(m_pool_mutex);
 
         if (m_pool.size() < m_batchsize)
             return {};
 
-        auto batch = std::unordered_set<Transaction>{
+        auto batch = std::set<Transaction>{
                 m_pool.begin(),
                 std::next(m_pool.begin(), m_batchsize)
         };
@@ -55,5 +71,19 @@ namespace krapi {
             m_pool.erase(tx);
 
         return batch;
+    }
+
+    std::set<Transaction> TransactionPool::get_pool() {
+
+        std::lock_guard l(m_pool_mutex);
+        return m_pool;
+    }
+
+    void TransactionPool::wait() {
+
+        std::unique_lock l(m_pool_mutex);
+        m_blocking_cv.wait(l, [&]() {
+            return m_pool.size() >= m_batchsize;
+        });
     }
 } // krapi

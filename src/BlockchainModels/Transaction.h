@@ -85,6 +85,8 @@ namespace krapi {
         [[nodiscard]]
         std::array<CryptoPP::byte, 32> byte_hash() const;
 
+        bool operator<(const Transaction &other) const;
+
     private:
         TransactionType m_type;
         mutable TransactionStatus m_status;

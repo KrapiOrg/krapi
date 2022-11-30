@@ -5,6 +5,7 @@
 #include "Content/SetTransactionStatusContent.h"
 #include "LightNodeManager.h"
 #include "Wallet.h"
+#include "spdlog/spdlog.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;
@@ -50,7 +51,7 @@ int main() {
                 if (after == TransactionStatus::Rejected) {
                     spdlog::info("Main: Rebroadcasting {}", transaction.hash().substr(0, 10));
                     transaction.set_status(TransactionStatus::Pending);
-                    manager->broadcast(
+                    (void)manager->broadcast(
                             PeerMessage{
                                     PeerMessageType::AddTransaction,
                                     manager->id(),
@@ -61,10 +62,10 @@ int main() {
             }
     );
 
-    spdlog::info("Waiting for at least 1 for a full node to connect");
-    manager->wait_for(PeerType::Full, 1);
     spdlog::info("Waiting for at least 1 other light node to connect");
-    manager->wait_for(PeerType::Light, 1);
+    (void) manager->wait_for(PeerType::Light, 1);
+    spdlog::info("Waiting for at least 1 for a full node to connect");
+    (void) manager->wait_for(PeerType::Full, 1);
 
     auto shouldBeASender = Random::get(0, 1);
     // If we are a sender, create transactions and send them to all connected peers.
@@ -92,7 +93,7 @@ int main() {
                         spdlog::info(
                                 "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_id
                         );
-                        manager->broadcast(
+                        (void) manager->broadcast(
                                 PeerMessage{
                                         PeerMessageType::AddTransaction,
                                         manager->id(),

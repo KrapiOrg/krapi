@@ -6,14 +6,14 @@
 #include "spdlog/spdlog.h"
 
 namespace krapi {
-    Block::Block(BlockHeader header, std::unordered_set<Transaction> transactions) :
+    Block::Block(BlockHeader header, std::set<Transaction> transactions) :
             m_header(std::move(header)),
             m_transactions(std::move(transactions)) {
     }
 
     Block Block::from_json(const nlohmann::json &json) {
 
-        std::unordered_set<Transaction> transactions;
+        std::set<Transaction> transactions;
         for (const auto &tx: json["transactions"]) {
             transactions.insert(Transaction::from_json(tx));
         }
@@ -98,7 +98,7 @@ namespace krapi {
         return m_header;
     }
 
-    std::unordered_set<Transaction> Block::transactions() const {
+    std::set<Transaction> Block::transactions() const {
 
         return m_transactions;
     }

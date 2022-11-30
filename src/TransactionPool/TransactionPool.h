@@ -5,7 +5,7 @@
 #pragma once
 
 #include <thread>
-#include <unordered_set>
+#include <set>
 #include "eventpp/eventdispatcher.h"
 
 #include "Transaction.h"
@@ -19,12 +19,14 @@ namespace krapi {
         };
     private:
         std::mutex m_pool_mutex;
-        std::unordered_set<Transaction> m_pool;
+        std::set<Transaction> m_pool;
         using TxEventDispatcher = eventpp::EventDispatcher<Event, void(Transaction)>;
 
         TxEventDispatcher m_tx_events;
 
         int m_batchsize;
+
+        std::condition_variable m_blocking_cv;
 
     public:
 
@@ -32,11 +34,17 @@ namespace krapi {
 
         bool add(const Transaction &transaction);
 
-        void remove(const std::unordered_set<Transaction> &transactions);
+        void remove(const std::set<Transaction> &transactions);
 
         void append_listener(Event event, std::function<void(Transaction)> listener);
 
-        std::optional<std::unordered_set<Transaction>> get_a_batch();
+        std::optional<std::set<Transaction>> get_a_batch();
+
+        void add(const std::set<Transaction> &transactions);
+
+        std::set<Transaction> get_pool();
+
+        void wait();
     };
 
 } // krapi

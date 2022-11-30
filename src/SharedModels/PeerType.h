@@ -17,4 +17,12 @@ namespace krapi {
         { PeerType::Light, "peer_type_light" },
     })
 
+    inline std::string to_string(PeerType type) {
+
+        if (type == PeerType::Full)
+            return "Full";
+
+        return "Light";
+    }
+
 }// krapi

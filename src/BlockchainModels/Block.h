@@ -7,7 +7,7 @@
 
 #include <fstream>
 #include <string>
-#include <unordered_set>
+#include <set>
 
 #include "nlohmann/json.hpp"
 
@@ -21,7 +21,7 @@ namespace krapi {
     public:
         explicit Block(
                 BlockHeader header = BlockHeader{},
-                std::unordered_set<Transaction> transactions = {}
+                std::set<Transaction> transactions = {}
         );
 
         static Block from_json(const nlohmann::json &json);
@@ -45,13 +45,13 @@ namespace krapi {
         BlockHeader header() const;
 
         [[nodiscard]]
-        std::unordered_set<Transaction> transactions() const;
+        std::set<Transaction> transactions() const;
 
         bool operator==(const Block &) const;
 
     private:
         BlockHeader m_header;
-        std::unordered_set<Transaction> m_transactions;
+        std::set<Transaction> m_transactions;
     };
 } // krapi
 namespace std {

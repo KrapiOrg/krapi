@@ -9,10 +9,11 @@
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "PeerMessage.h"
-#include "KrapiRTCDataChannel.h"
 #include "PeerType.h"
 #include "SignalingMessage.h"
 #include "PeerState.h"
+#include "AsyncQueue.h"
+#include "ErrorOr.h"
 
 namespace krapi {
 
@@ -23,63 +24,50 @@ namespace krapi {
 
         PeerMessageEventDispatcher m_dispatcher;
 
-        std::mutex blocking_mutex;
-        std::condition_variable blocking_cv;
+        std::mutex m_blocking_mutex;
+        std::condition_variable m_blocking_cv;
 
-        rtc::Configuration rtc_config;
-        ix::WebSocket ws;
+        std::atomic<int> m_peer_count;
+
+        rtc::Configuration m_rtc_config;
+        ix::WebSocket m_signaling_socket;
         int my_id;
 
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
         void on_signaling_message(const SignalingMessage &rsp);
 
-        std::recursive_mutex map_mutex;
-        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> peer_map;
-        std::unordered_map<int, std::shared_ptr<KrapiRTCDataChannel>> channel_map;
-        std::unordered_map<int, PeerType> peer_type_map;
-        std::unordered_map<int, PeerState> peer_state_map;
+        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> connection_map;
+        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channel_map;
 
-        std::atomic<int> full_peer_count;
-        std::atomic<int> light_peer_count;
-        std::mutex peer_threshold_mutex;
-        std::condition_variable peer_threshold_cv;
+        mutable std::mutex m_peer_state_mutex;
+        PeerState m_peer_state;
 
-        std::mutex peer_state_mutex;
-        PeerState peer_state;
+        PeerType m_peer_type;
 
-        void add_peer_connection(
-                int id,
-                std::shared_ptr<rtc::PeerConnection> peer_connection
-        );
+        AsyncQueue m_send_queue;
+        AsyncQueue m_receive_queue;
+        AsyncQueue m_peer_handler_queue;
+        std::map<std::string, std::promise<PeerMessage>> promise_map;
 
-        void add_channel(
-                int id,
-                std::shared_ptr<rtc::DataChannel> channel
-        );
+        void on_channel_close(int id);
 
     public:
 
         explicit NodeManager(
-                PeerType peer_type = PeerType::Full
+                PeerType pt
         );
-
-        ~NodeManager();
 
         std::vector<int> peer_ids_of_type(PeerType type);
 
-        std::vector<std::shared_ptr<KrapiRTCDataChannel>> get_channels();
-
-        void broadcast(
+        MultiFuture<PeerMessage> broadcast(
                 const PeerMessage &message,
-                const std::optional<PeerMessageCallback> &callback = std::nullopt,
                 bool include_light_nodes = false
         );
 
         std::future<PeerMessage> send(
                 int id,
-                PeerMessage message,
-                std::optional<PeerMessageCallback> callback = std::nullopt
+                const PeerMessage& message
         );
 
         void wait();
@@ -92,8 +80,8 @@ namespace krapi {
         );
 
         PeerState request_peer_state(int id);
-
-        void update_state_to(PeerState new_state);
+        PeerType request_peer_type(int id);
+        void set_state(PeerState new_state);
 
         [[nodiscard]]
         PeerState get_state() const;

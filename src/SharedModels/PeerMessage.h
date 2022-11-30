@@ -11,6 +11,7 @@
 
 namespace krapi {
     enum class PeerMessageType {
+        DEFAULT,
         PeerTypeRequest,
         PeerTypeResponse,
         AddTransaction,
@@ -25,8 +26,11 @@ namespace krapi {
         BlockResponse,
         PeerStateRequest,
         PeerStateResponse,
-        PeerStateUpdate,
-        AddBlock
+        AddBlock,
+        BlockRejected,
+        BlockAccepted,
+        SyncPoolRequest,
+        SyncPoolResponse
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -44,8 +48,11 @@ namespace krapi {
         { PeerMessageType::BlockResponse, "block_response" },
         { PeerMessageType::PeerStateRequest, "peer_state_request" },
         { PeerMessageType::PeerStateResponse, "peer_state_response" },
-        { PeerMessageType::PeerStateUpdate, "peer_state_update" },
         { PeerMessageType::AddBlock, "add_block" },
+        { PeerMessageType::BlockRejected, "reject_block" },
+        { PeerMessageType::BlockAccepted, "block_accepted" },
+        { PeerMessageType::SyncPoolRequest, "sync_pool_request" },
+        { PeerMessageType::SyncPoolResponse, "sync_pool_response" }
     })
 
     class PeerMessage {
@@ -58,9 +65,9 @@ namespace krapi {
     public:
 
         explicit PeerMessage(
-                PeerMessageType type,
-                int peer_id,
-                std::string tag,
+                PeerMessageType type = PeerMessageType::DEFAULT,
+                int peer_id = {},
+                std::string tag = {},
                 nlohmann::json content = {}
         ) : m_type(type),
             m_peer_id(peer_id),

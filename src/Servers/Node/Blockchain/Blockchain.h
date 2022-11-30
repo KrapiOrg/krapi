@@ -19,7 +19,7 @@ namespace krapi {
 
     public:
 
-        static std::shared_ptr<Blockchain> from_disk(const std::filesystem::path &path);
+        static std::shared_ptr<Blockchain> create();
 
         void remove(std::string hash);
 

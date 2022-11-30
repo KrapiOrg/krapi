@@ -8,6 +8,7 @@
 
 using namespace std::string_view_literals;
 
+#include <utility>
 #include <variant>
 #include <string>
 #include <optional>
@@ -29,16 +30,28 @@ namespace krapi {
         ERROR
     };
 
+    inline std::string to_string(KrapiCode code) {
+
+        if (code == KrapiCode::WARN)
+            return "Warning";
+        if (code == KrapiCode::INFO)
+            return "Info";
+        if (code == KrapiCode::CRITICAL)
+            return "Critical";
+
+        return "Error";
+    }
+
     struct KrapiErr {
 
-        std::string_view err_str;
+        std::string err_str;
         KrapiCode code;
 
-        explicit constexpr KrapiErr(
-                std::string_view err_str,
+        explicit KrapiErr(
+                std::string err_str,
                 KrapiCode code = KrapiCode::ERROR
         ) :
-                err_str(err_str),
+                err_str(std::move(err_str)),
                 code(code) {
 
         }
