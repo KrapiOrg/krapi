@@ -206,7 +206,9 @@ namespace krapi {
             }
         });
         m_signaling_socket.start();
+        spdlog::info("Waiting for Signaling Server to Acquire identity");
         my_id = future.get();
+        spdlog::info("Acquired Identity {}",my_id);
 
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,
