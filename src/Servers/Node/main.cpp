@@ -22,7 +22,7 @@ void print_tx_batch(const std::set<Transaction> &batch) {
     }
 }
 
-ErrorOr<void> node_main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
     constexpr int BATCH_SZE = 3;
     std::string path;
@@ -109,75 +109,6 @@ ErrorOr<void> node_main(int argc, char *argv[]) {
                 transaction_pool.add(transaction);
             }
     );
-
-    spdlog::info("Waiting for other Full peers to join");
-    manager->set_state(PeerState::WaitingForPeers);
-    manager->wait_for(PeerType::Full, 1);
-
-    manager->set_state(PeerState::InitialBlockDownload);
-    spdlog::info("Downloading Transactions...");
-
-    auto pools_response = manager->broadcast(
-            PeerMessage{
-                    PeerMessageType::SyncPoolRequest,
-                    manager->id(),
-                    PeerMessage::create_tag()
-            }
-    ).get();
-
-    for (const auto &message: pools_response) {
-        auto response = PoolResponseContent::from_json(message.content());
-        transaction_pool.add(response.transactions());
-        spdlog::info("Received the following batch from {}", message.peer_id());
-        print_tx_batch(response.transactions());
-    }
-
-    auto ids = manager->peer_ids_of_type(PeerType::Full);
-
-    auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
-    for (const auto &id: ids) {
-
-        auto resp = manager->send(
-                id,
-                PeerMessage{
-                        PeerMessageType::BlockHeadersRequest,
-                        manager->id(),
-                        PeerMessage::create_tag(),
-                        blockchain->last().header().to_json()
-                }
-        ).get();
-
-        auto content = BlockHeadersResponseContent::from_json(resp.content());
-        header_cache[id] = content.headers();
-    }
-
-    if (!ids.empty()) {
-        int longest_chain_peer_id = ids.front();
-        for (const auto &[id, headers]: header_cache) {
-            if (headers.size() >= header_cache[longest_chain_peer_id].size()) {
-                longest_chain_peer_id = id;
-            }
-        }
-
-        for (const auto &header: header_cache[longest_chain_peer_id]) {
-            if (blockchain->contains(header.hash()))
-                continue;
-
-            auto resp = manager->send(
-                    longest_chain_peer_id,
-                    PeerMessage{
-                            PeerMessageType::BlockRequest,
-                            manager->id(),
-                            PeerMessage::create_tag(),
-                            header.hash()
-                    }
-            ).get();
-            auto block = Block::from_json(resp.content());
-
-            blockchain->add(block);
-            block.to_disk(path);
-        }
-    }
 
     manager->append_listener(
             PeerMessageType::BlockAccepted,
@@ -273,6 +204,74 @@ ErrorOr<void> node_main(int argc, char *argv[]) {
             }
     );
 
+    spdlog::info("Waiting for other Full peers to join");
+    manager->set_state(PeerState::WaitingForPeers);
+    manager->wait_for(PeerType::Full, 1);
+
+    manager->set_state(PeerState::InitialBlockDownload);
+    spdlog::info("Downloading Transactions...");
+
+    auto pools_response = manager->broadcast(
+            PeerMessage{
+                    PeerMessageType::SyncPoolRequest,
+                    manager->id()
+            }
+    ).get();
+
+    for (const auto &message: pools_response) {
+        auto response = PoolResponseContent::from_json(message.content());
+        transaction_pool.add(response.transactions());
+        spdlog::info("Received the following batch from {}", message.peer_id());
+        print_tx_batch(response.transactions());
+    }
+
+    auto ids = manager->peer_ids_of_type(PeerType::Full);
+
+    auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
+    for (const auto &id: ids) {
+
+        auto resp = manager->send(
+                id,
+                PeerMessage{
+                        PeerMessageType::BlockHeadersRequest,
+                        manager->id(),
+                        PeerMessage::create_tag(),
+                        blockchain->last().header().to_json()
+                }
+        ).get();
+
+        auto content = BlockHeadersResponseContent::from_json(resp.content());
+        header_cache[id] = content.headers();
+    }
+
+    if (!ids.empty()) {
+        int longest_chain_peer_id = ids.front();
+        for (const auto &[id, headers]: header_cache) {
+            if (headers.size() >= header_cache[longest_chain_peer_id].size()) {
+                longest_chain_peer_id = id;
+            }
+        }
+
+        for (const auto &header: header_cache[longest_chain_peer_id]) {
+            if (blockchain->contains(header.hash()))
+                continue;
+
+            auto resp = manager->send(
+                    longest_chain_peer_id,
+                    PeerMessage{
+                            PeerMessageType::BlockRequest,
+                            manager->id(),
+                            PeerMessage::create_tag(),
+                            header.hash()
+                    }
+            ).get();
+            auto block = Block::from_json(resp.content());
+
+            blockchain->add(block);
+            block.to_disk(path);
+        }
+    }
+
     // wait for tx pool to have transactions
     spdlog::info("Waiting for transactions...");
     transaction_pool.wait();
@@ -314,16 +313,4 @@ ErrorOr<void> node_main(int argc, char *argv[]) {
     spdlog::info("Setting State to Open");
     manager->set_state(PeerState::Open);
     manager->wait();
-
-    return {};
-}
-
-int main(int argc, char *argv[]) {
-
-    auto res = node_main(argc, argv);
-
-    if (res.is_error()) {
-        auto err = res.release_error();
-        spdlog::error("{}, {}", to_string(err.code), err.err_str);
-    }
 }

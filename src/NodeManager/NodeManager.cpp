@@ -121,7 +121,6 @@ namespace krapi {
                             auto peer_message = PeerMessage::from_json(msg_json);
                             m_receive_queue.push_task(
                                     [=, this]() {
-
                                         promise_map[peer_message.tag()].set_value(peer_message);
                                         m_dispatcher.dispatch(peer_message.type(), peer_message);
                                     }
@@ -208,7 +207,7 @@ namespace krapi {
         m_signaling_socket.start();
         spdlog::info("Waiting for Signaling Server to Acquire identity");
         my_id = future.get();
-        spdlog::info("Acquired Identity {}",my_id);
+        spdlog::info("Acquired Identity {}", my_id);
 
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,
@@ -246,6 +245,13 @@ namespace krapi {
                     );
                 }
         );
+        m_dispatcher.appendListener(
+                PeerMessageType::PeerStateUpdate,
+                [this](const PeerMessage &message) {
+
+                    m_peer_states_map[message.peer_id()] = message.content().get<PeerState>();
+                }
+        );
     }
 
     void NodeManager::wait() {
@@ -276,7 +282,7 @@ namespace krapi {
         return m_send_queue.submit(
                 [=, this]() -> std::future<PeerMessage> {
 
-                    while(!m_channel_map[id]->isOpen());
+                    while (!m_channel_map[id]->isOpen());
 
                     m_channel_map[id]->send(message.to_json().dump());
                     return promise_map[message.tag()].get_future();
@@ -293,20 +299,28 @@ namespace krapi {
             if (ids.size() >= numbers_of_peers) {
                 break;
             }
+            std::this_thread::sleep_for(500ms);
         }
     }
 
     PeerState NodeManager::request_peer_state(int id) {
 
-        auto resp = send(
-                id,
-                PeerMessage{
-                        PeerMessageType::PeerStateRequest,
-                        my_id,
-                        PeerMessage::create_tag()
-                }
-        ).get();
-        return resp.content().get<PeerState>();
+        if (m_peer_states_map.contains(id)) {
+
+            return m_peer_states_map[id];
+        } else {
+
+            auto resp = send(
+                    id,
+                    PeerMessage{
+                            PeerMessageType::PeerStateRequest,
+                            my_id,
+                            PeerMessage::create_tag()
+                    }
+            ).get();
+            return resp.content().get<PeerState>();
+        }
+
     }
 
     PeerState NodeManager::get_state() const {
@@ -316,21 +330,18 @@ namespace krapi {
     }
 
     MultiFuture<PeerMessage> NodeManager::broadcast(
-            const PeerMessage &message,
+            PeerMessage message,
             bool include_light_nodes
     ) {
 
         MultiFuture<PeerMessage> futures;
         for (const auto &[id, channel]: m_channel_map) {
-            auto state = request_peer_state(id);
-            auto type = request_peer_type(id);
 
-            if (state != PeerState::Open)
-                continue;
+            auto type = request_peer_type(id);
 
             if (type == PeerType::Light && !include_light_nodes)
                 continue;
-
+            message.randomize_tag();
             futures.push_back(send(id, message));
 
         }
@@ -344,28 +355,45 @@ namespace krapi {
 
     PeerType NodeManager::request_peer_type(int id) {
 
-        auto resp = send(
-                id,
-                PeerMessage{
-                        PeerMessageType::PeerTypeRequest,
-                        my_id,
-                        PeerMessage::create_tag()
-                }
-        ).get();
-        return resp.content().get<PeerType>();
+        if (m_peer_types_map.contains(id)) {
+
+            return m_peer_types_map[id];
+        } else {
+
+            auto resp = send(
+                    id,
+                    PeerMessage{
+                            PeerMessageType::PeerTypeRequest,
+                            my_id,
+                            PeerMessage::create_tag()
+                    }
+            ).get();
+            return resp.content().get<PeerType>();
+        }
     }
 
     void NodeManager::set_state(PeerState new_state) {
 
-        std::lock_guard l(m_peer_state_mutex);
-        m_peer_state = new_state;
+        {
+            std::lock_guard l(m_peer_state_mutex);
+            m_peer_state = new_state;
+        }
+        (void) broadcast(
+                PeerMessage{
+                        PeerMessageType::PeerStateUpdate,
+                        my_id,
+                        PeerMessage::create_tag(),
+                        m_peer_state
+                }
+        );
     }
 
     std::vector<int> NodeManager::peer_ids_of_type(PeerType type) {
+
         auto ans = std::vector<int>{};
-        for(const auto &[id,_] : m_channel_map) {
+        for (const auto &[id, _]: m_channel_map) {
             auto pt = request_peer_type(id);
-            if(pt == type)
+            if (pt == type)
                 ans.push_back(id);
         }
         return ans;

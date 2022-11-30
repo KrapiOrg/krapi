@@ -39,6 +39,8 @@ namespace krapi {
 
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
         std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
+        std::unordered_map<int, PeerType> m_peer_types_map;
+        std::unordered_map<int, PeerState> m_peer_states_map;
 
         mutable std::mutex m_peer_state_mutex;
         PeerState m_peer_state;
@@ -61,7 +63,7 @@ namespace krapi {
         std::vector<int> peer_ids_of_type(PeerType type);
 
         MultiFuture<PeerMessage> broadcast(
-                const PeerMessage &message,
+                PeerMessage message,
                 bool include_light_nodes = false
         );
 

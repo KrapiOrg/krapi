@@ -51,13 +51,13 @@ int main() {
                 if (after == TransactionStatus::Rejected) {
                     spdlog::info("Main: Rebroadcasting {}", transaction.hash().substr(0, 10));
                     transaction.set_status(TransactionStatus::Pending);
-                    (void)manager->broadcast(
+                    (void) manager->broadcast(
                             PeerMessage{
                                     PeerMessageType::AddTransaction,
                                     manager->id(),
                                     transaction.to_json()
                             }
-                    );
+                    ).get();
                 }
             }
     );

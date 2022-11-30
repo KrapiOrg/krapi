@@ -26,6 +26,7 @@ namespace krapi {
         BlockResponse,
         PeerStateRequest,
         PeerStateResponse,
+        PeerStateUpdate,
         AddBlock,
         BlockRejected,
         BlockAccepted,
@@ -48,6 +49,7 @@ namespace krapi {
         { PeerMessageType::BlockResponse, "block_response" },
         { PeerMessageType::PeerStateRequest, "peer_state_request" },
         { PeerMessageType::PeerStateResponse, "peer_state_response" },
+        { PeerMessageType::PeerStateUpdate, "update_peer_state" },
         { PeerMessageType::AddBlock, "add_block" },
         { PeerMessageType::BlockRejected, "reject_block" },
         { PeerMessageType::BlockAccepted, "block_accepted" },
@@ -63,17 +65,37 @@ namespace krapi {
         nlohmann::json m_content;
 
     public:
+        explicit PeerMessage() :
+                m_type(PeerMessageType::DEFAULT),
+                m_peer_id(0) {
+
+        }
 
         explicit PeerMessage(
-                PeerMessageType type = PeerMessageType::DEFAULT,
-                int peer_id = {},
-                std::string tag = {},
+                PeerMessageType type,
+                int peer_id,
+                std::string tag,
                 nlohmann::json content = {}
         ) : m_type(type),
             m_peer_id(peer_id),
             m_tag(std::move(tag)),
             m_content(std::move(content)) {
 
+        }
+
+        explicit PeerMessage(
+                PeerMessageType type,
+                int peer_id,
+                nlohmann::json content = {}
+        ) : m_type(type),
+            m_peer_id(peer_id),
+            m_content(std::move(content)) {
+
+        }
+
+        void randomize_tag() {
+
+            m_tag = create_tag();
         }
 
         [[nodiscard]]
