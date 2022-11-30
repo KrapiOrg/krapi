@@ -274,6 +274,8 @@ namespace krapi {
         return m_send_queue.submit(
                 [=, this]() -> std::future<PeerMessage> {
 
+                    while(!m_channel_map[id]->isOpen());
+
                     m_channel_map[id]->send(message.to_json().dump());
                     return promise_map[message.tag()].get_future();
                 }
