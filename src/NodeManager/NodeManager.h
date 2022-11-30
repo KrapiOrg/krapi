@@ -37,8 +37,8 @@ namespace krapi {
 
         void on_signaling_message(const SignalingMessage &rsp);
 
-        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> connection_map;
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channel_map;
+        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
+        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
 
         mutable std::mutex m_peer_state_mutex;
         PeerState m_peer_state;

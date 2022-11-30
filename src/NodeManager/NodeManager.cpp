@@ -20,7 +20,7 @@ namespace krapi {
                         case rtc::PeerConnection::State::Disconnected: {
                             if (auto ptr = self.lock()) {
 
-                                ptr->connection_map.erase(id);
+                                ptr->m_connection_map.erase(id);
                             }
                         }
                             break;
@@ -87,10 +87,10 @@ namespace krapi {
                                 );
                             }
                     );
-                    channel_map.emplace(id, channel);
+                    m_channel_map.emplace(id, channel);
                 });
 
-        connection_map.emplace(id, pc);
+        m_connection_map.emplace(id, pc);
         return pc;
     }
 
@@ -140,7 +140,7 @@ namespace krapi {
                         }
                 );
 
-                channel_map.emplace(id, dc);
+                m_channel_map.emplace(id, dc);
             }
                 break;
             case SignalingMessageType::RTCSetup: {
@@ -149,9 +149,9 @@ namespace krapi {
                 auto type = rsp.content["type"].get<std::string>();
 
                 std::shared_ptr<rtc::PeerConnection> pc;
-                if (connection_map.contains(peer_id)) {
+                if (m_connection_map.contains(peer_id)) {
 
-                    pc = connection_map[peer_id];
+                    pc = m_connection_map[peer_id];
                 } else if (type == "offer") {
 
                     pc = create_connection(peer_id);
@@ -274,7 +274,7 @@ namespace krapi {
         return m_send_queue.submit(
                 [=, this]() -> std::future<PeerMessage> {
 
-                    channel_map[id]->send(message.to_json().dump());
+                    m_channel_map[id]->send(message.to_json().dump());
                     return promise_map[message.tag()].get_future();
                 }
         ).get();
@@ -317,7 +317,7 @@ namespace krapi {
     ) {
 
         MultiFuture<PeerMessage> futures;
-        for (const auto &[id, channel]: channel_map) {
+        for (const auto &[id, channel]: m_channel_map) {
             auto state = request_peer_state(id);
             auto type = request_peer_type(id);
 
@@ -335,7 +335,7 @@ namespace krapi {
 
     void NodeManager::on_channel_close(int id) {
 
-        channel_map.erase(id);
+        m_channel_map.erase(id);
     }
 
     PeerType NodeManager::request_peer_type(int id) {
@@ -359,7 +359,7 @@ namespace krapi {
 
     std::vector<int> NodeManager::peer_ids_of_type(PeerType type) {
         auto ans = std::vector<int>{};
-        for(const auto &[id,_] : channel_map) {
+        for(const auto &[id,_] : m_channel_map) {
             auto pt = request_peer_type(id);
             if(pt == type)
                 ans.push_back(id);
