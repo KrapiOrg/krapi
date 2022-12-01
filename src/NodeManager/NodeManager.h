@@ -14,6 +14,7 @@
 #include "PeerState.h"
 #include "AsyncQueue.h"
 #include "ErrorOr.h"
+#include "SignalingClient.h"
 
 namespace krapi {
 
@@ -30,10 +31,9 @@ namespace krapi {
         std::atomic<int> m_peer_count;
 
         rtc::Configuration m_rtc_config;
-        ix::WebSocket m_signaling_socket;
+        SignalingClient m_signaling_client;
         int my_id;
 
-        std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
         std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
@@ -49,12 +49,10 @@ namespace krapi {
         AsyncQueue m_receive_queue;
         AsyncQueue m_peer_handler_queue;
         std::map<int, std::map<std::string, std::promise<PeerMessage>>> promise_map;
-        std::map<std::string, std::promise<SignalingMessage>> signaling_promise_map;
 
         void on_channel_close(int id);
 
-        std::future<SignalingMessage> send(SignalingMessage);
-        std::future<SignalingMessage> send(SignalingMessageType);
+        std::shared_ptr<rtc::PeerConnection> create_connection(int);
         std::future<int> set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel);
 
     public:

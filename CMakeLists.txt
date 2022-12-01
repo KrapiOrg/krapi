@@ -39,6 +39,7 @@ include_directories(src/NodeManager)
 
 include(src/Utils/CMakeLists.txt)
 include(src/Servers/Signaling/CMakeLists.txt)
+include(src/Servers/SignalingClient/CMakeLists.txt)
 include(src/Servers/Node/CMakeLists.txt)
 include(src/Servers/LightNode/CMakeLists.txt)
 include(src/SharedModels/CMakeLists.txt)

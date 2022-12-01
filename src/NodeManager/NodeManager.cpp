@@ -75,7 +75,7 @@ namespace krapi {
                     {"type",        description.typeString()},
                     {"description", std::string(description)}
             };
-            (void) send(SignalingMessage{SignalingMessageType::RTCSetup, desc});
+            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, desc});
         });
 
         pc->onLocalCandidate([=, this](const rtc::Candidate &candidate) {
@@ -85,7 +85,7 @@ namespace krapi {
                     {"candidate", std::string(candidate)},
                     {"mid",       candidate.mid()}
             };
-            (void) send(SignalingMessage{SignalingMessageType::RTCSetup, cand});
+            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, cand});
         });
 
         pc->onDataChannel(
@@ -105,60 +105,40 @@ namespace krapi {
         m_peer_type(pt),
         m_peer_count(0) {
 
-        m_signaling_socket.setUrl("signaling://127.0.0.1:8080");
-        std::promise<void> signaling_open_barrier;
-        m_signaling_socket.setOnMessageCallback(
-                [&, this](const ix::WebSocketMessagePtr &message) {
-                    if (message->type == ix::WebSocketMessageType::Open) {
+        spdlog::info("NodeManager: Acquiring identity...");
+        my_id = m_signaling_client.get_identity();
+        spdlog::info("NodeManager: Acquired identity {}", my_id);
 
-                        signaling_open_barrier.set_value();
+        m_signaling_client.on_rtc_setup(
+                [this](SignalingMessage msg) {
+
+                    auto peer_id = msg.content["id"].get<int>();
+                    auto type = msg.content["type"].get<std::string>();
+
+                    std::shared_ptr<rtc::PeerConnection> pc;
+                    if (m_connection_map.contains(peer_id)) {
+
+                        pc = m_connection_map[peer_id];
+                    } else if (type == "offer") {
+
+                        pc = create_connection(peer_id);
+                    } else {
+
+                        return;
                     }
-                    if (message->type == ix::WebSocketMessageType::Message) {
 
-                        auto msg_json = nlohmann::json::parse(message->str);
-                        auto msg = SignalingMessage::from_json(msg_json);
+                    if (type == "offer" || type == "answer") {
 
+                        auto sdp = msg.content["description"].get<std::string>();
+                        pc->setRemoteDescription(rtc::Description(sdp, type));
+                    } else if (type == "candidate") {
 
-                        if (msg.type == SignalingMessageType::RTCSetup) {
-
-                            auto peer_id = msg.content["id"].get<int>();
-                            auto type = msg.content["type"].get<std::string>();
-
-                            std::shared_ptr<rtc::PeerConnection> pc;
-                            if (m_connection_map.contains(peer_id)) {
-
-                                pc = m_connection_map[peer_id];
-                            } else if (type == "offer") {
-
-                                pc = create_connection(peer_id);
-
-                            } else {
-                                return;
-                            }
-
-                            if (type == "offer" || type == "answer") {
-
-                                auto sdp = msg.content["description"].get<std::string>();
-                                pc->setRemoteDescription(rtc::Description(sdp, type));
-                            } else if (type == "candidate") {
-
-                                auto sdp = msg.content["candidate"].get<std::string>();
-                                auto mid = msg.content["mid"].get<std::string>();
-                                pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
-                            }
-                        } else {
-
-                            signaling_promise_map[msg.tag].set_value(msg);
-                        }
+                        auto sdp = msg.content["candidate"].get<std::string>();
+                        auto mid = msg.content["mid"].get<std::string>();
+                        pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
                     }
                 }
         );
-        m_signaling_socket.start();
-        spdlog::info("Waiting for Signaling Server to Acquire identity...");
-        signaling_open_barrier.get_future().wait();
-        auto identity_resp = send(SignalingMessageType::IdentityRequest).get();
-        my_id = identity_resp.content.get<int>();
-        spdlog::info("Acquired Identity {}", my_id);
 
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,
@@ -243,7 +223,7 @@ namespace krapi {
 
     MultiFuture<int> NodeManager::connect_to_peers() {
 
-        auto avail_resp = send(SignalingMessageType::AvailablePeersRequest).get();
+        auto avail_resp = m_signaling_client.send(SignalingMessageType::AvailablePeersRequest).get();
         auto avail_peers = avail_resp.content.get<std::vector<int>>();
 
         MultiFuture<int> futures;
@@ -366,23 +346,6 @@ namespace krapi {
             }
         }
         return ans;
-    }
-
-    std::future<SignalingMessage> NodeManager::send(SignalingMessage message) {
-
-        m_signaling_socket.send(message);
-        signaling_promise_map[message.tag] = std::promise<SignalingMessage>{};
-        return signaling_promise_map[message.tag].get_future();
-    }
-
-    std::future<SignalingMessage> NodeManager::send(SignalingMessageType messageType) {
-
-        auto message = SignalingMessage{
-                messageType
-        };
-        m_signaling_socket.send(message);
-        signaling_promise_map[message.tag] = std::promise<SignalingMessage>{};
-        return signaling_promise_map[message.tag].get_future();
     }
 
 } // krapi
