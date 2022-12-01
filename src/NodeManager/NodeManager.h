@@ -50,9 +50,14 @@ namespace krapi {
         AsyncQueue m_send_queue;
         AsyncQueue m_receive_queue;
         AsyncQueue m_peer_handler_queue;
-        std::map<std::string, std::promise<PeerMessage>> promise_map;
+        std::map<int, std::map<std::string, std::promise<PeerMessage>>> promise_map;
+        std::map<std::string, std::promise<SignalingMessage>> signaling_promise_map;
 
         void on_channel_close(int id);
+
+        std::future<SignalingMessage> send(SignalingMessage);
+        std::future<SignalingMessage> send(SignalingMessageType);
+        std::future<int> set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel);
 
     public:
 
@@ -69,12 +74,12 @@ namespace krapi {
 
         std::future<PeerMessage> send(
                 int id,
-                const PeerMessage& message
+                const PeerMessage &message
         );
 
         void wait();
 
-        void wait_for(PeerType, int);
+        MultiFuture<int> connect_to_peers();
 
         void append_listener(
                 PeerMessageType,
@@ -82,7 +87,9 @@ namespace krapi {
         );
 
         PeerState request_peer_state(int id);
+
         PeerType request_peer_type(int id);
+
         void set_state(PeerState new_state);
 
         [[nodiscard]]

@@ -165,7 +165,11 @@ int main(int argc, char **argv) {
                     const krapi::SignalingMessage &message
             ) {
                 if (message.type == SignalingMessageType::IdentityRequest) {
-                    auto response = SignalingMessage{SignalingMessageType::IdentityResponse, ws.id()};
+                    auto response = SignalingMessage{
+                        SignalingMessageType::IdentityResponse,
+                        message.tag,
+                        ws.id()
+                    };
                     ws.send(response.to_string());
                     server.peer_update(ws.id());
                 } else if (message.type == SignalingMessageType::AvailablePeersRequest) {
@@ -173,6 +177,7 @@ int main(int argc, char **argv) {
                     client_ids.erase(ws.id());
                     auto response = SignalingMessage{
                             SignalingMessageType::AvailablePeersResponse,
+                            message.tag,
                             std::move(client_ids)
                     };
                     ws.send(response.to_string());

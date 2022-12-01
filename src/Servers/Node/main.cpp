@@ -15,11 +15,32 @@ using namespace krapi;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
-void print_tx_batch(const std::set<Transaction> &batch) {
+Block create_genesis_block() {
 
-    for (const auto &tx: batch) {
-        spdlog::info("Tx: #{}", tx.hash().substr(0, 10));
-    }
+    CryptoPP::SHA256 sha_256;
+    spdlog::info("Blockchain: Creating genesis block");
+    auto previous_hash = std::string{"0"};
+    auto merkle_root = std::string{"0"};
+    auto timestamp = static_cast<uint64_t>(1668542625);
+    auto nonce = (uint64_t) 0;
+    auto block_hash = std::string{};
+
+    StringSource s2(
+            fmt::format("{}{}{}{}", previous_hash, merkle_root, timestamp, nonce),
+            true,
+            new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
+    );
+
+    return Block{
+            BlockHeader{
+                    block_hash,
+                    previous_hash,
+                    merkle_root,
+                    timestamp,
+                    nonce
+            },
+            {}
+    };
 }
 
 int main(int argc, char *argv[]) {
@@ -39,6 +60,10 @@ int main(int argc, char *argv[]) {
     }
 
     auto blockchain = Blockchain::create();
+    auto genesis = create_genesis_block();
+    blockchain->add(genesis);
+    genesis.to_disk(path);
+
     auto miner = Miner();
     auto transaction_pool = TransactionPool(BATCH_SZE);
 
@@ -107,6 +132,13 @@ int main(int argc, char *argv[]) {
 
                 auto transaction = Transaction::from_json(message.content());
                 transaction_pool.add(transaction);
+                if (auto batch = transaction_pool.get_a_batch()) {
+                    auto block = miner.mine(blockchain->last().hash(), batch.value())->get();
+                    spdlog::info("Mined {}", block.hash().substr(0, 10));
+                    spdlog::info("\n{}", to_string(block.transactions()));
+                    blockchain->add(block);
+                    block.to_disk(path);
+                }
             }
     );
 
@@ -204,53 +236,60 @@ int main(int argc, char *argv[]) {
             }
     );
 
-    spdlog::info("Waiting for other Full peers to join");
+    spdlog::info("Connecting to network");
     manager->set_state(PeerState::WaitingForPeers);
-    manager->wait_for(PeerType::Full, 1);
+    auto peers_connected = manager->connect_to_peers().get();
+    spdlog::info("Connected to [{}]", fmt::join(peers_connected, ", "));
 
-    manager->set_state(PeerState::InitialBlockDownload);
-    spdlog::info("Downloading Transactions...");
+    for (auto id: peers_connected) {
+        auto peer_type = manager->request_peer_type(id);
+        auto peer_state = manager->request_peer_state(id);
+        if (peer_type == krapi::PeerType::Full && peer_state == krapi::PeerState::Open) {
+            spdlog::info("Downloading Transactions from {}", id);
+            manager->set_state(PeerState::InitialBlockDownload);
 
-    auto pools_response = manager->broadcast(
+            auto response = manager->send(
+                    id,
+                    PeerMessage{
+                            PeerMessageType::SyncPoolRequest,
+                            manager->id()
+                    }
+            ).get();
+
+            auto content = PoolResponseContent::from_json(response.content());
+            transaction_pool.add(content.transactions());
+            spdlog::info("Received the following batch from {}", response.peer_id());
+            spdlog::info(to_string(content.transactions()));
+        }
+    }
+
+    auto block_headers_resp = manager->broadcast(
             PeerMessage{
-                    PeerMessageType::SyncPoolRequest,
-                    manager->id()
+                    PeerMessageType::BlockHeadersRequest,
+                    manager->id(),
+                    PeerMessage::create_tag(),
+                    blockchain->last().header().to_json()
             }
     ).get();
 
-    for (const auto &message: pools_response) {
-        auto response = PoolResponseContent::from_json(message.content());
-        transaction_pool.add(response.transactions());
-        spdlog::info("Received the following batch from {}", message.peer_id());
-        print_tx_batch(response.transactions());
-    }
-
-    auto ids = manager->peer_ids_of_type(PeerType::Full);
-
     auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
-    for (const auto &id: ids) {
-
-        auto resp = manager->send(
-                id,
-                PeerMessage{
-                        PeerMessageType::BlockHeadersRequest,
-                        manager->id(),
-                        PeerMessage::create_tag(),
-                        blockchain->last().header().to_json()
-                }
-        ).get();
-
+    for (const auto &resp: block_headers_resp) {
         auto content = BlockHeadersResponseContent::from_json(resp.content());
-        header_cache[id] = content.headers();
+        header_cache[resp.peer_id()] = content.headers();
     }
 
-    if (!ids.empty()) {
-        int longest_chain_peer_id = ids.front();
+    if (!header_cache.empty()) {
+
+        int longest_chain_peer_id = header_cache.begin()->first;
         for (const auto &[id, headers]: header_cache) {
             if (headers.size() >= header_cache[longest_chain_peer_id].size()) {
                 longest_chain_peer_id = id;
             }
         }
+        spdlog::info(
+                "Downloading blocks from {} because it has the longest chain",
+                longest_chain_peer_id
+        );
 
         for (const auto &header: header_cache[longest_chain_peer_id]) {
             if (blockchain->contains(header.hash()))
@@ -271,46 +310,15 @@ int main(int argc, char *argv[]) {
             block.to_disk(path);
         }
     }
+    manager->set_state(PeerState::Open);
 
-    // wait for tx pool to have transactions
+    // Wait for tx pool to have transactions
     spdlog::info("Waiting for transactions...");
     transaction_pool.wait();
     auto first_batch = transaction_pool.get_a_batch();
+
     spdlog::info("Starting miner with first batch");
-    if (blockchain->last().hash().empty()) {
-        CryptoPP::SHA256 sha_256;
-        spdlog::info("Blockchain: Creating genesis block");
-        auto previous_hash = std::string{"0"};
-        auto merkle_root = std::string{"0"};
-        auto timestamp = static_cast<uint64_t>(1668542625);
-        auto nonce = (uint64_t) 0;
-        auto block_hash = std::string{};
+    miner.mine(blockchain->last().hash(), first_batch.value());
 
-        StringSource s2(
-                fmt::format("{}{}{}{}", previous_hash, merkle_root, timestamp, nonce),
-                true,
-                new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
-        );
-
-        auto block = Block{
-                BlockHeader{
-                        block_hash,
-                        previous_hash,
-                        merkle_root,
-                        timestamp,
-                        nonce
-                },
-                {}
-        };
-        block.to_disk(path);
-        blockchain->add(block);
-        miner.mine(blockchain->last().hash(), first_batch.value());
-
-    } else {
-
-        miner.mine(blockchain->last().hash(), first_batch.value());
-    }
-    spdlog::info("Setting State to Open");
-    manager->set_state(PeerState::Open);
     manager->wait();
 }

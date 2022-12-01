@@ -3,6 +3,8 @@
 //
 
 #include "TransactionPool.h"
+
+#include <utility>
 #include "spdlog/spdlog.h"
 
 namespace krapi {
@@ -41,11 +43,6 @@ namespace krapi {
 
             m_blocking_cv.notify_all();
         }
-    }
-
-    void TransactionPool::append_listener(TransactionPool::Event event, std::function<void(Transaction)> listener) {
-
-        m_tx_events.appendListener(event, listener);
     }
 
     void TransactionPool::remove(const std::set<Transaction> &transactions) {

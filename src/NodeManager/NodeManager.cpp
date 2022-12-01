@@ -9,6 +9,45 @@
 using namespace std::chrono_literals;
 
 namespace krapi {
+    std::future<int> NodeManager::set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel) {
+
+        auto open_promise = std::make_shared<std::promise<int>>();
+        channel->onOpen(
+                [=, this]() {
+                    m_peer_handler_queue.push_task(
+                            [=]() {
+                                open_promise->set_value(id);
+                            }
+                    );
+                }
+        );
+        channel->onMessage(
+                [id, this](rtc::message_variant rtc_message) {
+                    m_receive_queue.push_task(
+                            [=, this]() {
+                                auto msg_str = std::get<std::string>(rtc_message);
+                                auto msg_json = nlohmann::json::parse(msg_str);
+                                auto peer_message = PeerMessage::from_json(msg_json);
+                                promise_map[id][peer_message.tag()].set_value(peer_message);
+                                m_dispatcher.dispatch(peer_message.type(), peer_message);
+                            }
+                    );
+                }
+        );
+
+        channel->onClosed(
+                [id, this]() {
+                    m_peer_handler_queue.push_task(
+                            [=, this]() {
+                                on_channel_close(id);
+                            }
+                    );
+                }
+        );
+        m_channel_map.emplace(id, channel);
+        return open_promise->get_future();
+    }
+
     std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(m_rtc_config);
@@ -36,8 +75,7 @@ namespace krapi {
                     {"type",        description.typeString()},
                     {"description", std::string(description)}
             };
-            auto msg = SignalingMessage{SignalingMessageType::RTCSetup, desc};
-            m_signaling_socket.send(msg);
+            (void) send(SignalingMessage{SignalingMessageType::RTCSetup, desc});
         });
 
         pc->onLocalCandidate([=, this](const rtc::Candidate &candidate) {
@@ -47,166 +85,79 @@ namespace krapi {
                     {"candidate", std::string(candidate)},
                     {"mid",       candidate.mid()}
             };
-            auto msg = SignalingMessage{SignalingMessageType::RTCSetup, cand};
-            m_signaling_socket.send(msg);
+            (void) send(SignalingMessage{SignalingMessageType::RTCSetup, cand});
         });
 
         pc->onDataChannel(
-                [=, this](
-                        std::shared_ptr<rtc::DataChannel> channel
-                ) {
-                    channel->onOpen([this]() {
-                        m_peer_handler_queue.push_task(
-                                [this]() {
-                                    m_peer_count++;
-                                    m_peer_count.notify_all();
-                                }
-                        );
-                    });
-                    channel->onMessage(
-                            [this](rtc::message_variant rtc_message) {
-                                auto msg_str = std::get<std::string>(rtc_message);
-                                auto msg_json = nlohmann::json::parse(msg_str);
-                                auto peer_message = PeerMessage::from_json(msg_json);
-                                m_receive_queue.push_task(
-                                        [=, this]() {
-                                            promise_map[peer_message.tag()].set_value(peer_message);
-                                            m_dispatcher.dispatch(peer_message.type(), peer_message);
-                                        }
-                                );
-                            }
-                    );
-
-                    channel->onClosed(
-                            [id, this]() {
-                                m_peer_handler_queue.push_task(
-                                        [=, this]() {
-                                            m_peer_count--;
-                                            on_channel_close(id);
-                                        }
-                                );
-                            }
-                    );
-                    m_channel_map.emplace(id, channel);
-                });
+                [=, this](auto &&channel) {
+                    (void) set_up_datachannel(id, std::forward<decltype(channel)>(channel));
+                }
+        );
 
         m_connection_map.emplace(id, pc);
         return pc;
     }
 
-    void NodeManager::on_signaling_message(const SignalingMessage &rsp) {
-
-        switch (rsp.type) {
-
-            case SignalingMessageType::PeerAvailable: {
-                auto id = rsp.content.get<int>();
-                auto pc = create_connection(id);
-                auto dc = pc->createDataChannel("krapi");
-
-                dc->onOpen(
-                        [this]() {
-                            m_peer_handler_queue.push_task(
-                                    [this]() {
-                                        m_peer_count++;
-                                        m_peer_count.notify_all();
-                                    }
-                            );
-                        }
-                );
-
-                dc->onMessage(
-                        [this](rtc::message_variant rtc_message) {
-                            auto msg_str = std::get<std::string>(rtc_message);
-                            auto msg_json = nlohmann::json::parse(msg_str);
-                            auto peer_message = PeerMessage::from_json(msg_json);
-                            m_receive_queue.push_task(
-                                    [=, this]() {
-                                        promise_map[peer_message.tag()].set_value(peer_message);
-                                        m_dispatcher.dispatch(peer_message.type(), peer_message);
-                                    }
-                            );
-                        }
-                );
-
-                dc->onClosed(
-                        [id, this]() {
-                            m_peer_handler_queue.push_task(
-                                    [id, this]() {
-                                        on_channel_close(id);
-                                    }
-                            );
-
-                        }
-                );
-
-                m_channel_map.emplace(id, dc);
-            }
-                break;
-            case SignalingMessageType::RTCSetup: {
-
-                auto peer_id = rsp.content["id"].get<int>();
-                auto type = rsp.content["type"].get<std::string>();
-
-                std::shared_ptr<rtc::PeerConnection> pc;
-                if (m_connection_map.contains(peer_id)) {
-
-                    pc = m_connection_map[peer_id];
-                } else if (type == "offer") {
-
-                    pc = create_connection(peer_id);
-
-                } else {
-                    return;
-                }
-
-                if (type == "offer" || type == "answer") {
-
-                    auto sdp = rsp.content["description"].get<std::string>();
-                    pc->setRemoteDescription(rtc::Description(sdp, type));
-                } else if (type == "candidate") {
-
-                    auto sdp = rsp.content["candidate"].get<std::string>();
-                    auto mid = rsp.content["mid"].get<std::string>();
-                    pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
-                }
-
-            }
-                break;
-            default:
-                break;
-        }
-    }
-
     NodeManager::NodeManager(
             PeerType pt
     ) : m_peer_state(PeerState::Closed),
+        my_id(-1),
         m_peer_type(pt),
         m_peer_count(0) {
 
-        std::promise<int> barrier;
-        auto future = barrier.get_future();
         m_signaling_socket.setUrl("signaling://127.0.0.1:8080");
-        m_signaling_socket.setOnMessageCallback([&](const ix::WebSocketMessagePtr &message) {
-            if (message->type == ix::WebSocketMessageType::Open) {
+        std::promise<void> signaling_open_barrier;
+        m_signaling_socket.setOnMessageCallback(
+                [&, this](const ix::WebSocketMessagePtr &message) {
+                    if (message->type == ix::WebSocketMessageType::Open) {
 
-                m_signaling_socket.send(SignalingMessage{SignalingMessageType::IdentityRequest});
-            } else if (message->type == ix::WebSocketMessageType::Message) {
+                        signaling_open_barrier.set_value();
+                    }
+                    if (message->type == ix::WebSocketMessageType::Message) {
 
-                auto msg_json = nlohmann::json::parse(message->str);
-                auto msg = SignalingMessage::from_json(msg_json);
+                        auto msg_json = nlohmann::json::parse(message->str);
+                        auto msg = SignalingMessage::from_json(msg_json);
 
-                if (msg.type == SignalingMessageType::IdentityResponse) {
 
-                    barrier.set_value(msg.content.get<int>());
-                } else {
+                        if (msg.type == SignalingMessageType::RTCSetup) {
 
-                    on_signaling_message(msg);
+                            auto peer_id = msg.content["id"].get<int>();
+                            auto type = msg.content["type"].get<std::string>();
+
+                            std::shared_ptr<rtc::PeerConnection> pc;
+                            if (m_connection_map.contains(peer_id)) {
+
+                                pc = m_connection_map[peer_id];
+                            } else if (type == "offer") {
+
+                                pc = create_connection(peer_id);
+
+                            } else {
+                                return;
+                            }
+
+                            if (type == "offer" || type == "answer") {
+
+                                auto sdp = msg.content["description"].get<std::string>();
+                                pc->setRemoteDescription(rtc::Description(sdp, type));
+                            } else if (type == "candidate") {
+
+                                auto sdp = msg.content["candidate"].get<std::string>();
+                                auto mid = msg.content["mid"].get<std::string>();
+                                pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
+                            }
+                        } else {
+
+                            signaling_promise_map[msg.tag].set_value(msg);
+                        }
+                    }
                 }
-            }
-        });
+        );
         m_signaling_socket.start();
-        spdlog::info("Waiting for Signaling Server to Acquire identity");
-        my_id = future.get();
+        spdlog::info("Waiting for Signaling Server to Acquire identity...");
+        signaling_open_barrier.get_future().wait();
+        auto identity_resp = send(SignalingMessageType::IdentityRequest).get();
+        my_id = identity_resp.content.get<int>();
         spdlog::info("Acquired Identity {}", my_id);
 
         m_dispatcher.appendListener(
@@ -248,8 +199,9 @@ namespace krapi {
         m_dispatcher.appendListener(
                 PeerMessageType::PeerStateUpdate,
                 [this](const PeerMessage &message) {
-
-                    m_peer_states_map[message.peer_id()] = message.content().get<PeerState>();
+                    auto state = message.content().get<PeerState>();
+                    spdlog::info("Updating State of {} to {}", message.peer_id(), to_string(state));
+                    m_peer_states_map[message.peer_id()] = state;
                 }
         );
     }
@@ -282,25 +234,27 @@ namespace krapi {
         return m_send_queue.submit(
                 [=, this]() -> std::future<PeerMessage> {
 
-                    while (!m_channel_map[id]->isOpen());
-
                     m_channel_map[id]->send(message.to_json().dump());
-                    return promise_map[message.tag()].get_future();
+                    return promise_map[id][message.tag()].get_future();
                 }
         ).get();
     }
 
 
-    void NodeManager::wait_for(PeerType pt, int numbers_of_peers) {
+    MultiFuture<int> NodeManager::connect_to_peers() {
 
-        m_peer_count.wait(0);
-        while (true) {
-            auto ids = peer_ids_of_type(pt);
-            if (ids.size() >= numbers_of_peers) {
-                break;
-            }
-            std::this_thread::sleep_for(500ms);
+        auto avail_resp = send(SignalingMessageType::AvailablePeersRequest).get();
+        auto avail_peers = avail_resp.content.get<std::vector<int>>();
+
+        MultiFuture<int> futures;
+        for (auto id: avail_peers) {
+
+            auto connection = create_connection(id);
+            auto channel = connection->createDataChannel("krapi");
+            futures.push_back(set_up_datachannel(id, std::move(channel)));
         }
+
+        return futures;
     }
 
     PeerState NodeManager::request_peer_state(int id) {
@@ -318,7 +272,8 @@ namespace krapi {
                             PeerMessage::create_tag()
                     }
             ).get();
-            return resp.content().get<PeerState>();
+            m_peer_states_map[id] = resp.content().get<PeerState>();
+            return m_peer_states_map[id];
         }
 
     }
@@ -350,6 +305,12 @@ namespace krapi {
 
     void NodeManager::on_channel_close(int id) {
 
+        spdlog::warn("DataChannel with {} has closed", id);
+        m_peer_states_map.erase(id);
+        m_peer_types_map.erase(id);
+        promise_map.erase(id);
+
+        m_peer_count--;
         m_channel_map.erase(id);
     }
 
@@ -368,7 +329,8 @@ namespace krapi {
                             PeerMessage::create_tag()
                     }
             ).get();
-            return resp.content().get<PeerType>();
+            m_peer_types_map[id] = resp.content().get<PeerType>();
+            return m_peer_types_map[id];
         }
     }
 
@@ -376,13 +338,14 @@ namespace krapi {
 
         {
             std::lock_guard l(m_peer_state_mutex);
+            if (m_peer_state == new_state)
+                return;
             m_peer_state = new_state;
         }
         (void) broadcast(
                 PeerMessage{
                         PeerMessageType::PeerStateUpdate,
                         my_id,
-                        PeerMessage::create_tag(),
                         m_peer_state
                 }
         );
@@ -392,11 +355,34 @@ namespace krapi {
 
         auto ans = std::vector<int>{};
         for (const auto &[id, _]: m_channel_map) {
+            auto state = request_peer_state(id);
             auto pt = request_peer_type(id);
-            if (pt == type)
-                ans.push_back(id);
+            if (pt == type) {
+
+                if (state != PeerState::Closed && state != PeerState::Error)
+                    ans.push_back(id);
+                else
+                    spdlog::warn("{} is of type {} but is {}", id, to_string(type), to_string(state));
+            }
         }
         return ans;
+    }
+
+    std::future<SignalingMessage> NodeManager::send(SignalingMessage message) {
+
+        m_signaling_socket.send(message);
+        signaling_promise_map[message.tag] = std::promise<SignalingMessage>{};
+        return signaling_promise_map[message.tag].get_future();
+    }
+
+    std::future<SignalingMessage> NodeManager::send(SignalingMessageType messageType) {
+
+        auto message = SignalingMessage{
+                messageType
+        };
+        m_signaling_socket.send(message);
+        signaling_promise_map[message.tag] = std::promise<SignalingMessage>{};
+        return signaling_promise_map[message.tag].get_future();
     }
 
 } // krapi

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "nlohmann/json.hpp"
+#include "uuid.h"
 
 namespace krapi {
     enum class SignalingMessageType {
@@ -27,18 +28,54 @@ namespace krapi {
 
     struct SignalingMessage {
         SignalingMessageType type;
+        std::string tag;
         nlohmann::json content;
+
+        explicit SignalingMessage(SignalingMessageType type) :
+                type(type),
+                tag(create_tag()) {
+
+        }
+
+        explicit SignalingMessage(
+                SignalingMessageType type,
+                nlohmann::json content
+        ) :
+                type(type),
+                content(std::move(content)),
+                tag(create_tag()) {
+
+        }
+
+        explicit SignalingMessage(
+                SignalingMessageType type,
+                std::string tag,
+                nlohmann::json content
+        ) :
+                type(type),
+                tag(std::move(tag)),
+                content(std::move(content)) {
+
+        }
+
+
+        static std::string create_tag() {
+
+            return uuids::to_string(uuids::uuid_system_generator{}());
+        }
 
         [[nodiscard]]
         nlohmann::json to_json() const {
 
             return {
                     {"type",    type},
-                    {"content", content}
+                    {"content", content},
+                    {"tag",     tag}
             };
         }
 
         operator std::string() {
+
             return to_string();
         }
 
@@ -52,6 +89,7 @@ namespace krapi {
 
             return SignalingMessage{
                     json["type"].get<SignalingMessageType>(),
+                    json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
             };
         }

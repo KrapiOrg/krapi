@@ -13,16 +13,9 @@
 namespace krapi {
 
     class TransactionPool {
-    public:
-        enum class Event {
-            TransactionAdded
-        };
-    private:
+
         std::mutex m_pool_mutex;
         std::set<Transaction> m_pool;
-        using TxEventDispatcher = eventpp::EventDispatcher<Event, void(Transaction)>;
-
-        TxEventDispatcher m_tx_events;
 
         int m_batchsize;
 
@@ -35,8 +28,6 @@ namespace krapi {
         bool add(const Transaction &transaction);
 
         void remove(const std::set<Transaction> &transactions);
-
-        void append_listener(Event event, std::function<void(Transaction)> listener);
 
         std::optional<std::set<Transaction>> get_a_batch();
 

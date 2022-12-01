@@ -62,10 +62,9 @@ int main() {
             }
     );
 
-    spdlog::info("Waiting for at least 1 other light node to connect");
-    (void) manager->wait_for(PeerType::Light, 1);
-    spdlog::info("Waiting for at least 1 for a full node to connect");
-    (void) manager->wait_for(PeerType::Full, 1);
+    spdlog::info("Trying to connect to network");
+    auto peers_connected_to = manager->connect_to_peers().get();
+    spdlog::info("Connected to [{}]", fmt::join(peers_connected_to, ", "));
 
     auto shouldBeASender = Random::get(0, 1);
     // If we are a sender, create transactions and send them to all connected peers.
@@ -97,7 +96,6 @@ int main() {
                                 PeerMessage{
                                         PeerMessageType::AddTransaction,
                                         manager->id(),
-                                        PeerMessage::create_tag(),
                                         tx.to_json()
                                 }
                         );
