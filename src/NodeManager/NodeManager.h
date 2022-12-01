@@ -35,8 +35,6 @@ namespace krapi {
 
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
 
-        void on_signaling_message(const SignalingMessage &rsp);
-
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
         std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
         std::unordered_map<int, PeerType> m_peer_types_map;
