@@ -6,6 +6,7 @@
 
 #include <thread>
 #include <set>
+#include "AsyncQueue.h"
 #include "eventpp/eventdispatcher.h"
 
 #include "Transaction.h"
@@ -14,12 +15,14 @@ namespace krapi {
 
     class TransactionPool {
 
+        using OnBatchCallback = std::function<void(std::set<Transaction>)>;
+
         std::mutex m_pool_mutex;
         std::set<Transaction> m_pool;
+        AsyncQueue m_batch_queue;
+        OnBatchCallback m_on_batch_callback;
 
         int m_batchsize;
-
-        std::condition_variable m_blocking_cv;
 
     public:
 
@@ -29,13 +32,7 @@ namespace krapi {
 
         void remove(const std::set<Transaction> &transactions);
 
-        std::optional<std::set<Transaction>> get_a_batch();
-
-        void add(const std::set<Transaction> &transactions);
-
-        std::set<Transaction> get_pool();
-
-        void wait();
+        void on_batch(OnBatchCallback callback);
     };
 
 } // krapi

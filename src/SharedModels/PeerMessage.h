@@ -24,14 +24,13 @@ namespace krapi {
         BlockHeadersResponse,
         BlockRequest,
         BlockResponse,
+        BlockNotFoundResponse,
         PeerStateRequest,
         PeerStateResponse,
         PeerStateUpdate,
         AddBlock,
         BlockRejected,
-        BlockAccepted,
-        SyncPoolRequest,
-        SyncPoolResponse
+        BlockAccepted
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -47,14 +46,13 @@ namespace krapi {
         { PeerMessageType::BlockHeadersResponse, "block_headers_response" },
         { PeerMessageType::BlockRequest, "block_request" },
         { PeerMessageType::BlockResponse, "block_response" },
+        { PeerMessageType::BlockNotFoundResponse, "block_not_found_response" },
         { PeerMessageType::PeerStateRequest, "peer_state_request" },
         { PeerMessageType::PeerStateResponse, "peer_state_response" },
         { PeerMessageType::PeerStateUpdate, "update_peer_state" },
         { PeerMessageType::AddBlock, "add_block" },
         { PeerMessageType::BlockRejected, "reject_block" },
-        { PeerMessageType::BlockAccepted, "block_accepted" },
-        { PeerMessageType::SyncPoolRequest, "sync_pool_request" },
-        { PeerMessageType::SyncPoolResponse, "sync_pool_response" }
+        { PeerMessageType::BlockAccepted, "block_accepted" }
     })
 
     class PeerMessage {

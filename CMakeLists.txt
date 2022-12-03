@@ -26,6 +26,9 @@ add_subdirectory(libs/random)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/stduuid/cmake")
 set(UUID_SYSTEM_GENERATOR ON)
 add_subdirectory(libs/stduuid)
+set(LEVELDB_BUILD_TESTS OFF)
+set(LEVELDB_BUILD_BENCHMARKS OFF)
+add_subdirectory(libs/leveldb)
 add_subdirectory(test)
 
 # General Includes

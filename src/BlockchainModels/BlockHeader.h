@@ -87,6 +87,12 @@ namespace krapi {
             return m_nonce;
         }
 
+        [[nodiscard]]
+        std::string contrived_hash() const {
+
+            return m_hash.substr(0, 10);
+        }
+
     private:
         std::string m_hash;
         std::string m_previous_hash;

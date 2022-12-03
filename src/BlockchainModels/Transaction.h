@@ -82,6 +82,9 @@ namespace krapi {
         [[nodiscard]]
         std::string hash() const;
 
+        [[nodiscard]]
+        std::string contrived_hash() const;
+
         bool set_status(TransactionStatus) const;
 
         [[nodiscard]]
@@ -103,7 +106,7 @@ namespace krapi {
     inline std::string to_string(const std::set<Transaction> &batch) {
         std::stringstream  ss;
         for (const auto &tx: batch) {
-            ss << "== Tx: #{}" << tx.hash().substr(0, 10) << '\n';
+            ss << "== Tx: #" << tx.hash().substr(0, 10) << '\n';
         }
         return ss.str();
     }

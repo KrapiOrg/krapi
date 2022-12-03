@@ -2,8 +2,7 @@
 // Created by mythi on 12/11/22.
 //
 
-#ifndef NODE_BLOCKCHAIN_BLOCK_H
-#define NODE_BLOCKCHAIN_BLOCK_H
+#pragma once
 
 #include <fstream>
 #include <string>
@@ -18,6 +17,12 @@ namespace krapi {
 
     class Block {
 
+        void to_disk(const std::filesystem::path &path) const;
+
+        static std::optional<Block> from_disk(const std::filesystem::path &path);
+
+        static void remove_from_disk(const std::filesystem::path &path, std::string hash);
+
     public:
         explicit Block(
                 BlockHeader header = BlockHeader{},
@@ -26,17 +31,11 @@ namespace krapi {
 
         static Block from_json(const nlohmann::json &json);
 
-        static std::optional<Block> from_disk(const std::filesystem::path &path);
-
         [[nodiscard]]
         std::string hash() const;
 
         [[nodiscard]]
         std::array<CryptoPP::byte, 32> hash_bytes() const;
-
-        void to_disk(const std::filesystem::path &path) const;
-
-        static void remove_from_disk(const std::filesystem::path &path, std::string hash);
 
         [[nodiscard]]
         nlohmann::json to_json() const;
@@ -47,7 +46,12 @@ namespace krapi {
         [[nodiscard]]
         std::set<Transaction> transactions() const;
 
+        [[nodiscard]]
+        std::string contrived_hash() const;
+
         bool operator==(const Block &) const;
+
+        bool operator<(const Block &) const;
 
     private:
         BlockHeader m_header;
@@ -75,4 +79,3 @@ namespace std {
         }
     };
 }
-#endif //NODE_BLOCKCHAIN_BLOCK_H

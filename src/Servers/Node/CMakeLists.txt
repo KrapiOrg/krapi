@@ -24,6 +24,7 @@ target_link_libraries(
         datachannel
         ixwebsocket
         merklecpp
+        leveldb
         shared_models
         blockchain_models
         miner

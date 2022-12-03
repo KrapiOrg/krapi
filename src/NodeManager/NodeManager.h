@@ -5,6 +5,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <set>
 #include "ixwebsocket/IXWebSocket.h"
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
@@ -53,6 +54,7 @@ namespace krapi {
         void on_channel_close(int id);
 
         std::shared_ptr<rtc::PeerConnection> create_connection(int);
+
         std::future<int> set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel);
 
     public:
@@ -65,7 +67,11 @@ namespace krapi {
 
         MultiFuture<PeerMessage> broadcast(
                 PeerMessage message,
-                bool include_light_nodes = false
+                const std::set<PeerType> &excluded_types = {PeerType::Light},
+                const std::set<PeerState> &excluded_states = {
+                        PeerState::Closed,
+                        PeerState::WaitingForPeers
+                }
         );
 
         std::future<PeerMessage> send(

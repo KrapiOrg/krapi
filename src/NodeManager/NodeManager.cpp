@@ -266,19 +266,23 @@ namespace krapi {
 
     MultiFuture<PeerMessage> NodeManager::broadcast(
             PeerMessage message,
-            bool include_light_nodes
+            const std::set<PeerType> &excluded_types,
+            const std::set<PeerState> &excluded_states
     ) {
 
         MultiFuture<PeerMessage> futures;
         for (const auto &[id, channel]: m_channel_map) {
 
             auto type = request_peer_type(id);
+            auto state = request_peer_state(id);
 
-            if (type == PeerType::Light && !include_light_nodes)
+            if (excluded_types.contains(type))
                 continue;
+            if (excluded_states.contains(state))
+                continue;
+
             message.randomize_tag();
             futures.push_back(send(id, message));
-
         }
         return futures;
     }

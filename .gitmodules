@@ -37,3 +37,6 @@
 [submodule "libs/stduuid"]
 	path = libs/stduuid
 	url = https://github.com/mariusbancila/stduuid
+[submodule "libs/leveldb"]
+	path = libs/leveldb
+	url = https://github.com/google/leveldb

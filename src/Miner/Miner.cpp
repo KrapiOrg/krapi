@@ -33,4 +33,9 @@ namespace krapi {
 
         return m_used.contains(hash);
     }
+
+    void Miner::wait() {
+
+        m_queue.wait_for_tasks();
+    }
 } // krapi

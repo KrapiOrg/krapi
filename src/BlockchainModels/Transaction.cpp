@@ -100,4 +100,9 @@ namespace krapi {
 
         return m_timestamp < other.m_timestamp;
     }
+
+    std::string Transaction::contrived_hash() const {
+
+        return m_hash.substr(0, 10);
+    }
 }

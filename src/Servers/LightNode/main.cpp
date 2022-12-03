@@ -76,7 +76,7 @@ int main() {
                 [&]() {
 
                     while (true) {
-                        std::this_thread::sleep_for(1s);
+                        std::cin.get();
                         auto random_receiver = manager->random_light_node();
 
                         if (!random_receiver.has_value()) {
@@ -90,7 +90,9 @@ int main() {
                         );
 
                         spdlog::info(
-                                "Main: Sending TX {} to {}", tx.hash().substr(0, 10), random_id
+                                "Main: Sending TX {} to {}",
+                                tx.hash().substr(0, 10),
+                                random_id
                         );
                         (void) manager->broadcast(
                                 PeerMessage{

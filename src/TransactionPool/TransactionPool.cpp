@@ -16,33 +16,23 @@ namespace krapi {
 
     bool TransactionPool::add(const Transaction &transaction) {
 
-        bool added;
-
         std::lock_guard l(m_pool_mutex);
-        added = m_pool.insert(transaction).second;
+        auto added = m_pool.insert(transaction).second;
 
         if (added) {
+            if (m_pool.size() >= m_batchsize) {
 
-            m_blocking_cv.notify_all();
-        }
-        return added;
-    }
-
-    void TransactionPool::add(const std::set<Transaction> &transactions) {
-
-        std::lock_guard l(m_pool_mutex);
-
-        bool added = true;
-
-        for (const auto &transaction: transactions) {
-            if (!m_pool.insert(transaction).second) {
-                added = false;
+                auto batch = m_pool;
+                m_pool.clear();
+                m_batch_queue.push_task(
+                        [batch = std::move(batch), this]() {
+                            m_on_batch_callback(batch);
+                        }
+                );
             }
         }
-        if (added) {
 
-            m_blocking_cv.notify_all();
-        }
+        return added;
     }
 
     void TransactionPool::remove(const std::set<Transaction> &transactions) {
@@ -53,34 +43,9 @@ namespace krapi {
         }
     }
 
-    std::optional<std::set<Transaction>> TransactionPool::get_a_batch() {
+    void TransactionPool::on_batch(OnBatchCallback callback) {
 
-        std::lock_guard l(m_pool_mutex);
-
-        if (m_pool.size() < m_batchsize)
-            return {};
-
-        auto batch = std::set<Transaction>{
-                m_pool.begin(),
-                std::next(m_pool.begin(), m_batchsize)
-        };
-        for (const auto &tx: batch)
-            m_pool.erase(tx);
-
-        return batch;
+        m_on_batch_callback = std::move(callback);
     }
 
-    std::set<Transaction> TransactionPool::get_pool() {
-
-        std::lock_guard l(m_pool_mutex);
-        return m_pool;
-    }
-
-    void TransactionPool::wait() {
-
-        std::unique_lock l(m_pool_mutex);
-        m_blocking_cv.wait(l, [&]() {
-            return m_pool.size() >= m_batchsize;
-        });
-    }
 } // krapi

@@ -67,7 +67,7 @@ namespace krapi {
                         new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
                 );
 
-                if (block_hash.starts_with("000")) {
+                if (block_hash.starts_with("00000")) {
 
                     return Block{
                             BlockHeader{
@@ -117,6 +117,8 @@ namespace krapi {
         std::optional<std::future<Block>> mine(std::string previous_hash, std::set<Transaction>);
 
         bool was_used(std::string hash);
+
+        void wait();
     };
 
 } // krapi

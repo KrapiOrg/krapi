@@ -15,37 +15,92 @@ using namespace krapi;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
-Block create_genesis_block() {
+void block_download(
+        const BlockHeader &block_header,
+        const std::shared_ptr<Blockchain> &blockchain,
+        const std::shared_ptr<NodeManager> &manager
+) {
 
-    CryptoPP::SHA256 sha_256;
-    spdlog::info("Blockchain: Creating genesis block");
-    auto previous_hash = std::string{"0"};
-    auto merkle_root = std::string{"0"};
-    auto timestamp = static_cast<uint64_t>(1668542625);
-    auto nonce = (uint64_t) 0;
-    auto block_hash = std::string{};
+    manager->set_state(PeerState::InitialBlockDownload);
+    spdlog::info("Set state to {}", to_string(manager->get_state()));
 
-    StringSource s2(
-            fmt::format("{}{}{}{}", previous_hash, merkle_root, timestamp, nonce),
-            true,
-            new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
+    spdlog::info(
+            "Downloading headers for blocks after Block #{}",
+            block_header.contrived_hash()
     );
 
-    return Block{
-            BlockHeader{
-                    block_hash,
-                    previous_hash,
-                    merkle_root,
-                    timestamp,
-                    nonce
-            },
-            {}
-    };
+    auto block_headers_resp = manager->broadcast(
+            PeerMessage{
+                    PeerMessageType::BlockHeadersRequest,
+                    manager->id(),
+                    PeerMessage::create_tag(),
+                    block_header.to_json()
+            }
+    ).get();
+
+    auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
+    for (const auto &resp: block_headers_resp) {
+        spdlog::info("{} Replied with the following headers", resp.peer_id());
+        auto content = BlockHeadersResponseContent::from_json(resp.content());
+        for (const auto &header: content.headers()) {
+            spdlog::info("#{}", header.contrived_hash());
+        }
+        header_cache[resp.peer_id()] = content.headers();
+    }
+
+    if (!header_cache.empty()) {
+
+        int longest_chain_peer_id = header_cache.begin()->first;
+        for (const auto &[id, headers]: header_cache) {
+            if (headers.size() > header_cache[longest_chain_peer_id].size()) {
+                longest_chain_peer_id = id;
+            }
+        }
+        spdlog::info(
+                "Downloading blocks from {} because it has the longest chain",
+                longest_chain_peer_id
+        );
+
+        for (const auto &header: header_cache[longest_chain_peer_id]) {
+            if (blockchain->contains(header.hash()))
+                continue;
+
+            spdlog::info(
+                    "Requesting Block #{} from {}",
+                    header.contrived_hash(),
+                    longest_chain_peer_id
+            );
+
+            auto resp = manager->send(
+                    longest_chain_peer_id,
+                    PeerMessage{
+                            PeerMessageType::BlockRequest,
+                            manager->id(),
+                            PeerMessage::create_tag(),
+                            header.hash()
+                    }
+            ).get();
+
+            if (resp.type() != PeerMessageType::BlockNotFoundResponse) {
+
+                auto block = Block::from_json(resp.content());
+                spdlog::info("Received Block #{} from {}", block.contrived_hash(), longest_chain_peer_id);
+
+                blockchain->put(block);
+            } else {
+
+                spdlog::info("Block #{} not found in {}", header.contrived_hash(), longest_chain_peer_id);
+            }
+        }
+    }
+
+    manager->set_state(PeerState::Open);
+    spdlog::info("Set state to {}", to_string(manager->get_state()));
 }
 
 int main(int argc, char *argv[]) {
 
-    constexpr int BATCH_SZE = 3;
+    constexpr int BATCH_SZE = 10;
     std::string path;
 
     if (argc == 2) {
@@ -59,31 +114,33 @@ int main(int argc, char *argv[]) {
         fs::create_directory(path);
     }
 
-    auto blockchain = Blockchain::create();
-    auto genesis = create_genesis_block();
-    blockchain->add(genesis);
-    genesis.to_disk(path);
+    auto blockchain = std::make_shared<Blockchain>(path);
 
     auto miner = Miner();
     auto transaction_pool = TransactionPool(BATCH_SZE);
-
     auto manager = std::make_shared<NodeManager>(PeerType::Full);
 
+    transaction_pool.on_batch(
+            [&](std::set<Transaction> batch) {
+                spdlog::info("== Batch \n{}", to_string(batch));
 
-    manager->append_listener(
-            PeerMessageType::SyncPoolRequest,
-            [&](const PeerMessage &message) {
-                (void) manager->send(
-                        message.peer_id(),
+                auto block = miner.mine(blockchain->last().hash(), batch)->get();
+
+                (void) manager->broadcast(
                         PeerMessage{
-                                PeerMessageType::SyncPoolResponse,
+                                PeerMessageType::AddBlock,
                                 manager->id(),
-                                message.tag(),
-                                PoolResponseContent{
-                                        transaction_pool.get_pool()
-                                }.to_json()
+                                block.to_json()
                         }
                 );
+                if (blockchain->put(block)) {
+                    spdlog::info(
+                            "Mined Block #{}, using {}",
+                            block.contrived_hash(),
+                            block.header().previous_hash().substr(0, 10)
+                    );
+                    spdlog::info("\n{}", to_string(block.transactions()));
+                }
             }
     );
 
@@ -92,15 +149,39 @@ int main(int argc, char *argv[]) {
             [&](const PeerMessage &message) {
                 auto hash = message.content().get<std::string>();
 
-                (void) manager->send(
-                        message.peer_id(),
-                        PeerMessage{
-                                PeerMessageType::BlockResponse,
-                                manager->id(),
-                                message.tag(),
-                                blockchain->get_block(hash).value().to_json()
-                        }
-                );
+                auto block = blockchain->get(hash);
+
+                if (block) {
+                    spdlog::info(
+                            "{} Requested Block #{}",
+                            message.peer_id(),
+                            hash.substr(0, 10)
+                    );
+                    (void) manager->send(
+                            message.peer_id(),
+                            PeerMessage{
+                                    PeerMessageType::BlockResponse,
+                                    manager->id(),
+                                    message.tag(),
+                                    block.value().to_json()
+                            }
+                    );
+                } else {
+                    spdlog::info(
+                            "{} Requested Block #{}, but it is not found",
+                            message.peer_id(),
+                            hash.substr(0, 10)
+                    );
+                    (void) manager->send(
+                            message.peer_id(),
+                            PeerMessage{
+                                    PeerMessageType::BlockNotFoundResponse,
+                                    manager->id(),
+                                    message.tag(),
+                            }
+                    );
+                }
+
             }
     );
 
@@ -110,7 +191,22 @@ int main(int argc, char *argv[]) {
 
                 auto latest_remote_header = BlockHeader::from_json(message.content());
 
+                spdlog::info(
+                        "{} Requested all headers after #{}",
+                        message.peer_id(),
+                        latest_remote_header.contrived_hash()
+                );
+
                 auto headers = blockchain->get_all_after(latest_remote_header);
+
+                spdlog::info("Replying with the following headers...");
+
+                for (const auto &header: headers) {
+                    if (header.hash().empty()) {
+
+                        spdlog::info("#{}", header.contrived_hash());
+                    }
+                }
 
                 (void) manager->send(
                         message.peer_id(),
@@ -119,7 +215,7 @@ int main(int argc, char *argv[]) {
                                 manager->id(),
                                 message.tag(),
                                 BlockHeadersResponseContent{
-                                        blockchain->headers()
+                                        std::move(headers)
                                 }.to_json()
                         }
                 );
@@ -132,13 +228,6 @@ int main(int argc, char *argv[]) {
 
                 auto transaction = Transaction::from_json(message.content());
                 transaction_pool.add(transaction);
-                if (auto batch = transaction_pool.get_a_batch()) {
-                    auto block = miner.mine(blockchain->last().hash(), batch.value())->get();
-                    spdlog::info("Mined {}", block.hash().substr(0, 10));
-                    spdlog::info("\n{}", to_string(block.transactions()));
-                    blockchain->add(block);
-                    block.to_disk(path);
-                }
             }
     );
 
@@ -149,7 +238,7 @@ int main(int argc, char *argv[]) {
                 spdlog::info(
                         "Peer {} accepted block {}",
                         message.peer_id(),
-                        block.hash().substr(0, 10)
+                        block.contrived_hash()
                 );
             }
     );
@@ -157,28 +246,45 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockRejected,
             [&](const PeerMessage &message) {
-                auto block = Block::from_json(message.content());
-                Block::remove_from_disk(path, block.hash());
+                manager->set_state(PeerState::Closed);
+                miner.wait();
 
-                spdlog::warn("{} Rejected block {}", message.peer_id(), block.hash().substr(0, 10));
-                for (const auto &transaction: block.transactions()) {
-                    if (transaction_pool.add(transaction)) {
+                auto removed_block = Block::from_json(message.content());
+                spdlog::warn(
+                        "{} Rejected block {}",
+                        message.peer_id(),
+                        removed_block.contrived_hash()
+                );
 
-                        spdlog::warn(
-                                "== TX#{} from Block#{} from peer {}, restored",
-                                transaction.hash().substr(0, 10),
-                                block.hash().substr(0, 10),
-                                message.peer_id()
-                        );
+                auto removed_blocks = blockchain->remove_all_after(removed_block.hash());
+
+                for (const auto &block: removed_blocks) {
+                    spdlog::warn("Removed block #{}", block.contrived_hash());
+                    for (const auto &transaction: block.transactions()) {
+                        if (!blockchain->contains_transaction(transaction.hash())) {
+                            if (transaction_pool.add(transaction)) {
+                                spdlog::warn(
+                                        "== TX#{} from Block#{} from peer {}, restored",
+                                        transaction.contrived_hash(),
+                                        removed_block.contrived_hash(),
+                                        message.peer_id()
+                                );
+                            }
+                        }
                     }
                 }
+
+                block_download(
+                        blockchain->last().header(),
+                        blockchain,
+                        manager
+                );
             }
     );
 
     manager->append_listener(
             PeerMessageType::AddBlock,
             [&](const PeerMessage &message) {
-                spdlog::info("=================");
                 auto block = Block::from_json(message.content());
                 auto last = blockchain->last().hash();
                 auto Lprev = blockchain->last().header().previous_hash();
@@ -186,7 +292,7 @@ int main(int argc, char *argv[]) {
 
                 auto reject = [&]() {
                     spdlog::info("Rejected {} ancestor is {}, needs to be {}",
-                                 block.hash().substr(0, 10),
+                                 block.contrived_hash(),
                                  Rprev.substr(0, 10),
                                  Lprev.substr(0, 10)
                     );
@@ -195,36 +301,38 @@ int main(int argc, char *argv[]) {
                             PeerMessage{
                                     PeerMessageType::BlockRejected,
                                     manager->id(),
-                                    PeerMessage::create_tag()
+                                    PeerMessage::create_tag(),
+                                    block.to_json()
                             }
                     );
                 };
                 auto accept = [&]() {
                     spdlog::info("AddBlock, Accepted {}, with {} ancestory",
-                                 block.hash().substr(0, 10),
-                                 Lprev.substr(0, 10)
+                                 block.contrived_hash(),
+                                 Rprev.substr(0, 10)
                     );
-                    blockchain->add(block);
-                    block.to_disk(path);
+                    blockchain->put(block);
                     transaction_pool.remove(block.transactions());
                     (void) manager->send(
                             message.peer_id(),
                             PeerMessage{
                                     PeerMessageType::BlockAccepted,
                                     manager->id(),
-                                    PeerMessage::create_tag()
+                                    PeerMessage::create_tag(),
+                                    block.to_json()
                             }
                     );
                 };
 
 
                 if (Rprev == last) {
+                    spdlog::info("Here1");
                     accept();
                     return;
                 }
 
                 if (Lprev == Rprev) {
-
+                    spdlog::info("Here2");
                     accept();
                     return;
                 } else {
@@ -241,84 +349,11 @@ int main(int argc, char *argv[]) {
     auto peers_connected = manager->connect_to_peers().get();
     spdlog::info("Connected to [{}]", fmt::join(peers_connected, ", "));
 
-    for (auto id: peers_connected) {
-        auto peer_type = manager->request_peer_type(id);
-        auto peer_state = manager->request_peer_state(id);
-        if (peer_type == krapi::PeerType::Full && peer_state == krapi::PeerState::Open) {
-            spdlog::info("Downloading Transactions from {}", id);
-            manager->set_state(PeerState::InitialBlockDownload);
-
-            auto response = manager->send(
-                    id,
-                    PeerMessage{
-                            PeerMessageType::SyncPoolRequest,
-                            manager->id()
-                    }
-            ).get();
-
-            auto content = PoolResponseContent::from_json(response.content());
-            transaction_pool.add(content.transactions());
-            spdlog::info("Received the following batch from {}", response.peer_id());
-            spdlog::info(to_string(content.transactions()));
-        }
-    }
-
-    auto block_headers_resp = manager->broadcast(
-            PeerMessage{
-                    PeerMessageType::BlockHeadersRequest,
-                    manager->id(),
-                    PeerMessage::create_tag(),
-                    blockchain->last().header().to_json()
-            }
-    ).get();
-
-    auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
-    for (const auto &resp: block_headers_resp) {
-        auto content = BlockHeadersResponseContent::from_json(resp.content());
-        header_cache[resp.peer_id()] = content.headers();
-    }
-
-    if (!header_cache.empty()) {
-
-        int longest_chain_peer_id = header_cache.begin()->first;
-        for (const auto &[id, headers]: header_cache) {
-            if (headers.size() >= header_cache[longest_chain_peer_id].size()) {
-                longest_chain_peer_id = id;
-            }
-        }
-        spdlog::info(
-                "Downloading blocks from {} because it has the longest chain",
-                longest_chain_peer_id
-        );
-
-        for (const auto &header: header_cache[longest_chain_peer_id]) {
-            if (blockchain->contains(header.hash()))
-                continue;
-
-            auto resp = manager->send(
-                    longest_chain_peer_id,
-                    PeerMessage{
-                            PeerMessageType::BlockRequest,
-                            manager->id(),
-                            PeerMessage::create_tag(),
-                            header.hash()
-                    }
-            ).get();
-            auto block = Block::from_json(resp.content());
-
-            blockchain->add(block);
-            block.to_disk(path);
-        }
-    }
-    manager->set_state(PeerState::Open);
-
-    // Wait for tx pool to have transactions
-    spdlog::info("Waiting for transactions...");
-    transaction_pool.wait();
-    auto first_batch = transaction_pool.get_a_batch();
-
-    spdlog::info("Starting miner with first batch");
-    miner.mine(blockchain->last().hash(), first_batch.value());
+    block_download(
+            blockchain->last().header(),
+            blockchain,
+            manager
+    );
 
     manager->wait();
 }

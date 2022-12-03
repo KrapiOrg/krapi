@@ -107,4 +107,14 @@ namespace krapi {
 
         return m_header.m_hash == other.m_header.m_hash;
     }
+
+    bool Block::operator<(const Block &other) const {
+
+        return m_header.m_timestamp < other.m_header.m_timestamp;
+    }
+
+    std::string Block::contrived_hash() const {
+
+        return m_header.m_hash.substr(0, 10);
+    }
 } // krapi
