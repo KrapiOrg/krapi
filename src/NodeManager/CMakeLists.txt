@@ -18,6 +18,7 @@ target_link_libraries(
         datachannel
         eventpp
         stduuid
+        tl::expected
         signaling_client
         transaction_pool
         shared_models

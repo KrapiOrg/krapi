@@ -22,6 +22,7 @@ namespace krapi {
     class MiningJob {
         std::string m_previous_hash;
         std::set<Transaction> m_transactions;
+        std::shared_ptr<std::atomic<bool>> m_cancelled;
 
         static void hash_function(
                 const merkle::HashT<32> &l,
@@ -37,16 +38,17 @@ namespace krapi {
 
     public:
 
-        MiningJob(
-                std::string previous_hash,
-                std::set<Transaction> transactions
-        ) : m_previous_hash(std::move(previous_hash)),
-            m_transactions(std::move(transactions)) {
+        explicit MiningJob(
+                std::string hash,
+                std::set<Transaction> transactions,
+                std::shared_ptr<std::atomic<bool>> cancellation_token
+        ) : m_previous_hash(std::move(hash)),
+            m_transactions(std::move(transactions)),
+            m_cancelled(std::move(cancellation_token)) {
 
         }
 
-
-        Block operator()() {
+        std::pair<bool, Block> operator()() {
 
             CryptoPP::SHA256 sha_256;
             merkle::TreeT<32, hash_function> tree;
@@ -67,17 +69,35 @@ namespace krapi {
                         new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
                 );
 
-                if (block_hash.starts_with("00000")) {
+                if (*m_cancelled) {
 
-                    return Block{
-                            BlockHeader{
-                                    block_hash,
-                                    m_previous_hash,
-                                    merkle_root,
-                                    timestamp,
-                                    nonce
-                            },
-                            m_transactions
+                    return {
+                            true,
+                            Block{
+                                    BlockHeader{
+                                            block_hash,
+                                            m_previous_hash,
+                                            merkle_root,
+                                            timestamp,
+                                            nonce
+                                    },
+                                    m_transactions
+                            }
+                    };
+                } else if (block_hash.starts_with("00000")) {
+
+                    return {
+                            false,
+                            Block{
+                                    BlockHeader{
+                                            block_hash,
+                                            m_previous_hash,
+                                            merkle_root,
+                                            timestamp,
+                                            nonce
+                                    },
+                                    m_transactions
+                            }
                     };
                 }
             }
@@ -107,18 +127,23 @@ namespace krapi {
     private:
 
         AsyncQueue m_queue;
+
+        std::mutex m_used_mutex;
         std::unordered_set<std::string> m_used;
+        std::shared_ptr<std::atomic<bool>> m_cancellation_token;
 
 
     public:
 
         explicit Miner();
 
-        std::optional<std::future<Block>> mine(std::string previous_hash, std::set<Transaction>);
+        std::optional<std::shared_future<std::pair<bool, Block>>> mine(std::string previous_hash, std::set<Transaction>);
 
         bool was_used(std::string hash);
 
-        void wait();
+        bool remove_hash(std::string hash);
+
+        void cancel();
     };
 
 } // krapi

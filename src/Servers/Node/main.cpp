@@ -8,7 +8,6 @@
 #include "Content/BlocksResponseContent.h"
 #include "Content/SetTransactionStatusContent.h"
 #include "Content/BlockHeadersResponseContent.h"
-#include "Content/PoolResponseContent.h"
 
 
 using namespace krapi;
@@ -40,12 +39,14 @@ void block_download(
 
     auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
     for (const auto &resp: block_headers_resp) {
-        spdlog::info("{} Replied with the following headers", resp.peer_id());
-        auto content = BlockHeadersResponseContent::from_json(resp.content());
+        if(!resp.has_value())
+            continue;
+        spdlog::info("{} Replied with the following headers", resp.value().peer_id());
+        auto content = BlockHeadersResponseContent::from_json(resp.value().content());
         for (const auto &header: content.headers()) {
             spdlog::info("#{}", header.contrived_hash());
         }
-        header_cache[resp.peer_id()] = content.headers();
+        header_cache[resp.value().peer_id()] = content.headers();
     }
 
     if (!header_cache.empty()) {
@@ -81,9 +82,13 @@ void block_download(
                     }
             ).get();
 
-            if (resp.type() != PeerMessageType::BlockNotFoundResponse) {
+            if(!resp.has_value()) {
+                continue;
+            }
 
-                auto block = Block::from_json(resp.content());
+            if (resp.value().type() != PeerMessageType::BlockNotFoundResponse) {
+
+                auto block = Block::from_json(resp.value().content());
                 spdlog::info("Received Block #{} from {}", block.contrived_hash(), longest_chain_peer_id);
 
                 blockchain->put(block);
@@ -124,22 +129,30 @@ int main(int argc, char *argv[]) {
             [&](std::set<Transaction> batch) {
                 spdlog::info("== Batch \n{}", to_string(batch));
 
-                auto block = miner.mine(blockchain->last().hash(), batch)->get();
+                auto [cancelled, block] = miner.mine(blockchain->last().hash(), batch)->get();
 
-                (void) manager->broadcast(
-                        PeerMessage{
-                                PeerMessageType::AddBlock,
-                                manager->id(),
-                                block.to_json()
-                        }
-                );
-                if (blockchain->put(block)) {
-                    spdlog::info(
-                            "Mined Block #{}, using {}",
-                            block.contrived_hash(),
-                            block.header().previous_hash().substr(0, 10)
+                if (!cancelled) {
+
+                    (void) manager->broadcast(
+                            PeerMessage{
+                                    PeerMessageType::AddBlock,
+                                    manager->id(),
+                                    block.to_json()
+                            }
                     );
-                    spdlog::info("\n{}", to_string(block.transactions()));
+                    if (blockchain->put(block)) {
+                        spdlog::info(
+                                "Mined Block #{}, using {}",
+                                block.contrived_hash(),
+                                block.header().previous_hash().substr(0, 10)
+                        );
+                        spdlog::info("\n{}", to_string(block.transactions()));
+                    }
+                } else {
+                    spdlog::warn("Block #{} was cancelled", block.contrived_hash());
+                    for (const auto &transaction: block.transactions()) {
+                        spdlog::warn("== Tx#{}", transaction.contrived_hash());
+                    }
                 }
             }
     );
@@ -246,8 +259,6 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockRejected,
             [&](const PeerMessage &message) {
-                manager->set_state(PeerState::Closed);
-                miner.wait();
 
                 auto removed_block = Block::from_json(message.content());
                 spdlog::warn(
@@ -255,6 +266,11 @@ int main(int argc, char *argv[]) {
                         message.peer_id(),
                         removed_block.contrived_hash()
                 );
+                spdlog::info("Setting state to closed");
+                manager->set_state(PeerState::Closed);
+                spdlog::info("Waiting for miner to complete");
+                miner.cancel();
+                spdlog::info("Cancelled miner");
 
                 auto removed_blocks = blockchain->remove_all_after(removed_block.hash());
 
@@ -285,14 +301,15 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::AddBlock,
             [&](const PeerMessage &message) {
-                auto block = Block::from_json(message.content());
-                auto last = blockchain->last().hash();
-                auto Lprev = blockchain->last().header().previous_hash();
-                auto Rprev = block.header().previous_hash();
+                auto Lblock = blockchain->last();
+                auto Rblock = Block::from_json(message.content());
+                auto last = Lblock.hash();
+                auto Lprev = Lblock.header().previous_hash();
+                auto Rprev = Rblock.header().previous_hash();
 
                 auto reject = [&]() {
                     spdlog::info("Rejected {} ancestor is {}, needs to be {}",
-                                 block.contrived_hash(),
+                                 Rblock.contrived_hash(),
                                  Rprev.substr(0, 10),
                                  Lprev.substr(0, 10)
                     );
@@ -302,45 +319,65 @@ int main(int argc, char *argv[]) {
                                     PeerMessageType::BlockRejected,
                                     manager->id(),
                                     PeerMessage::create_tag(),
-                                    block.to_json()
+                                    Rblock.to_json()
                             }
                     );
                 };
                 auto accept = [&]() {
-                    spdlog::info("AddBlock, Accepted {}, with {} ancestory",
-                                 block.contrived_hash(),
+                    spdlog::info("Accepted Block #{}, with #{} ancestry",
+                                 Rblock.contrived_hash(),
                                  Rprev.substr(0, 10)
                     );
-                    blockchain->put(block);
-                    transaction_pool.remove(block.transactions());
-                    (void) manager->send(
-                            message.peer_id(),
-                            PeerMessage{
-                                    PeerMessageType::BlockAccepted,
-                                    manager->id(),
-                                    PeerMessage::create_tag(),
-                                    block.to_json()
-                            }
-                    );
+                    if (blockchain->put(Rblock)) {
+
+                        transaction_pool.remove(Rblock.transactions());
+                        spdlog::info("Cancelling miner");
+                        miner.cancel();
+                        (void) manager->send(
+                                message.peer_id(),
+                                PeerMessage{
+                                        PeerMessageType::BlockAccepted,
+                                        manager->id(),
+                                        PeerMessage::create_tag(),
+                                        Rblock.to_json()
+                                }
+                        );
+                    } else {
+
+                        spdlog::warn(
+                                "Rejecting Block #{} from {}, as it is already in the local chain",
+                                Rblock.contrived_hash(),
+                                message.peer_id()
+                        );
+                        reject();
+                    }
                 };
 
 
                 if (Rprev == last) {
-                    spdlog::info("Here1");
+
                     accept();
                     return;
                 }
 
                 if (Lprev == Rprev) {
-                    spdlog::info("Here2");
-                    accept();
-                    return;
-                } else {
 
-                    reject();
+                    if (Lblock.header().timestamp() < Rblock.header().timestamp()) {
+
+                        spdlog::warn(
+                                "Rejecting Block #{} from {}, because the local chain's tip was mined first",
+                                Rblock.contrived_hash(),
+                                message.peer_id()
+                        );
+                        reject();
+                    } else {
+
+                        accept();
+                    }
                     return;
                 }
 
+                reject();
             }
     );
 

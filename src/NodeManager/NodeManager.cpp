@@ -9,13 +9,22 @@
 using namespace std::chrono_literals;
 
 namespace krapi {
+
     std::future<int> NodeManager::set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel) {
 
         auto open_promise = std::make_shared<std::promise<int>>();
         channel->onOpen(
                 [=, this]() {
                     m_peer_handler_queue.push_task(
-                            [=]() {
+                            [=, this]() {
+                                {
+                                    std::lock_guard l(m_promise_map_mutex);
+                                    promise_map->emplace(id, std::make_shared<PromiseMap>());
+                                }
+                                {
+                                    std::lock_guard l(m_future_map_mutex);
+                                    future_map->emplace(id, std::make_shared<FutureMap>());
+                                }
                                 open_promise->set_value(id);
                             }
                     );
@@ -28,7 +37,13 @@ namespace krapi {
                                 auto msg_str = std::get<std::string>(rtc_message);
                                 auto msg_json = nlohmann::json::parse(msg_str);
                                 auto peer_message = PeerMessage::from_json(msg_json);
-                                promise_map[id][peer_message.tag()].set_value(peer_message);
+
+                                {
+                                    std::lock_guard l(m_promise_map_mutex);
+                                    if (promise_map->at(id)->contains(peer_message.tag()))
+                                        promise_map->at(id)->at(peer_message.tag())->set_value(peer_message);
+                                }
+
                                 m_dispatcher.dispatch(peer_message.type(), peer_message);
                             }
                     );
@@ -103,7 +118,9 @@ namespace krapi {
     ) : m_peer_state(PeerState::Closed),
         my_id(-1),
         m_peer_type(pt),
-        m_peer_count(0) {
+        m_peer_count(0),
+        promise_map(std::make_shared<PerPeerPromiseMap>()),
+        future_map(std::make_shared<PerPeerFutureMap>()) {
 
         spdlog::info("NodeManager: Acquiring identity...");
         my_id = m_signaling_client.get_identity();
@@ -205,17 +222,27 @@ namespace krapi {
         return my_id;
     }
 
-    std::future<PeerMessage> NodeManager::send(
+    NodeManager::Future NodeManager::send(
             int id,
             const PeerMessage &message
     ) {
 
 
         return m_send_queue.submit(
-                [=, this]() -> std::future<PeerMessage> {
+                [=, this]() -> NodeManager::Future {
 
                     m_channel_map[id]->send(message.to_json().dump());
-                    return promise_map[id][message.tag()].get_future();
+                    auto promise = std::make_shared<Promise>();
+                    auto future = promise->get_future().share();
+                    {
+                        std::lock_guard l(m_promise_map_mutex);
+                        promise_map->at(id)->emplace(message.tag(), std::move(promise));
+                    }
+                    {
+                        std::lock_guard l(m_future_map_mutex);
+                        future_map->at(id)->emplace(message.tag(), future);
+                    }
+                    return future;
                 }
         ).get();
     }
@@ -237,21 +264,24 @@ namespace krapi {
         return futures;
     }
 
-    PeerState NodeManager::request_peer_state(int id) {
+    ErrorOr<PeerState> NodeManager::request_peer_state(int id) {
 
         if (m_peer_states_map.contains(id)) {
 
             return m_peer_states_map[id];
         } else {
 
-            auto resp = send(
-                    id,
-                    PeerMessage{
-                            PeerMessageType::PeerStateRequest,
-                            my_id,
-                            PeerMessage::create_tag()
-                    }
-            ).get();
+            auto resp =
+                    TRY(
+                            send(
+                                    id,
+                                    PeerMessage{
+                                            PeerMessageType::PeerStateRequest,
+                                            my_id,
+                                            PeerMessage::create_tag()
+                                    }
+                            ).get()
+                    );
             m_peer_states_map[id] = resp.content().get<PeerState>();
             return m_peer_states_map[id];
         }
@@ -264,21 +294,23 @@ namespace krapi {
         return m_peer_state;
     }
 
-    MultiFuture<PeerMessage> NodeManager::broadcast(
+    MultiFuture<NodeManager::PromiseType> NodeManager::broadcast(
             PeerMessage message,
             const std::set<PeerType> &excluded_types,
             const std::set<PeerState> &excluded_states
     ) {
 
-        MultiFuture<PeerMessage> futures;
+        MultiFuture<NodeManager::PromiseType> futures;
         for (const auto &[id, channel]: m_channel_map) {
 
             auto type = request_peer_type(id);
             auto state = request_peer_state(id);
-
-            if (excluded_types.contains(type))
+            if (!type.has_value() || !state.has_value())
                 continue;
-            if (excluded_states.contains(state))
+
+            if (excluded_types.contains(type.value()))
+                continue;
+            if (excluded_states.contains(state.value()))
                 continue;
 
             message.randomize_tag();
@@ -292,27 +324,45 @@ namespace krapi {
         spdlog::warn("DataChannel with {} has closed", id);
         m_peer_states_map.erase(id);
         m_peer_types_map.erase(id);
-        promise_map.erase(id);
+        auto is_ready = [](const std::shared_future<PromiseType> &f) {
+
+            return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+        };
+        {
+            std::lock_guard l(m_promise_map_mutex);
+            for (auto &[message_id, promise]: *promise_map->at(id)) {
+                {
+                    std::lock_guard l2(m_future_map_mutex);
+                    auto future = future_map->at(id)->at(message_id);
+                    if (!is_ready(future)) {
+                        promise->set_value(tl::make_unexpected(KrapiErr{"Channel Closed"}));
+
+                    }
+                }
+            }
+        }
 
         m_peer_count--;
         m_channel_map.erase(id);
     }
 
-    PeerType NodeManager::request_peer_type(int id) {
+    ErrorOr<PeerType> NodeManager::request_peer_type(int id) {
 
         if (m_peer_types_map.contains(id)) {
 
             return m_peer_types_map[id];
         } else {
 
-            auto resp = send(
-                    id,
-                    PeerMessage{
-                            PeerMessageType::PeerTypeRequest,
-                            my_id,
-                            PeerMessage::create_tag()
-                    }
-            ).get();
+            auto resp = TRY(
+                    send(
+                            id,
+                            PeerMessage{
+                                    PeerMessageType::PeerTypeRequest,
+                                    my_id,
+                                    PeerMessage::create_tag()
+                            }
+                    ).get()
+            );
             m_peer_types_map[id] = resp.content().get<PeerType>();
             return m_peer_types_map[id];
         }
@@ -341,12 +391,15 @@ namespace krapi {
         for (const auto &[id, _]: m_channel_map) {
             auto state = request_peer_state(id);
             auto pt = request_peer_type(id);
-            if (pt == type) {
+            if (!state.has_value() || !pt.has_value())
+                continue;
 
-                if (state != PeerState::Closed && state != PeerState::Error)
+            if (pt.value() == type) {
+
+                if (state.value() != PeerState::Closed && state.value() != PeerState::Error)
                     ans.push_back(id);
                 else
-                    spdlog::warn("{} is of type {} but is {}", id, to_string(type), to_string(state));
+                    spdlog::warn("{} is of type {} but is {}", id, to_string(type), to_string(state.value()));
             }
         }
         return ans;

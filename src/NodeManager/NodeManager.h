@@ -9,13 +9,14 @@
 #include "ixwebsocket/IXWebSocket.h"
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
+#include "tl/expected.hpp"
 #include "PeerMessage.h"
 #include "PeerType.h"
 #include "SignalingMessage.h"
 #include "PeerState.h"
 #include "AsyncQueue.h"
-#include "ErrorOr.h"
 #include "SignalingClient.h"
+#include "ErrorOr.h"
 
 namespace krapi {
 
@@ -49,7 +50,23 @@ namespace krapi {
         AsyncQueue m_send_queue;
         AsyncQueue m_receive_queue;
         AsyncQueue m_peer_handler_queue;
-        std::map<int, std::map<std::string, std::promise<PeerMessage>>> promise_map;
+        std::mutex m_promise_map_mutex;
+
+        using PromiseType = tl::expected<PeerMessage, KrapiErr>;
+        using Promise = std::promise<PromiseType>;
+        using PromisePtr = std::shared_ptr<Promise>;
+        using Future = std::shared_future<PromiseType>;
+        using PromiseMap = std::map<std::string, PromisePtr>;
+        using PromiseMapPtr = std::shared_ptr<PromiseMap>;
+        using PerPeerPromiseMap = std::map<int, PromiseMapPtr>;
+        std::shared_ptr<PerPeerPromiseMap> promise_map;
+
+        std::mutex m_future_map_mutex;
+        using FutureMap = std::map<std::string, Future>;
+        using FutureMapPtr = std::shared_ptr<FutureMap>;
+        using PerPeerFutureMap = std::map<int, FutureMapPtr>;
+        std::shared_ptr<PerPeerFutureMap> future_map;
+
 
         void on_channel_close(int id);
 
@@ -65,7 +82,7 @@ namespace krapi {
 
         std::vector<int> peer_ids_of_type(PeerType type);
 
-        MultiFuture<PeerMessage> broadcast(
+        MultiFuture<PromiseType> broadcast(
                 PeerMessage message,
                 const std::set<PeerType> &excluded_types = {PeerType::Light},
                 const std::set<PeerState> &excluded_states = {
@@ -74,7 +91,7 @@ namespace krapi {
                 }
         );
 
-        std::future<PeerMessage> send(
+        Future send(
                 int id,
                 const PeerMessage &message
         );
@@ -88,9 +105,9 @@ namespace krapi {
                 const std::function<void(PeerMessage)> &listener
         );
 
-        PeerState request_peer_state(int id);
+        ErrorOr<PeerState> request_peer_state(int id);
 
-        PeerType request_peer_type(int id);
+        ErrorOr<PeerType> request_peer_type(int id);
 
         void set_state(PeerState new_state);
 

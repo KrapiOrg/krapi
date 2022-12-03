@@ -36,12 +36,12 @@ namespace krapi {
             }
         }
 
-        [[nodiscard]] std::future<T> &operator[](const size_t i) {
+        [[nodiscard]] std::shared_future<T> &operator[](const size_t i) {
 
             return futures[i];
         }
 
-        void push_back(std::future<T> future) {
+        void push_back(std::shared_future<T> future) {
 
             futures.push_back(std::move(future));
         }
@@ -59,7 +59,7 @@ namespace krapi {
 
     private:
 
-        std::vector<std::future<T>> futures;
+        std::vector<std::shared_future<T>> futures;
     };
 
     class [[nodiscard]] AsyncQueue {
@@ -90,7 +90,7 @@ namespace krapi {
         }
 
         template<typename F, typename... A, typename R = std::invoke_result_t<std::decay_t<F>, std::decay_t<A>...>>
-        [[nodiscard]] std::future<R> submit(F &&task, A &&... args) {
+        [[nodiscard]] std::shared_future<R> submit(F &&task, A &&... args) {
 
             std::function<R()> task_function = std::bind(std::forward<F>(task), std::forward<A>(args)...);
             std::shared_ptr<std::promise<R>> task_promise = std::make_shared<std::promise<R>>();

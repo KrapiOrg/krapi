@@ -29,6 +29,7 @@ add_subdirectory(libs/stduuid)
 set(LEVELDB_BUILD_TESTS OFF)
 set(LEVELDB_BUILD_BENCHMARKS OFF)
 add_subdirectory(libs/leveldb)
+add_subdirectory(libs/expected)
 add_subdirectory(test)
 
 # General Includes
@@ -39,6 +40,7 @@ include_directories(src/BlockchainModels)
 include_directories(src/Miner)
 include_directories(src/TransactionPool)
 include_directories(src/NodeManager)
+include_directories(libs/expected/include)
 
 include(src/Utils/CMakeLists.txt)
 include(src/Servers/Signaling/CMakeLists.txt)

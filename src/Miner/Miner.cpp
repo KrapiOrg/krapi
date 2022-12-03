@@ -11,15 +11,24 @@
 namespace krapi {
 
 
-    std::optional<std::future<Block>> Miner::mine(std::string previous_hash, std::set<Transaction> batch) {
+    std::optional<std::shared_future<std::pair<bool, Block>>> Miner::mine(
+            std::string previous_hash,
+            std::set<Transaction> batch
+    ) {
 
-        if (!was_used(previous_hash)) {
-            m_used.insert(previous_hash);
+        bool added;
 
+        {
+            std::lock_guard l(m_used_mutex);
+            added = m_used.insert(previous_hash).second;
+        }
+
+        if (added) {
             return m_queue.submit(
                     MiningJob{
                             previous_hash,
-                            std::move(batch)
+                            std::move(batch),
+                            m_cancellation_token
                     }
             );
         }
@@ -27,15 +36,27 @@ namespace krapi {
         return {};
     }
 
-    Miner::Miner() = default;
+    Miner::Miner() :
+            m_cancellation_token(std::make_shared<std::atomic<bool>>(false)) {
+
+    };
 
     bool Miner::was_used(std::string hash) {
 
+        std::lock_guard l(m_used_mutex);
         return m_used.contains(hash);
     }
 
-    void Miner::wait() {
+    void Miner::cancel() {
 
+        m_cancellation_token->exchange(true);
         m_queue.wait_for_tasks();
+        m_cancellation_token->exchange(false);
+    }
+
+    bool Miner::remove_hash(std::string hash) {
+
+        std::lock_guard l(m_used_mutex);
+        return m_used.erase(hash) > 0;
     }
 } // krapi
