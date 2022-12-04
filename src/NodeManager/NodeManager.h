@@ -117,6 +117,11 @@ namespace krapi {
         [[nodiscard]]
         int id() const;
 
+        ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> get_peers(
+                const std::set<PeerType>& types,
+                const std::set<PeerState>& states = {PeerState::Open}
+        );
+
     };
 
 } // krapi

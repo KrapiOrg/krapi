@@ -405,4 +405,22 @@ namespace krapi {
         return ans;
     }
 
+    ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> NodeManager::get_peers(
+            const std::set<PeerType> &types,
+            const std::set<PeerState> &states
+    ) {
+
+        auto ans = std::vector<std::tuple<int, PeerType, PeerState>>{};
+        for (const auto &[id, _]: m_channel_map) {
+            auto pt = TRY(request_peer_type(id));
+            auto state = TRY(request_peer_state(id));
+
+            if (types.contains(pt) && states.contains(state)) {
+                ans.emplace_back(id, pt, state);
+            }
+        }
+        return ans;
+
+    }
+
 } // krapi

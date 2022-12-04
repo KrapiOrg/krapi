@@ -32,14 +32,14 @@ void block_download(
             PeerMessage{
                     PeerMessageType::BlockHeadersRequest,
                     manager->id(),
-                    PeerMessage::create_tag(),
                     block_header.to_json()
-            }
+            },
+            {PeerType::Light, PeerType::Observer}
     ).get();
 
     auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
     for (const auto &resp: block_headers_resp) {
-        if(!resp.has_value())
+        if (!resp.has_value())
             continue;
         spdlog::info("{} Replied with the following headers", resp.value().peer_id());
         auto content = BlockHeadersResponseContent::from_json(resp.value().content());
@@ -82,7 +82,7 @@ void block_download(
                     }
             ).get();
 
-            if(!resp.has_value()) {
+            if (!resp.has_value()) {
                 continue;
             }
 
@@ -195,6 +195,22 @@ int main(int argc, char *argv[]) {
                     );
                 }
 
+            }
+    );
+
+    manager->append_listener(
+            PeerMessageType::GetLastBlockRequest,
+            [&](const PeerMessage &message) {
+                auto last_block = blockchain->last();
+                (void) manager->send(
+                        message.peer_id(),
+                        PeerMessage{
+                            PeerMessageType::GetLastBlockResponse,
+                            manager->id(),
+                            message.tag(),
+                            last_block.to_json()
+                        }
+                );
             }
     );
 

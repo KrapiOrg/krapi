@@ -30,7 +30,9 @@ namespace krapi {
         PeerStateUpdate,
         AddBlock,
         BlockRejected,
-        BlockAccepted
+        BlockAccepted,
+        GetLastBlockRequest,
+        GetLastBlockResponse
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
@@ -52,7 +54,9 @@ namespace krapi {
         { PeerMessageType::PeerStateUpdate, "update_peer_state" },
         { PeerMessageType::AddBlock, "add_block" },
         { PeerMessageType::BlockRejected, "reject_block" },
-        { PeerMessageType::BlockAccepted, "block_accepted" }
+        { PeerMessageType::BlockAccepted, "block_accepted" },
+        { PeerMessageType::GetLastBlockRequest, "get_last_block_request" },
+        { PeerMessageType::GetLastBlockResponse, "get_last_block_response" }
     })
 
     class PeerMessage {
