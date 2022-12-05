@@ -48,17 +48,7 @@ int main() {
                         to_string(before),
                         to_string(after)
                 );
-                if (after == TransactionStatus::Rejected) {
-                    spdlog::info("Main: Rebroadcasting {}", transaction.hash().substr(0, 10));
-                    transaction.set_status(TransactionStatus::Pending);
-                    (void) manager->broadcast(
-                            PeerMessage{
-                                    PeerMessageType::AddTransaction,
-                                    manager->id(),
-                                    transaction.to_json()
-                            }
-                    ).get();
-                }
+                // TODO: Implement Transaction handling correctly
             }
     );
 
@@ -80,7 +70,7 @@ int main() {
                         auto random_receiver = manager->random_light_node();
 
                         if (!random_receiver.has_value()) {
-                            spdlog::warn("There a no light nodes to send transactions to");
+                            spdlog::warn("{}", random_receiver.error().err_str);
                             continue;
                         }
                         auto random_id = random_receiver.value();

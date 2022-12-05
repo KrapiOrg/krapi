@@ -10,17 +10,17 @@ namespace krapi {
     LightNodeManager::LightNodeManager() : NodeManager(PeerType::Light) {
         m_peer_state = PeerState::Open;
     }
-    std::optional<int> LightNodeManager::random_light_node() {
+    ErrorOr<int> LightNodeManager::random_light_node() {
 
         using Random = effolkronium::random_static;
-        auto ids = peer_ids_of_type(PeerType::Light);
+        auto ids = TRY(get_peers({PeerType::Light}));
 
         if (!ids.empty()) {
 
             auto random_index = Random::get(0, static_cast<int>(ids.size()) - 1);
-            return ids[random_index];
+            return std::get<0>(ids[random_index]);
         }
-        return {};
+        return tl::make_unexpected(KrapiErr{"There are no light nodes in the network"});
     }
 
 } // krapi

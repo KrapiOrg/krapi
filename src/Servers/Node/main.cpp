@@ -28,14 +28,17 @@ void block_download(
             block_header.contrived_hash()
     );
 
-    auto block_headers_resp = manager->broadcast(
-            PeerMessage{
-                    PeerMessageType::BlockHeadersRequest,
-                    manager->id(),
-                    block_header.to_json()
-            },
-            {PeerType::Light, PeerType::Observer}
-    ).get();
+    auto block_headers_resp =
+
+            manager->broadcast(
+                    PeerMessage{
+                            PeerMessageType::BlockHeadersRequest,
+                            manager->id(),
+                            block_header.to_json()
+                    },
+                    {PeerType::Light, PeerType::Observer}
+            ).get();
+
 
     auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
     for (const auto &resp: block_headers_resp) {
@@ -72,7 +75,7 @@ void block_download(
                     longest_chain_peer_id
             );
 
-            auto resp = manager->send(
+            auto resp_future = manager->send(
                     longest_chain_peer_id,
                     PeerMessage{
                             PeerMessageType::BlockRequest,
@@ -80,9 +83,15 @@ void block_download(
                             PeerMessage::create_tag(),
                             header.hash()
                     }
-            ).get();
+            );
+
+            if (!resp_future.has_value()) {
+                continue;
+            }
+            auto resp = resp_future->get();
 
             if (!resp.has_value()) {
+
                 continue;
             }
 
@@ -129,7 +138,16 @@ int main(int argc, char *argv[]) {
             [&](std::set<Transaction> batch) {
                 spdlog::info("== Batch \n{}", to_string(batch));
 
-                auto [cancelled, block] = miner.mine(blockchain->last().hash(), batch)->get();
+                auto last_hash = blockchain->last().hash();
+                auto miner_future = miner.mine(last_hash, batch);
+
+                if (!miner_future.has_value()) {
+
+                    spdlog::error("Miner already used the hash #{}", last_hash.substr(0, 10));
+                    return;
+                }
+
+                auto [cancelled, block] = miner_future->get();
 
                 if (!cancelled) {
 
@@ -205,10 +223,10 @@ int main(int argc, char *argv[]) {
                 (void) manager->send(
                         message.peer_id(),
                         PeerMessage{
-                            PeerMessageType::GetLastBlockResponse,
-                            manager->id(),
-                            message.tag(),
-                            last_block.to_json()
+                                PeerMessageType::GetLastBlockResponse,
+                                manager->id(),
+                                message.tag(),
+                                last_block.to_json()
                         }
                 );
             }

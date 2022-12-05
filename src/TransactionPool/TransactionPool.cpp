@@ -16,14 +16,20 @@ namespace krapi {
 
     bool TransactionPool::add(const Transaction &transaction) {
 
-        std::lock_guard l(m_pool_mutex);
-        auto added = m_pool.insert(transaction).second;
+        bool added;
+        {
+            std::lock_guard l(m_pool_mutex);
+            added = m_pool.insert(transaction).second;
+        }
 
         if (added) {
             if (m_pool.size() >= m_batchsize) {
-
-                auto batch = m_pool;
-                m_pool.clear();
+                std::set<Transaction> batch;
+                {
+                    std::lock_guard l(m_pool_mutex);
+                    batch = m_pool;
+                    m_pool.clear();
+                }
                 m_batch_queue.push_task(
                         [batch = std::move(batch), this]() {
                             m_on_batch_callback(batch);

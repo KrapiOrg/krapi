@@ -92,14 +92,16 @@ int main() {
     };
     auto get_blocks = [&](int id, const BlockHeader &header) -> ErrorOr<std::vector<Block>> {
         auto headers_response = TRY(
-                manager.send(
-                        id,
-                        PeerMessage{
-                                PeerMessageType::BlockHeadersRequest,
-                                manager.id(),
-                                PeerMessage::create_tag(),
-                                header.to_json()
-                        }
+                TRY(
+                        manager.send(
+                                id,
+                                PeerMessage{
+                                        PeerMessageType::BlockHeadersRequest,
+                                        manager.id(),
+                                        PeerMessage::create_tag(),
+                                        header.to_json()
+                                }
+                        )
                 ).get()
         );
 
@@ -109,14 +111,15 @@ int main() {
         for (const auto &block_header: headers_content.headers()) {
 
             auto block_response = TRY(
-                    manager.send(
-                            id,
-                            PeerMessage{
-                                    PeerMessageType::BlockRequest,
-                                    manager.id(),
-                                    PeerMessage::create_tag(),
-                                    block_header.hash()
-                            }
+                    TRY(manager.send(
+                                id,
+                                PeerMessage{
+                                        PeerMessageType::BlockRequest,
+                                        manager.id(),
+                                        PeerMessage::create_tag(),
+                                        block_header.hash()
+                                }
+                        )
                     ).get()
             );
             blocks.push_back(Block::from_json(block_response.content()));
@@ -194,13 +197,15 @@ int main() {
         fmt::print("Requesting tip from peer {}\n", selected_peer);
 
         auto response = TRY(
-                manager.send(
-                        selected_peer,
-                        PeerMessage{
-                                PeerMessageType::GetLastBlockRequest,
-                                manager.id(),
-                                PeerMessage::create_tag()
-                        }
+                TRY(
+                        manager.send(
+                            selected_peer,
+                            PeerMessage{
+                                    PeerMessageType::GetLastBlockRequest,
+                                    manager.id(),
+                                    PeerMessage::create_tag()
+                            }
+                    )
                 ).get()
         );
         fmt::print("{:*^50}\n", fmt::format("Peer #{}", selected_peer));

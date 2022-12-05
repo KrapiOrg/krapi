@@ -13,6 +13,9 @@
 namespace krapi {
 
     class SignalingClient {
+
+        std::mutex m_mutex;
+
         using PromiseMap = std::map<std::string, std::promise<SignalingMessage>>;
         using RTCSetupCallback = std::function<void(SignalingMessage)>;
 

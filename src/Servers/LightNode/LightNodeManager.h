@@ -14,7 +14,7 @@ namespace krapi {
     public:
         LightNodeManager();
 
-        std::optional<int> random_light_node();
+        ErrorOr<int> random_light_node();
     };
 
 } // krapi

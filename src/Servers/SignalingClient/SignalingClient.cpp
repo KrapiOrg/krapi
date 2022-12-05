@@ -25,6 +25,7 @@ namespace krapi {
                             m_rtc_setup_callback(msg);
                         } else {
 
+                            std::lock_guard l(m_mutex);
                             m_promises[msg.tag].set_value(msg);
                         }
                     }
@@ -44,6 +45,8 @@ namespace krapi {
     std::future<SignalingMessage> SignalingClient::send(SignalingMessage message) {
 
         m_ws.send(message.to_string());
+
+        std::lock_guard l(m_mutex);
         m_promises[message.tag] = std::promise<SignalingMessage>{};
         return m_promises[message.tag].get_future();
     }
@@ -54,6 +57,8 @@ namespace krapi {
                 message_type
         };
         m_ws.send(message.to_string());
+
+        std::lock_guard l(m_mutex);
         m_promises[message.tag] = std::promise<SignalingMessage>{};
         return m_promises[message.tag].get_future();
     }

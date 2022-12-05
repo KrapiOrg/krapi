@@ -36,10 +36,13 @@ namespace krapi {
         SignalingClient m_signaling_client;
         int my_id;
 
-
+        std::recursive_mutex m_connection_map_mutex;
         std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
+        std::recursive_mutex m_channel_map_mutex;
         std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
+        std::recursive_mutex m_peer_types_map_mutex;
         std::unordered_map<int, PeerType> m_peer_types_map;
+        std::recursive_mutex m_peer_states_map_mutex;
         std::unordered_map<int, PeerState> m_peer_states_map;
 
         mutable std::mutex m_peer_state_mutex;
@@ -80,8 +83,7 @@ namespace krapi {
                 PeerType pt
         );
 
-        std::vector<int> peer_ids_of_type(PeerType type);
-
+        [[nodiscard]]
         MultiFuture<PromiseType> broadcast(
                 PeerMessage message,
                 const std::set<PeerType> &excluded_types = {PeerType::Light},
@@ -91,7 +93,8 @@ namespace krapi {
                 }
         );
 
-        Future send(
+        [[nodiscard]]
+        ErrorOr<Future> send(
                 int id,
                 const PeerMessage &message
         );
@@ -105,8 +108,10 @@ namespace krapi {
                 const std::function<void(PeerMessage)> &listener
         );
 
+        [[nodiscard]]
         ErrorOr<PeerState> request_peer_state(int id);
 
+        [[nodiscard]]
         ErrorOr<PeerType> request_peer_type(int id);
 
         void set_state(PeerState new_state);
@@ -117,6 +122,7 @@ namespace krapi {
         [[nodiscard]]
         int id() const;
 
+        [[nodiscard]]
         ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> get_peers(
                 const std::set<PeerType>& types,
                 const std::set<PeerState>& states = {PeerState::Open}
