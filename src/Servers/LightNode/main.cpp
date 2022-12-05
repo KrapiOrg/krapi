@@ -56,49 +56,32 @@ int main() {
     auto peers_connected_to = manager->connect_to_peers().get();
     spdlog::info("Connected to [{}]", fmt::join(peers_connected_to, ", "));
 
-    auto shouldBeASender = Random::get(0, 1);
-    // If we are a sender, create transactions and send them to all connected peers.
-    std::thread thread;
-    if (shouldBeASender == 1) {
+    while (true) {
+        std::cin.get();
+        auto random_receiver = manager->random_light_node();
 
-        spdlog::info("This node sends transactions!");
-        thread = std::thread(
-                [&]() {
+        if (!random_receiver.has_value()) {
+            spdlog::warn("{}", random_receiver.error().err_str);
+            continue;
+        }
+        auto random_id = random_receiver.value();
+        auto tx = wallet.create_transaction(
+                manager->id(),
+                random_id
+        );
 
-                    while (true) {
-                        std::cin.get();
-                        auto random_receiver = manager->random_light_node();
-
-                        if (!random_receiver.has_value()) {
-                            spdlog::warn("{}", random_receiver.error().err_str);
-                            continue;
-                        }
-                        auto random_id = random_receiver.value();
-                        auto tx = wallet.create_transaction(
-                                manager->id(),
-                                random_id
-                        );
-
-                        spdlog::info(
-                                "Main: Sending TX {} to {}",
-                                tx.hash().substr(0, 10),
-                                random_id
-                        );
-                        (void) manager->broadcast(
-                                PeerMessage{
-                                        PeerMessageType::AddTransaction,
-                                        manager->id(),
-                                        tx.to_json()
-                                }
-                        );
-
-                    }
-
+        spdlog::info(
+                "Main: Sending TX {} to {}",
+                tx.hash().substr(0, 10),
+                random_id
+        );
+        (void) manager->broadcast(
+                PeerMessage{
+                        PeerMessageType::AddTransaction,
+                        manager->id(),
+                        tx.to_json()
                 }
         );
-    } else {
-        spdlog::info("This node does not send transactions!");
+
     }
-    (void) thread;
-    manager->wait();
 }
