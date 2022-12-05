@@ -1,5 +1,3 @@
-#include <chrono>
-
 #include "effolkronium/random.hpp"
 
 #include "Content/SetTransactionStatusContent.h"
