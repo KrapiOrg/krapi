@@ -389,8 +389,10 @@ namespace krapi {
         };
         {
             std::lock_guard l(m_promise_map_mutex);
-            for (auto [message_id, promise]: *promise_map->at(id)) {
-                if(!promise)
+            if(!promise_map->contains(id))
+                return;
+            for (auto [message_id, promise]: *promise_map->operator[](id)) {
+                if (!promise)
                     continue;
                 {
                     std::lock_guard l2(m_future_map_mutex);

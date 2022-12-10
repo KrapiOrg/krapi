@@ -51,9 +51,9 @@ namespace krapi {
         { PeerMessageType::BlockNotFoundResponse, "block_not_found_response" },
         { PeerMessageType::PeerStateRequest, "peer_state_request" },
         { PeerMessageType::PeerStateResponse, "peer_state_response" },
-        { PeerMessageType::PeerStateUpdate, "update_peer_state" },
+        { PeerMessageType::PeerStateUpdate, "peer_state_update" },
         { PeerMessageType::AddBlock, "add_block" },
-        { PeerMessageType::BlockRejected, "reject_block" },
+        { PeerMessageType::BlockRejected, "block_rejected" },
         { PeerMessageType::BlockAccepted, "block_accepted" },
         { PeerMessageType::GetLastBlockRequest, "get_last_block_request" },
         { PeerMessageType::GetLastBlockResponse, "get_last_block_response" }

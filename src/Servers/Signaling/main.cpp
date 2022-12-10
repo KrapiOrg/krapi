@@ -187,7 +187,11 @@ int main(int argc, char **argv) {
 
                     if (clients.contains(id)) {
 
-                        auto response = SignalingMessage{SignalingMessageType::RTCSetup, message.content};
+                        auto response = SignalingMessage{
+                            SignalingMessageType::RTCSetup,
+                            message.tag,
+                            message.content
+                        };
                         response.content["id"] = ws.id();
                         clients[id]->send(response.to_json().dump());
                     }
