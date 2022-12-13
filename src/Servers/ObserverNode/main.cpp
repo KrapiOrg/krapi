@@ -17,8 +17,7 @@ int main() {
                     {"merkle_root",   "0"},
                     {"nonce",         0},
                     {"previous_hash", "0"},
-                    {"timestamp",     1668542625},
-                    {"transactions",  nlohmann::json::array()}
+                    {"timestamp",     1668542625}
             }
     );
 
@@ -117,7 +116,7 @@ int main() {
                                         PeerMessageType::BlockRequest,
                                         manager.id(),
                                         PeerMessage::create_tag(),
-                                        block_header.hash()
+                                        block_header.to_json()
                                 }
                         )
                     ).get()

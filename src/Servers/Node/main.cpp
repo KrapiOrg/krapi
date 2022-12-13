@@ -81,7 +81,7 @@ void block_download(
                             PeerMessageType::BlockRequest,
                             manager->id(),
                             PeerMessage::create_tag(),
-                            header.hash()
+                            header.to_json()
                     }
             );
 
@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
 
                 auto [cancelled, block] = miner_future->get();
 
+
                 if (!cancelled) {
 
                     (void) manager->broadcast(
@@ -178,15 +179,15 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockRequest,
             [&](const PeerMessage &message) {
-                auto hash = message.content().get<std::string>();
+                auto header = BlockHeader::from_json(message.content());
 
-                auto block = blockchain->get(hash);
+                auto block = blockchain->get(header.hash());
 
                 if (block) {
                     spdlog::info(
                             "{} Requested Block #{}",
                             message.peer_id(),
-                            hash.substr(0, 10)
+                            header.contrived_hash()
                     );
                     (void) manager->send(
                             message.peer_id(),
@@ -201,7 +202,7 @@ int main(int argc, char *argv[]) {
                     spdlog::info(
                             "{} Requested Block #{}, but it is not found",
                             message.peer_id(),
-                            hash.substr(0, 10)
+                            header.contrived_hash()
                     );
                     (void) manager->send(
                             message.peer_id(),
@@ -209,6 +210,7 @@ int main(int argc, char *argv[]) {
                                     PeerMessageType::BlockNotFoundResponse,
                                     manager->id(),
                                     message.tag(),
+                                    header.to_json()
                             }
                     );
                 }
@@ -235,7 +237,7 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockHeadersRequest,
             [&](const PeerMessage &message) {
-
+                spdlog::info("{}", message.content().dump());
                 auto latest_remote_header = BlockHeader::from_json(message.content());
 
                 spdlog::info(
@@ -249,10 +251,7 @@ int main(int argc, char *argv[]) {
                 spdlog::info("Replying with the following headers...");
 
                 for (const auto &header: headers) {
-                    if (header.hash().empty()) {
-
-                        spdlog::info("#{}", header.contrived_hash());
-                    }
+                    spdlog::info("#{}", header.contrived_hash());
                 }
 
                 (void) manager->send(
@@ -281,11 +280,11 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockAccepted,
             [&](const PeerMessage &message) {
-                auto block = Block::from_json(message.content());
+                auto header = BlockHeader::from_json(message.content());
                 spdlog::info(
                         "Peer {} accepted block {}",
                         message.peer_id(),
-                        block.contrived_hash()
+                        header.contrived_hash()
                 );
             }
     );
@@ -293,12 +292,12 @@ int main(int argc, char *argv[]) {
     manager->append_listener(
             PeerMessageType::BlockRejected,
             [&](const PeerMessage &message) {
+                auto rejected_header = BlockHeader::from_json(message.content());
 
-                auto removed_block = Block::from_json(message.content());
                 spdlog::warn(
                         "{} Rejected block {}",
                         message.peer_id(),
-                        removed_block.contrived_hash()
+                        rejected_header.contrived_hash()
                 );
                 spdlog::info("Setting state to closed");
                 manager->set_state(PeerState::Closed);
@@ -306,7 +305,7 @@ int main(int argc, char *argv[]) {
                 miner.cancel();
                 spdlog::info("Cancelled miner");
 
-                auto removed_blocks = blockchain->remove_all_after(removed_block.hash());
+                auto removed_blocks = blockchain->remove_all_after(rejected_header.hash());
 
                 for (const auto &block: removed_blocks) {
                     spdlog::warn("Removed block #{}", block.contrived_hash());
@@ -316,7 +315,7 @@ int main(int argc, char *argv[]) {
                                 spdlog::warn(
                                         "== TX#{} from Block#{} from peer {}, restored",
                                         transaction.contrived_hash(),
-                                        removed_block.contrived_hash(),
+                                        block.contrived_hash(),
                                         message.peer_id()
                                 );
                             }
@@ -353,7 +352,7 @@ int main(int argc, char *argv[]) {
                                     PeerMessageType::BlockRejected,
                                     manager->id(),
                                     PeerMessage::create_tag(),
-                                    Rblock.to_json()
+                                    Rblock.header().to_json()
                             }
                     );
                 };
@@ -373,7 +372,7 @@ int main(int argc, char *argv[]) {
                                         PeerMessageType::BlockAccepted,
                                         manager->id(),
                                         PeerMessage::create_tag(),
-                                        Rblock.to_json()
+                                        Rblock.header().to_json()
                                 }
                         );
                     } else {

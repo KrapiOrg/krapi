@@ -17,7 +17,7 @@ namespace krapi {
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(TransactionType, {
-        { TransactionType::Send, "send_tx" }
+        { TransactionType::Send, "send" }
     })
 
     enum class TransactionStatus {
@@ -41,9 +41,9 @@ namespace krapi {
     }
 
     NLOHMANN_JSON_SERIALIZE_ENUM(TransactionStatus, {
-        { TransactionStatus::Pending, "tx_status_pending" },
-        { TransactionStatus::Verified, "tx_status_verified" },
-        { TransactionStatus::Rejected, "tx_status_rejected" }
+        { TransactionStatus::Pending, "pending" },
+        { TransactionStatus::Verified, "verified" },
+        { TransactionStatus::Rejected, "rejected" }
     })
 
     class Transaction {
