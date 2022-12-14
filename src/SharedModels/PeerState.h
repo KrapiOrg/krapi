@@ -35,6 +35,8 @@ namespace krapi {
                 return "closed";
             case PeerState::Open:
                 return "open";
+            case PeerState::Error:
+                return "error";
         }
         return "error";
     }
