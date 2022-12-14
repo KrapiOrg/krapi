@@ -10,9 +10,9 @@ using namespace std::chrono_literals;
 
 namespace krapi {
 
-    std::future<int> NodeManager::set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel) {
+    std::future<std::string> NodeManager::set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel) {
 
-        auto open_promise = std::make_shared<std::promise<int>>();
+        auto open_promise = std::make_shared<std::promise<std::string>>();
         channel->onOpen(
                 [=, this]() {
                     m_peer_handler_queue.push_task(
@@ -64,7 +64,7 @@ namespace krapi {
         return open_promise->get_future();
     }
 
-    std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int id) {
+    std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(std::string id) {
 
         auto pc = std::make_shared<rtc::PeerConnection>(m_rtc_config);
 
@@ -119,20 +119,17 @@ namespace krapi {
     NodeManager::NodeManager(
             PeerType pt
     ) : m_peer_state(PeerState::Closed),
-        my_id(-1),
         m_peer_type(pt),
         m_peer_count(0),
         promise_map(std::make_shared<PerPeerPromiseMap>()),
         future_map(std::make_shared<PerPeerFutureMap>()) {
 
-        spdlog::info("NodeManager: Acquiring identity...");
         my_id = m_signaling_client.get_identity();
-        spdlog::info("NodeManager: Acquired identity {}", my_id);
 
         m_signaling_client.on_rtc_setup(
                 [this](SignalingMessage msg) {
 
-                    auto peer_id = msg.content["id"].get<int>();
+                    auto peer_id = msg.content["id"].get<std::string>();
                     auto type = msg.content["type"].get<std::string>();
 
                     std::shared_ptr<rtc::PeerConnection> pc;
@@ -231,13 +228,13 @@ namespace krapi {
         m_dispatcher.appendListener(type, listener);
     }
 
-    int NodeManager::id() const {
+    std::string NodeManager::id() const {
 
         return my_id;
     }
 
     ErrorOr<NodeManager::Future> NodeManager::send(
-            int id,
+            std::string id,
             const PeerMessage &message
     ) {
 
@@ -284,12 +281,12 @@ namespace krapi {
     }
 
 
-    MultiFuture<int> NodeManager::connect_to_peers() {
+    MultiFuture<std::string> NodeManager::connect_to_peers() {
 
         auto avail_resp = m_signaling_client.send(SignalingMessageType::AvailablePeersRequest).get();
-        auto avail_peers = avail_resp.content.get<std::vector<int>>();
+        auto avail_peers = avail_resp.content.get<std::vector<std::string>>();
 
-        MultiFuture<int> futures;
+        MultiFuture<std::string> futures;
         for (auto id: avail_peers) {
 
             auto connection = create_connection(id);
@@ -300,7 +297,7 @@ namespace krapi {
         return futures;
     }
 
-    ErrorOr<PeerState> NodeManager::request_peer_state(int id) {
+    ErrorOr<PeerState> NodeManager::request_peer_state(std::string id) {
 
         {
             std::lock_guard l(m_peer_states_map_mutex);
@@ -343,7 +340,7 @@ namespace krapi {
     ) {
 
         MultiFuture<NodeManager::PromiseType> futures;
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channels;
+        std::unordered_map<std::string, std::shared_ptr<rtc::DataChannel>> channels;
         {
             std::lock_guard l(m_channel_map_mutex);
             channels = m_channel_map;
@@ -372,7 +369,7 @@ namespace krapi {
         return futures;
     }
 
-    void NodeManager::on_channel_close(int id) {
+    void NodeManager::on_channel_close(std::string id) {
 
         spdlog::warn("DataChannel with {} has closed", id);
         {
@@ -410,7 +407,7 @@ namespace krapi {
         m_channel_map.erase(id);
     }
 
-    ErrorOr<PeerType> NodeManager::request_peer_type(int id) {
+    ErrorOr<PeerType> NodeManager::request_peer_type(std::string id) {
 
         {
             std::lock_guard l(m_peer_types_map_mutex);
@@ -455,14 +452,14 @@ namespace krapi {
         );
     }
 
-    ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> NodeManager::
+    ErrorOr<std::vector<std::tuple<std::string, PeerType, PeerState>>> NodeManager::
     get_peers(
             const std::set<PeerType> &types,
             const std::set<PeerState> &states
     ) {
 
-        auto ans = std::vector<std::tuple<int, PeerType, PeerState>>{};
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channels;
+        auto ans = std::vector<std::tuple<std::string, PeerType, PeerState>>{};
+        std::unordered_map<std::string, std::shared_ptr<rtc::DataChannel>> channels;
         {
             std::lock_guard l(m_channel_map_mutex);
             channels = m_channel_map;

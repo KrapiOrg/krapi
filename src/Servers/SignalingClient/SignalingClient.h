@@ -23,7 +23,7 @@ namespace krapi {
 
         SignalingClient();
 
-        int get_identity();
+        std::string get_identity();
 
         std::future<SignalingMessage> send(SignalingMessage message);
 
@@ -36,6 +36,7 @@ namespace krapi {
 
     private:
 
+        std::string m_identity;
         RTCSetupCallback m_rtc_setup_callback;
         PromiseMap m_promises;
         ix::WebSocket m_ws;

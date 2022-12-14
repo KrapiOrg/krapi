@@ -3,9 +3,13 @@
 //
 
 #include "SignalingClient.h"
+#include "uuid.h"
 
 namespace krapi {
     SignalingClient::SignalingClient() {
+
+        m_identity = uuids::to_string(uuids::uuid_system_generator{}());
+        spdlog::info("Assigned myself {}", m_identity);
         m_ws.setUrl("ws://127.0.0.1:8080");
         std::promise<void> signaling_open_barrier;
         m_ws.setOnMessageCallback(
@@ -18,7 +22,6 @@ namespace krapi {
 
                         auto msg_json = nlohmann::json::parse(message->str);
                         auto msg = SignalingMessage::from_json(msg_json);
-
 
                         if (msg.type == SignalingMessageType::RTCSetup) {
 
@@ -34,12 +37,20 @@ namespace krapi {
         m_ws.start();
         spdlog::info("SignalingClient: Waiting for signaling server...");
         signaling_open_barrier.get_future().wait();
+        spdlog::info("SignalingClient: Sending my identity to signaling server...");
+        send(
+                SignalingMessage{
+                        SignalingMessageType::SetIdentityRequest,
+                        SignalingMessage::create_tag(),
+                        m_identity
+                }
+        ).get();
+        spdlog::info("SignalingClient: Server Acknowledged my identity...");
     }
 
-    int SignalingClient::get_identity() {
+    std::string SignalingClient::get_identity() {
 
-        auto resp = send(SignalingMessageType::IdentityRequest).get();
-        return resp.content.get<int>();
+        return m_identity;
     }
 
     std::future<SignalingMessage> SignalingClient::send(SignalingMessage message) {

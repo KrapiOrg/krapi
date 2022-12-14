@@ -56,24 +56,23 @@ namespace krapi {
     class PeerMessage {
 
         PeerMessageType m_type;
-        int m_peer_id;
+        std::string m_peer_id;
         std::string m_tag;
         nlohmann::json m_content;
 
     public:
         explicit PeerMessage() :
-                m_type(PeerMessageType::DEFAULT),
-                m_peer_id(0) {
+                m_type(PeerMessageType::DEFAULT) {
 
         }
 
         explicit PeerMessage(
                 PeerMessageType type,
-                int peer_id,
+                std::string peer_id,
                 std::string tag,
                 nlohmann::json content = {}
         ) : m_type(type),
-            m_peer_id(peer_id),
+            m_peer_id(std::move(peer_id)),
             m_tag(std::move(tag)),
             m_content(std::move(content)) {
 
@@ -81,10 +80,10 @@ namespace krapi {
 
         explicit PeerMessage(
                 PeerMessageType type,
-                int peer_id,
+                std::string peer_id,
                 nlohmann::json content = {}
         ) : m_type(type),
-            m_peer_id(peer_id),
+            m_peer_id(std::move(peer_id)),
             m_content(std::move(content)) {
 
         }
@@ -101,7 +100,7 @@ namespace krapi {
         }
 
         [[nodiscard]]
-        int peer_id() const {
+        std::string peer_id() const {
 
             return m_peer_id;
         }
@@ -149,7 +148,7 @@ namespace krapi {
 
             return PeerMessage{
                     json["type"].get<PeerMessageType>(),
-                    json["peer_id"].get<int>(),
+                    json["peer_id"].get<std::string>(),
                     json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
             };

@@ -40,7 +40,7 @@ void block_download(
             ).get();
 
 
-    auto header_cache = std::unordered_map<int, std::vector<BlockHeader>>{};
+    auto header_cache = std::unordered_map<std::string, std::vector<BlockHeader>>{};
     for (const auto &resp: block_headers_resp) {
         if (!resp.has_value())
             continue;
@@ -54,7 +54,7 @@ void block_download(
 
     if (!header_cache.empty()) {
 
-        int longest_chain_peer_id = header_cache.begin()->first;
+        std::string longest_chain_peer_id = header_cache.begin()->first;
         for (const auto &[id, headers]: header_cache) {
             if (headers.size() > header_cache[longest_chain_peer_id].size()) {
                 longest_chain_peer_id = id;

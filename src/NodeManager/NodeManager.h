@@ -34,16 +34,16 @@ namespace krapi {
 
         rtc::Configuration m_rtc_config;
         SignalingClient m_signaling_client;
-        int my_id;
+        std::string my_id;
 
         std::recursive_mutex m_connection_map_mutex;
-        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
+        std::unordered_map<std::string, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
         std::recursive_mutex m_channel_map_mutex;
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
+        std::unordered_map<std::string, std::shared_ptr<rtc::DataChannel>> m_channel_map;
         std::recursive_mutex m_peer_types_map_mutex;
-        std::unordered_map<int, PeerType> m_peer_types_map;
+        std::unordered_map<std::string, PeerType> m_peer_types_map;
         std::recursive_mutex m_peer_states_map_mutex;
-        std::unordered_map<int, PeerState> m_peer_states_map;
+        std::unordered_map<std::string, PeerState> m_peer_states_map;
 
         mutable std::mutex m_peer_state_mutex;
         PeerState m_peer_state;
@@ -61,21 +61,21 @@ namespace krapi {
         using Future = std::shared_future<PromiseType>;
         using PromiseMap = std::map<std::string, PromisePtr>;
         using PromiseMapPtr = std::shared_ptr<PromiseMap>;
-        using PerPeerPromiseMap = std::map<int, PromiseMapPtr>;
+        using PerPeerPromiseMap = std::map<std::string, PromiseMapPtr>;
         std::shared_ptr<PerPeerPromiseMap> promise_map;
 
         std::mutex m_future_map_mutex;
         using FutureMap = std::map<std::string, Future>;
         using FutureMapPtr = std::shared_ptr<FutureMap>;
-        using PerPeerFutureMap = std::map<int, FutureMapPtr>;
+        using PerPeerFutureMap = std::map<std::string, FutureMapPtr>;
         std::shared_ptr<PerPeerFutureMap> future_map;
 
 
-        void on_channel_close(int id);
+        void on_channel_close(std::string id);
 
-        std::shared_ptr<rtc::PeerConnection> create_connection(int);
+        std::shared_ptr<rtc::PeerConnection> create_connection(std::string);
 
-        std::future<int> set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel);
+        std::future<std::string> set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel);
 
     public:
 
@@ -95,13 +95,13 @@ namespace krapi {
 
         [[nodiscard]]
         ErrorOr<Future> send(
-                int id,
+                std::string id,
                 const PeerMessage &message
         );
 
         void wait();
 
-        MultiFuture<int> connect_to_peers();
+        MultiFuture<std::string> connect_to_peers();
 
         void append_listener(
                 PeerMessageType,
@@ -109,10 +109,10 @@ namespace krapi {
         );
 
         [[nodiscard]]
-        ErrorOr<PeerState> request_peer_state(int id);
+        ErrorOr<PeerState> request_peer_state(std::string id);
 
         [[nodiscard]]
-        ErrorOr<PeerType> request_peer_type(int id);
+        ErrorOr<PeerType> request_peer_type(std::string id);
 
         void set_state(PeerState new_state);
 
@@ -120,10 +120,10 @@ namespace krapi {
         PeerState get_state() const;
 
         [[nodiscard]]
-        int id() const;
+        std::string id() const;
 
         [[nodiscard]]
-        ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> get_peers(
+        ErrorOr<std::vector<std::tuple<std::string, PeerType, PeerState>>> get_peers(
                 const std::set<PeerType>& types,
                 const std::set<PeerState>& states = {PeerState::Open}
         );

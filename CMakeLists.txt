@@ -32,6 +32,7 @@ set(LEVELDB_BUILD_TESTS OFF)
 set(LEVELDB_BUILD_BENCHMARKS OFF)
 add_subdirectory(libs/leveldb)
 add_subdirectory(libs/expected)
+add_subdirectory(libs/concurrencpp)
 add_subdirectory(test)
 
 # General Includes

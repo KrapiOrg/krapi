@@ -13,6 +13,8 @@ namespace krapi {
         AvailablePeersResponse,
         IdentityRequest,
         IdentityResponse,
+        IdentityAcknowledged,
+        SetIdentityRequest,
         PeerAvailable,
         RTCSetup,
     };
@@ -21,6 +23,9 @@ namespace krapi {
         { SignalingMessageType::AvailablePeersRequest, "available_peers_request" },
         { SignalingMessageType::AvailablePeersResponse, "available_peers_response" },
         { SignalingMessageType::IdentityRequest, "identity_request" },
+        { SignalingMessageType::IdentityResponse, "identity_response" },
+        { SignalingMessageType::IdentityAcknowledged, "identity_acknowledged" },
+        { SignalingMessageType::SetIdentityRequest, "set_identity_request" },
         { SignalingMessageType::IdentityResponse, "identity_response" },
         { SignalingMessageType::PeerAvailable, "peer_available" },
         { SignalingMessageType::RTCSetup, "rtc_setup" },
