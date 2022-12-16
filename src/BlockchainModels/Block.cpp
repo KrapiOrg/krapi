@@ -3,7 +3,6 @@
 //
 
 #include "Block.h"
-#include "spdlog/spdlog.h"
 
 namespace krapi {
     Block::Block(BlockHeader header, std::set<Transaction> transactions) :
@@ -24,26 +23,6 @@ namespace krapi {
         };
     }
 
-    std::optional<Block> Block::from_disk(const std::filesystem::path &path) {
-
-        if (path.has_filename()
-            && path.has_extension()
-            && !path.empty()
-            && path.extension().string().ends_with(".json")) {
-
-            std::fstream file(path);
-
-            if (file.is_open() && file.good()) {
-                spdlog::info("Block: loaded from disk {}", path.string());
-
-                auto json = nlohmann::json::parse(file);
-                return Block::from_json(json);
-            }
-
-        }
-        return {};
-    }
-
     std::string Block::hash() const {
 
         return m_header.m_hash;
@@ -52,32 +31,6 @@ namespace krapi {
     std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
 
         return m_header.m_hash_bytes;
-    }
-
-    void Block::to_disk(const std::filesystem::path &path) const {
-
-        namespace fs = std::filesystem;
-
-        std::ofstream file(path / (m_header.m_hash + ".json"));
-        if (file.is_open() && file.good()) {
-
-            file << to_json().dump(4);
-        } else {
-
-            spdlog::error("Failed to save block to {}", path.string());
-            exit(1);
-        }
-    }
-
-    void Block::remove_from_disk(const std::filesystem::path &path, std::string hash) {
-
-        namespace fs = std::filesystem;
-
-        auto block_path = path / (hash + ".json");
-        if (fs::exists(path)) {
-
-            fs::remove(block_path);
-        }
     }
 
     nlohmann::json Block::to_json() const {

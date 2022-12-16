@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <fstream>
 #include <string>
 #include <set>
 
@@ -16,12 +15,6 @@
 namespace krapi {
 
     class Block {
-
-        void to_disk(const std::filesystem::path &path) const;
-
-        static std::optional<Block> from_disk(const std::filesystem::path &path);
-
-        static void remove_from_disk(const std::filesystem::path &path, std::string hash);
 
     public:
         explicit Block(
