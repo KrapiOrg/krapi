@@ -113,6 +113,7 @@ void block_download(
 }
 
 int main(int argc, char *argv[]) {
+    concurrencpp::runtime runtime;
 
     constexpr int BATCH_SZE = 10;
     std::string path;
@@ -133,6 +134,8 @@ int main(int argc, char *argv[]) {
     auto miner = Miner();
     auto transaction_pool = TransactionPool(BATCH_SZE);
     auto manager = std::make_shared<NodeManager>(PeerType::Full);
+
+    manager->initialize().wait();
 
     transaction_pool.on_batch(
             [&](std::set<Transaction> batch) {

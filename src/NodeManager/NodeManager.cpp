@@ -10,9 +10,10 @@ using namespace std::chrono_literals;
 
 namespace krapi {
 
-    std::future<std::string> NodeManager::set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel) {
+    concurrencpp::result<std::string>
+    NodeManager::set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel) {
 
-        auto open_promise = std::make_shared<std::promise<std::string>>();
+        auto open_promise = std::make_shared<concurrencpp::result_promise<std::string>>();
         channel->onOpen(
                 [=, this]() {
                     m_peer_handler_queue.push_task(
@@ -25,7 +26,7 @@ namespace krapi {
                                     std::lock_guard l(m_future_map_mutex);
                                     future_map->emplace(id, std::make_shared<FutureMap>());
                                 }
-                                open_promise->set_value(id);
+                                open_promise->set_result(id);
                             }
                     );
                 }
@@ -61,7 +62,7 @@ namespace krapi {
         );
         std::lock_guard l(m_channel_map_mutex);
         m_channel_map.emplace(id, channel);
-        return open_promise->get_future();
+        co_return co_await open_promise->get_result();
     }
 
     std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(std::string id) {
@@ -92,7 +93,14 @@ namespace krapi {
                     {"type",        description.typeString()},
                     {"description", std::string(description)}
             };
-            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, desc});
+            (void) m_signaling_client.send(
+                    SignalingMessage{
+                            SignalingMessageType::RTCSetup,
+                            m_signaling_client.identity(),
+                            SignalingMessage::create_tag(),
+                            desc
+                    }
+            );
         });
 
         pc->onLocalCandidate([=, this](const rtc::Candidate &candidate) {
@@ -102,7 +110,14 @@ namespace krapi {
                     {"candidate", std::string(candidate)},
                     {"mid",       candidate.mid()}
             };
-            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, cand});
+            (void) m_signaling_client.send(
+                    SignalingMessage{
+                            SignalingMessageType::RTCSetup,
+                            m_signaling_client.identity(),
+                            SignalingMessage::create_tag(),
+                            cand
+                    }
+            );
         });
 
         pc->onDataChannel(
@@ -124,49 +139,6 @@ namespace krapi {
         promise_map(std::make_shared<PerPeerPromiseMap>()),
         future_map(std::make_shared<PerPeerFutureMap>()) {
 
-        my_id = m_signaling_client.get_identity();
-
-        m_signaling_client.on_rtc_setup(
-                [this](SignalingMessage msg) {
-
-                    auto peer_id = msg.content["id"].get<std::string>();
-                    auto type = msg.content["type"].get<std::string>();
-
-                    std::shared_ptr<rtc::PeerConnection> pc;
-
-                    auto safe_connection_map_access = [&pc, &peer_id, this]() {
-
-                        std::lock_guard l(m_connection_map_mutex);
-                        if (m_connection_map.contains(peer_id)) {
-
-                            pc = m_connection_map[peer_id];
-                            return true;
-                        }
-                        return false;
-                    };
-
-                    if (safe_connection_map_access());
-                    else if (type == "offer") {
-
-                        pc = create_connection(peer_id);
-                    } else {
-
-                        return;
-                    }
-
-                    if (type == "offer" || type == "answer") {
-
-                        auto sdp = msg.content["description"].get<std::string>();
-                        pc->setRemoteDescription(rtc::Description(sdp, type));
-                    } else if (type == "candidate") {
-
-                        auto sdp = msg.content["candidate"].get<std::string>();
-                        auto mid = msg.content["mid"].get<std::string>();
-                        pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
-                    }
-                }
-        );
-
         m_dispatcher.appendListener(
                 PeerMessageType::PeerTypeRequest,
                 [this](const PeerMessage &message) {
@@ -175,7 +147,7 @@ namespace krapi {
                             message.peer_id(),
                             PeerMessage{
                                     PeerMessageType::PeerTypeResponse,
-                                    my_id,
+                                    m_signaling_client.identity(),
                                     message.tag(),
                                     m_peer_type
                             }
@@ -196,7 +168,7 @@ namespace krapi {
                             message.peer_id(),
                             PeerMessage{
                                     PeerMessageType::PeerStateResponse,
-                                    my_id,
+                                    m_signaling_client.identity(),
                                     message.tag(),
                                     my_state
                             }
@@ -230,7 +202,7 @@ namespace krapi {
 
     std::string NodeManager::id() const {
 
-        return my_id;
+        return m_signaling_client.identity();
     }
 
     ErrorOr<NodeManager::Future> NodeManager::send(
@@ -281,20 +253,26 @@ namespace krapi {
     }
 
 
-    MultiFuture<std::string> NodeManager::connect_to_peers() {
+    concurrencpp::result<std::vector<std::string>> NodeManager::connect_to_peers() {
 
-        auto avail_resp = m_signaling_client.send(SignalingMessageType::AvailablePeersRequest).get();
-        auto avail_peers = avail_resp.content.get<std::vector<std::string>>();
+        auto avail_resp = co_await m_signaling_client.send(
+                SignalingMessage{
+                        SignalingMessageType::AvailablePeersRequest,
+                        m_signaling_client.identity(),
+                        SignalingMessage::create_tag()
+                }
+        );
+        auto avail_peers = avail_resp.content().get<std::vector<std::string>>();
+        std::vector<std::string> peer_ids;
 
-        MultiFuture<std::string> futures;
         for (auto id: avail_peers) {
 
             auto connection = create_connection(id);
             auto channel = connection->createDataChannel("krapi");
-            futures.push_back(set_up_datachannel(id, std::move(channel)));
+            peer_ids.push_back(co_await set_up_datachannel(id, std::move(channel)));
         }
 
-        return futures;
+        co_return peer_ids;
     }
 
     ErrorOr<PeerState> NodeManager::request_peer_state(std::string id) {
@@ -313,7 +291,7 @@ namespace krapi {
                                 id,
                                 PeerMessage{
                                         PeerMessageType::PeerStateRequest,
-                                        my_id,
+                                        m_signaling_client.identity(),
                                         PeerMessage::create_tag()
                                 }
                         )
@@ -347,7 +325,7 @@ namespace krapi {
         }
         for (auto [id, channel]: channels) {
 
-            if(!channel)
+            if (!channel)
                 continue;
             auto type = request_peer_type(id);
             auto state = request_peer_state(id);
@@ -386,7 +364,7 @@ namespace krapi {
         };
         {
             std::lock_guard l(m_promise_map_mutex);
-            if(!promise_map->contains(id))
+            if (!promise_map->contains(id))
                 return;
             for (auto [message_id, promise]: *promise_map->operator[](id)) {
                 if (!promise)
@@ -422,7 +400,7 @@ namespace krapi {
                         id,
                         PeerMessage{
                                 PeerMessageType::PeerTypeRequest,
-                                my_id,
+                                m_signaling_client.identity(),
                                 PeerMessage::create_tag()
                         }
                 )
@@ -446,7 +424,7 @@ namespace krapi {
         (void) broadcast(
                 PeerMessage{
                         PeerMessageType::PeerStateUpdate,
-                        my_id,
+                        m_signaling_client.identity(),
                         m_peer_state
                 }
         );
@@ -465,7 +443,7 @@ namespace krapi {
             channels = m_channel_map;
         }
         for (auto [id, channel]: channels) {
-            if(!channel)
+            if (!channel)
                 continue;
             auto pt = TRY(request_peer_type(id));
             auto state = TRY(request_peer_state(id));
@@ -475,6 +453,53 @@ namespace krapi {
             }
         }
         return ans;
+
+    }
+
+    concurrencpp::result<void> NodeManager::initialize() {
+
+        co_await m_signaling_client.initialize();
+
+        m_signaling_client.on_rtc_setup(
+                [this](SignalingMessage msg) {
+
+                    auto peer_id = msg.content()["id"].get<std::string>();
+                    auto type = msg.content()["type"].get<std::string>();
+
+                    std::shared_ptr<rtc::PeerConnection> pc;
+
+                    auto safe_connection_map_access = [&pc, &peer_id, this]() {
+
+                        std::lock_guard l(m_connection_map_mutex);
+                        if (m_connection_map.contains(peer_id)) {
+
+                            pc = m_connection_map[peer_id];
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    if (safe_connection_map_access());
+                    else if (type == "offer") {
+
+                        pc = create_connection(peer_id);
+                    } else {
+
+                        return;
+                    }
+
+                    if (type == "offer" || type == "answer") {
+
+                        auto sdp = msg.content()["description"].get<std::string>();
+                        pc->setRemoteDescription(rtc::Description(sdp, type));
+                    } else if (type == "candidate") {
+
+                        auto sdp = msg.content()["candidate"].get<std::string>();
+                        auto mid = msg.content()["mid"].get<std::string>();
+                        pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
+                    }
+                }
+        );
 
     }
 

@@ -10,6 +10,7 @@
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "tl/expected.hpp"
+#include "concurrencpp/concurrencpp.h"
 #include "PeerMessage.h"
 #include "PeerType.h"
 #include "SignalingMessage.h"
@@ -34,7 +35,6 @@ namespace krapi {
 
         rtc::Configuration m_rtc_config;
         SignalingClient m_signaling_client;
-        std::string my_id;
 
         std::recursive_mutex m_connection_map_mutex;
         std::unordered_map<std::string, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
@@ -75,7 +75,7 @@ namespace krapi {
 
         std::shared_ptr<rtc::PeerConnection> create_connection(std::string);
 
-        std::future<std::string> set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel);
+        concurrencpp::result<std::string> set_up_datachannel(std::string id, std::shared_ptr<rtc::DataChannel> channel);
 
     public:
 
@@ -101,7 +101,7 @@ namespace krapi {
 
         void wait();
 
-        MultiFuture<std::string> connect_to_peers();
+        concurrencpp::result<std::vector<std::string>> connect_to_peers();
 
         void append_listener(
                 PeerMessageType,
@@ -124,9 +124,11 @@ namespace krapi {
 
         [[nodiscard]]
         ErrorOr<std::vector<std::tuple<std::string, PeerType, PeerState>>> get_peers(
-                const std::set<PeerType>& types,
-                const std::set<PeerState>& states = {PeerState::Open}
+                const std::set<PeerType> &types,
+                const std::set<PeerState> &states = {PeerState::Open}
         );
+
+        concurrencpp::result<void> initialize();
 
     };
 

@@ -6,71 +6,99 @@
 #include "uuid.h"
 
 namespace krapi {
-    SignalingClient::SignalingClient() {
-
-        m_identity = uuids::to_string(uuids::uuid_system_generator{}());
-        spdlog::info("Assigned myself {}", m_identity);
-        m_ws.setUrl("ws://127.0.0.1:8080");
-        std::promise<void> signaling_open_barrier;
-        m_ws.setOnMessageCallback(
-                [&, this](const ix::WebSocketMessagePtr &message) {
-                    if (message->type == ix::WebSocketMessageType::Open) {
-
-                        signaling_open_barrier.set_value();
-                    }
-                    if (message->type == ix::WebSocketMessageType::Message) {
-
-                        auto msg_json = nlohmann::json::parse(message->str);
-                        auto msg = SignalingMessage::from_json(msg_json);
-
-                        if (msg.type == SignalingMessageType::RTCSetup) {
-
-                            m_rtc_setup_callback(msg);
-                        } else {
-
-                            std::lock_guard l(m_mutex);
-                            m_promises[msg.tag].set_value(msg);
-                        }
-                    }
-                }
-        );
-        m_ws.start();
-        spdlog::info("SignalingClient: Waiting for signaling server...");
-        signaling_open_barrier.get_future().wait();
-        spdlog::info("SignalingClient: Sending my identity to signaling server...");
-        send(
-                SignalingMessage{
-                        SignalingMessageType::SetIdentityRequest,
-                        SignalingMessage::create_tag(),
-                        m_identity
-                }
-        ).get();
-        spdlog::info("SignalingClient: Server Acknowledged my identity...");
+    SignalingClient::SignalingClient() :
+            m_identity(uuids::to_string(uuids::uuid_system_generator{}())),
+            m_ws(std::make_unique<rtc::WebSocket>()),
+            m_initialized(false) {
     }
 
-    std::string SignalingClient::get_identity() {
+    concurrencpp::result<void> SignalingClient::wait_for_open() {
+
+        m_ws->open("ws://127.0.0.1:8080");
+
+        auto open_promise = std::make_shared<concurrencpp::result_promise<void>>();
+        m_ws->onOpen([=]() { open_promise->set_result(); });
+        return open_promise->get_result();
+    }
+
+    concurrencpp::result<void> SignalingClient::wait_for_identity_request() {
+
+        auto promise = std::make_shared<concurrencpp::result_promise<void>>();
+
+        m_ws->onMessage(
+                [=](rtc::message_variant message) {
+                    auto message_str = std::get<std::string>(message);
+                    auto message_json = nlohmann::json::parse(message_str);
+                    auto signaling_message = SignalingMessage::from_json(message_json);
+                    if (signaling_message.type() == SignalingMessageType::IdentityRequest)
+                        promise->set_result();
+                }
+        );
+        return promise->get_result();
+    }
+
+    concurrencpp::result<void> SignalingClient::send_identity() {
+
+        auto promise = std::make_shared<concurrencpp::result_promise<void>>();
+        m_ws->onMessage(
+                [=](rtc::message_variant message) {
+                    auto message_str = std::get<std::string>(message);
+                    auto message_json = nlohmann::json::parse(message_str);
+                    auto signaling_message = SignalingMessage::from_json(message_json);
+                    if (signaling_message.type() == SignalingMessageType::Acknowledgement)
+                        promise->set_result();
+                }
+        );
+        m_ws->send(
+                SignalingMessage{
+                        SignalingMessageType::IdentityResponse,
+                        m_identity,
+                        SignalingMessage::create_tag(),
+                        m_identity
+                }.to_string()
+        );
+        return promise->get_result();
+    }
+
+
+    concurrencpp::result<void> SignalingClient::initialize() {
+
+        assert(!m_initialized && "Tried to call initialize more than once");
+        spdlog::info("SignalingClient: Waiting for server");
+        co_await wait_for_open();
+        spdlog::info("SignalingClient: Connected to server");
+        co_await wait_for_identity_request();
+        spdlog::info("SignalingClient: Sending identity {}", m_identity);
+        co_await send_identity();
+        spdlog::info("SignalingClient: identity acknowledged");
+        m_ws->onMessage([this](rtc::message_variant message) {
+            auto message_str = std::get<std::string>(message);
+            auto message_json = nlohmann::json::parse(message_str);
+            auto signaling_message = SignalingMessage::from_json(message_json);
+            if (m_promises.contains(signaling_message.tag()))
+                m_promises[signaling_message.tag()].set_result(signaling_message);
+            else if (signaling_message.type() == SignalingMessageType::RTCSetup)
+                m_rtc_setup_callback(signaling_message);
+        });
+        m_initialized = true;
+    }
+
+    std::string SignalingClient::identity() const noexcept {
 
         return m_identity;
     }
 
-    std::future<SignalingMessage> SignalingClient::send(SignalingMessage message) {
+    concurrencpp::result<SignalingMessage> SignalingClient::send(SignalingMessage message) {
 
-        m_ws.send(message.to_string());
-
-        std::lock_guard l(m_mutex);
-        m_promises[message.tag] = std::promise<SignalingMessage>{};
-        return m_promises[message.tag].get_future();
+        assert(m_initialized && "start() was not called on Signaling Client");
+        m_promises.emplace(message.tag(), concurrencpp::result_promise<SignalingMessage>{});
+        spdlog::info("Sending {}", message.to_string());
+        m_ws->send(message.to_string());
+        co_return co_await m_promises[message.tag()].get_result();
     }
 
-    std::future<SignalingMessage> SignalingClient::send(SignalingMessageType message_type) {
+    void SignalingClient::on_rtc_setup(RTCSetupCallback callback) {
 
-        auto message = SignalingMessage{
-                message_type
-        };
-        m_ws.send(message.to_string());
-
-        std::lock_guard l(m_mutex);
-        m_promises[message.tag] = std::promise<SignalingMessage>{};
-        return m_promises[message.tag].get_future();
+        m_rtc_setup_callback = std::move(callback);
     }
 } // krapi

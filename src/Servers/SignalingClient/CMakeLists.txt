@@ -9,9 +9,10 @@ add_library(
 target_link_libraries(
         signaling_client
         PRIVATE
-        ixwebsocket
+        datachannel
         nlohmann_json
         spdlog
         stduuid
+        concurrencpp
         shared_models
 )

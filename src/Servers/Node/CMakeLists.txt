@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
-project(Node)
+project(node)
 set(CMAKE_CXX_STANDARD 20)
 
 set(
@@ -18,6 +18,7 @@ target_link_libraries(
         node PRIVATE
         nlohmann_json
         fmt
+        stduuid
         spdlog
         eventpp
         cryptopp
@@ -25,11 +26,11 @@ target_link_libraries(
         ixwebsocket
         merklecpp
         leveldb
+        concurrencpp
+        miner
         shared_models
         blockchain_models
-        miner
-        stduuid
-        utils
         transaction_pool
         node_manager
+        utils
 )

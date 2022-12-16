@@ -19,6 +19,7 @@ target_link_libraries(
         eventpp
         stduuid
         tl::expected
+        concurrencpp
         signaling_client
         transaction_pool
         shared_models

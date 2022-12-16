@@ -46,3 +46,6 @@
 [submodule "libs/concurrencpp"]
 	path = libs/concurrencpp
 	url = https://github.com/David-Haim/concurrencpp
+[submodule "libs/range-v3"]
+	path = libs/range-v3
+	url = https://github.com/ericniebler/range-v3
