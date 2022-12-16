@@ -4,6 +4,9 @@ project(krapi)
 set(CMAKE_CXX_STANDARD 20)
 add_compile_options("-Wno-error=unused-but-set-variable")
 add_compile_options("-Wno-error=strict-prototypes")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+
 
 # set up libraries
 set(JSON_USE_IMPLICIT_CONVERSIONS OFF)
