@@ -6,6 +6,7 @@
 #define NODE_BLOCKCHAIN_TRANSACTION_H
 
 #include <set>
+#include <sstream>
 
 #include "nlohmann/json.hpp"
 #include "cryptopp/hex.h"
