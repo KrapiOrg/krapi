@@ -1,5 +1,5 @@
 project(signaling_client)
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.23.2)
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 add_library(
         signaling_client
