@@ -29,6 +29,7 @@ namespace krapi {
                 SignalingMessage{
                         SignalingMessageType::IdentityRequest,
                         "signaling_server",
+                        "",
                         SignalingMessage::create_tag(),
                 }.to_string()
         );
@@ -41,6 +42,7 @@ namespace krapi {
                 SignalingMessage{
                         SignalingMessageType::Acknowledgement,
                         "signaling_server",
+                        m_identity,
                         SignalingMessage::create_tag()
                 }.to_string()
         );

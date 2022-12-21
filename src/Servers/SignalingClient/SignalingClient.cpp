@@ -3,19 +3,26 @@
 //
 
 #include "SignalingClient.h"
+
+#include <utility>
 #include "uuid.h"
 
 namespace krapi {
-    SignalingClient::SignalingClient() :
+    SignalingClient::SignalingClient(
+            const RTCMessageCallback &rtc_setup_callback,
+            const RTCMessageCallback &rtc_candidate_callback
+    ) :
             m_identity(uuids::to_string(uuids::uuid_system_generator{}())),
             m_ws(std::make_unique<rtc::WebSocket>()),
             m_initialized(false) {
+
+        m_dispatcher.appendListener(SignalingMessageType::RTCSetup, rtc_setup_callback);
+        m_dispatcher.appendListener(SignalingMessageType::RTCCandidate, rtc_candidate_callback);
     }
 
     concurrencpp::result<void> SignalingClient::wait_for_open() {
 
         m_ws->open("ws://127.0.0.1:8080");
-
         auto open_promise = std::make_shared<concurrencpp::result_promise<void>>();
         m_ws->onOpen([=]() { open_promise->set_result(); });
         return open_promise->get_result();
@@ -53,6 +60,7 @@ namespace krapi {
                 SignalingMessage{
                         SignalingMessageType::IdentityResponse,
                         m_identity,
+                        "signaling_server",
                         SignalingMessage::create_tag(),
                         m_identity
                 }.to_string()
@@ -75,10 +83,19 @@ namespace krapi {
             auto message_str = std::get<std::string>(message);
             auto message_json = nlohmann::json::parse(message_str);
             auto signaling_message = SignalingMessage::from_json(message_json);
-            if (m_promises.contains(signaling_message.tag()))
+
+            bool contains_tag;
+            SignalingMessageType type;
+            {
+                std::lock_guard l(m_promises_mutex);
+                contains_tag = m_promises.contains(signaling_message.tag());
+                type = signaling_message.type();
+            }
+            if (contains_tag)
                 m_promises[signaling_message.tag()].set_result(signaling_message);
-            else if (signaling_message.type() == SignalingMessageType::RTCSetup)
-                m_rtc_setup_callback(signaling_message);
+            else
+                m_dispatcher.dispatch(signaling_message.type(), signaling_message);
+
         });
         m_initialized = true;
     }
@@ -91,14 +108,17 @@ namespace krapi {
     concurrencpp::result<SignalingMessage> SignalingClient::send(SignalingMessage message) {
 
         assert(m_initialized && "start() was not called on Signaling Client");
-        m_promises.emplace(message.tag(), concurrencpp::result_promise<SignalingMessage>{});
-        spdlog::info("Sending {}", message.to_string());
+        {
+            std::lock_guard l(m_promises_mutex);
+            m_promises.emplace(message.tag(), concurrencpp::result_promise<SignalingMessage>{});
+        }
         m_ws->send(message.to_string());
         co_return co_await m_promises[message.tag()].get_result();
     }
 
-    void SignalingClient::on_rtc_setup(RTCSetupCallback callback) {
+    void SignalingClient::send_async(const SignalingMessage &message) {
 
-        m_rtc_setup_callback = std::move(callback);
+        assert(m_initialized && "start() was not called on Signaling Client");
+        m_ws->send(message.to_string());
     }
 } // krapi

@@ -17,6 +17,7 @@ namespace krapi {
         SetIdentityRequest,
         PeerAvailable,
         RTCSetup,
+        RTCCandidate
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(SignalingMessageType, {
@@ -29,6 +30,7 @@ namespace krapi {
         { SignalingMessageType::IdentityResponse, "identity_response" },
         { SignalingMessageType::PeerAvailable, "peer_available" },
         { SignalingMessageType::RTCSetup, "rtc_setup" },
+        { SignalingMessageType::RTCCandidate, "rtc_candidate" }
     })
 
     class SignalingMessage {
@@ -38,11 +40,13 @@ namespace krapi {
         explicit SignalingMessage(
                 SignalingMessageType type,
                 std::string sender_identity,
+                std::string receiver_identity,
                 std::string tag,
                 nlohmann::json content = {}
         ) :
                 m_type(type),
                 m_sender_identity(std::move(sender_identity)),
+                m_receiver_identity(std::move(receiver_identity)),
                 m_tag(std::move(tag)),
                 m_content(std::move(content)) {
 
@@ -58,6 +62,12 @@ namespace krapi {
         std::string sender_identity() const {
 
             return m_sender_identity;
+        }
+
+        [[nodiscard]]
+        std::string receiver_identity() const {
+
+            return m_receiver_identity;
         }
 
         [[nodiscard]]
@@ -81,10 +91,11 @@ namespace krapi {
         nlohmann::json to_json() const {
 
             return {
-                    {"type",     m_type},
+                    {"type", m_type},
                     {"sender_identity", m_sender_identity},
-                    {"tag",      m_tag},
-                    {"content",  m_content}
+                    {"receiver_identity", m_receiver_identity},
+                    { "tag", m_tag },
+                    { "content", m_content }
             };
         }
 
@@ -99,6 +110,7 @@ namespace krapi {
             return SignalingMessage{
                     json["type"].get<SignalingMessageType>(),
                     json["sender_identity"].get<std::string>(),
+                    json["receiver_identity"].get<std::string>(),
                     json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
             };
@@ -107,6 +119,7 @@ namespace krapi {
     private:
         SignalingMessageType m_type;
         std::string m_sender_identity;
+        std::string m_receiver_identity;
         std::string m_tag;
         nlohmann::json m_content;
     };

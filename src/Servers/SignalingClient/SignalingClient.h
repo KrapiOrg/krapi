@@ -8,10 +8,11 @@
 #include "rtc/websocket.hpp"
 #include "spdlog/spdlog.h"
 #include "concurrencpp/concurrencpp.h"
+#include "eventpp/eventdispatcher.h"
 
 namespace krapi {
 
-    using RTCSetupCallback = std::function<void(SignalingMessage)>;
+    using RTCMessageCallback = std::function<void(SignalingMessage)>;
 
     class SignalingClient {
 
@@ -19,8 +20,14 @@ namespace krapi {
 
         /*!
          * Constructor for a signaling client
+         *
+         * @param A callback to be called when an RTCSetup messages arrives.
+         * @param A callback to called when and RTCCandidate message arrives.
          */
-        explicit SignalingClient();
+        explicit SignalingClient(
+                const RTCMessageCallback& rtc_setup_callback,
+                const RTCMessageCallback& rtc_candidate_callback
+        );
 
         /*!
          * Getter for identity
@@ -38,10 +45,10 @@ namespace krapi {
         concurrencpp::result<SignalingMessage> send(SignalingMessage message);
 
         /*!
-         * Registrar for RTCSetup messages
-         * @param callback Callback to be invoked when an RTCSetup message arrives
+         * Sends a message to the SignalingServer without the ability to block
+         * @param message Message to be sent
          */
-        void on_rtc_setup(RTCSetupCallback callback);
+        void send_async(const SignalingMessage &message);
 
         /*!
          * Initializes the connection to the signaling server.
@@ -74,7 +81,8 @@ namespace krapi {
         concurrencpp::result<void> send_identity();
 
         std::unordered_map<std::string, concurrencpp::result_promise<SignalingMessage>> m_promises;
-        RTCSetupCallback m_rtc_setup_callback;
+        mutable std::recursive_mutex m_promises_mutex;
+        eventpp::EventDispatcher<SignalingMessageType, void(SignalingMessage)> m_dispatcher;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
         bool m_initialized;

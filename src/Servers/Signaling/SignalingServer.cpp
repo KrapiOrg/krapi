@@ -11,7 +11,7 @@ namespace krapi {
     std::weak_ptr<SignalingSocket> SignalingServer::get_socket(const std::string &identity) const {
 
         std::lock_guard l(m_mutex);
-        if(m_sockets.contains(identity))
+        if (m_sockets.contains(identity))
             return m_sockets.at(identity);
 
         return {};
@@ -36,28 +36,18 @@ namespace krapi {
                         SignalingMessage{
                                 SignalingMessageType::AvailablePeersResponse,
                                 "signaling_server",
+                                message.sender_identity(),
                                 message.tag(),
                                 get_identities(message.sender_identity())
                         }
                 );
             }
-        } else if (message.type() == SignalingMessageType::RTCSetup) {
-
-            auto identities = get_identities(message.sender_identity());
-            auto identity_to_send_to = message.content()["id"].get<std::string>();
-            auto socket_to_send_to = get_socket(identity_to_send_to);
-            auto response = message.content();
-            response["id"] = message.sender_identity();
-
-            if (auto socket = socket_to_send_to.lock()) {
-                socket->send(
-                        SignalingMessage{
-                                SignalingMessageType::RTCSetup,
-                                "signaling_server",
-                                message.tag(),
-                                response
-                        }
-                );
+        } else if (
+                message.type() == SignalingMessageType::RTCSetup ||
+                message.type() == SignalingMessageType::RTCCandidate) {
+            spdlog::info("{}", message.to_string());
+            if (auto socket = get_socket(message.receiver_identity()).lock()) {
+                socket->send(message);
             }
         }
     }

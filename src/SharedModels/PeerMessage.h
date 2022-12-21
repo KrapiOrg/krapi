@@ -56,7 +56,8 @@ namespace krapi {
     class PeerMessage {
 
         PeerMessageType m_type;
-        std::string m_peer_id;
+        std::string m_sender_identity;
+        std::string m_receiver_identity;
         std::string m_tag;
         nlohmann::json m_content;
 
@@ -68,29 +69,16 @@ namespace krapi {
 
         explicit PeerMessage(
                 PeerMessageType type,
-                std::string peer_id,
+                std::string sender_identity,
+                std::string receiver_identity,
                 std::string tag,
                 nlohmann::json content = {}
         ) : m_type(type),
-            m_peer_id(std::move(peer_id)),
+            m_sender_identity(std::move(sender_identity)),
+            m_receiver_identity(std::move(receiver_identity)),
             m_tag(std::move(tag)),
             m_content(std::move(content)) {
 
-        }
-
-        explicit PeerMessage(
-                PeerMessageType type,
-                std::string peer_id,
-                nlohmann::json content = {}
-        ) : m_type(type),
-            m_peer_id(std::move(peer_id)),
-            m_content(std::move(content)) {
-
-        }
-
-        void randomize_tag() {
-
-            m_tag = create_tag();
         }
 
         [[nodiscard]]
@@ -100,9 +88,15 @@ namespace krapi {
         }
 
         [[nodiscard]]
-        std::string peer_id() const {
+        std::string sender_identity() const {
 
-            return m_peer_id;
+            return m_sender_identity;
+        }
+
+        [[nodiscard]]
+        std::string receiver_identity() const {
+
+            return m_receiver_identity;
         }
 
         [[nodiscard]]
@@ -121,16 +115,12 @@ namespace krapi {
         nlohmann::json to_json() const {
 
             return {
-                    {"type",    m_type},
-                    {"peer_id", m_peer_id},
-                    {"tag",     m_tag},
-                    {"content", m_content}
+                    {"type",              m_type},
+                    {"sender_identity",   m_sender_identity},
+                    {"receiver_identity", m_receiver_identity},
+                    {"tag",               m_tag},
+                    {"content",           m_content}
             };
-        }
-
-        inline operator std::string() {
-
-            return to_string();
         }
 
         [[nodiscard]]
@@ -148,7 +138,8 @@ namespace krapi {
 
             return PeerMessage{
                     json["type"].get<PeerMessageType>(),
-                    json["peer_id"].get<std::string>(),
+                    json["sender_identity"].get<std::string>(),
+                    json["receiver_identity"].get<std::string>(),
                     json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
             };
