@@ -21,23 +21,6 @@ namespace krapi {
             m_peer_type(pt),
             m_initialized(false) {
 
-        m_event_queue->append_listener(
-                SignalingMessageType::RTCCandidate,
-                std::bind_front(&NodeManager::on_rtc_candidate, this)
-        );
-
-        m_event_queue->append_listener(
-                SignalingMessageType::RTCSetup,
-                std::bind_front(&NodeManager::on_rtc_setup, this)
-        );
-    }
-
-    void NodeManager::append_listener(
-            PeerMessageType type,
-            const std::function<void(PeerMessage)> &listener
-    ) {
-
-
     }
 
     std::string NodeManager::id() const {
@@ -47,7 +30,15 @@ namespace krapi {
 
     concurrencpp::result<void> NodeManager::send(
             std::string id,
-            const PeerMessage &message
+            Box<PeerMessage> message
+    ) {
+
+
+    }
+
+    void NodeManager::send_and_forget(
+            std::string id,
+            Box<PeerMessage> message
     ) {
 
 
@@ -55,14 +46,9 @@ namespace krapi {
 
     concurrencpp::result<std::vector<std::string>> NodeManager::connect_to_peers() {
 
-        auto available_peers_response = co_await m_signaling_client->send(
-                SignalingMessage::create(
-                        SignalingMessageType::AvailablePeersRequest,
-                        m_signaling_client->identity(),
-                        "signaling_server",
-                        SignalingMessage::create_tag()
-                )
-        );
+        assert(m_initialized && "NodeManager::initialize() was not called");
+        auto available_peers_response = co_await m_signaling_client->available_peers();
+
         auto available_peers = available_peers_response
                 .get<SignalingMessage>()
                 ->content()
@@ -71,7 +57,7 @@ namespace krapi {
         for (const auto &peer: available_peers) {
 
             spdlog::info("Creating connection to {}", peer);
-            auto peer_connection = std::make_shared<PeerConnection>(
+            auto peer_connection = PeerConnection::create(
                     m_event_queue,
                     make_not_null(m_signaling_client.get()),
                     peer
@@ -92,12 +78,33 @@ namespace krapi {
     concurrencpp::result<void> NodeManager::initialize() {
 
         assert(!m_initialized && "Called NodeManager::initialize() more than once");
+        m_event_queue->append_listener(
+                SignalingMessageType::RTCCandidate,
+                std::bind_front(&NodeManager::on_rtc_candidate, this)
+        );
+
+        m_event_queue->append_listener(
+                SignalingMessageType::RTCSetup,
+                std::bind_front(&NodeManager::on_rtc_setup, this)
+        );
+
+        m_event_queue->append_listener(
+                PeerMessageType::PeerTypeRequest,
+                std::bind_front(&NodeManager::on_peer_type_request, this)
+        );
+
+        m_event_queue->append_listener(
+                PeerMessageType::PeerStateRequest,
+                std::bind_front(&NodeManager::on_peer_state_request, this)
+        );
+
         co_await m_signaling_client->initialize();
         m_initialized = true;
     }
 
     void NodeManager::on_rtc_setup(Event event) {
 
+        assert(m_initialized && "NodeManager::initialize() was not called");
         auto message = event.get<SignalingMessage>();
 
         if (m_connection_map.contains(message->sender_identity())) {
@@ -108,7 +115,7 @@ namespace krapi {
 
             m_connection_map.emplace(
                     message->sender_identity(),
-                    std::make_shared<PeerConnection>(
+                    PeerConnection::create(
                             m_event_queue,
                             make_not_null(m_signaling_client.get()),
                             message->sender_identity(),
@@ -121,9 +128,42 @@ namespace krapi {
 
     void NodeManager::on_rtc_candidate(Event event) {
 
+        assert(m_initialized && "NodeManager::initialize() was not called");
         auto message = event.get<SignalingMessage>();
         auto spd = message->content().get<std::string>();
         m_connection_map.at(message->sender_identity())->add_remote_candidate(spd);
+    }
+
+    void NodeManager::on_peer_state_request(Event event) {
+
+        assert(m_initialized && "NodeManager::initialize() was not called");
+        auto message = event.get<PeerMessage>();
+        send_and_forget(
+                message->sender_identity(),
+                PeerMessage::create(
+                        PeerMessageType::PeerStateResponse,
+                        m_signaling_client->identity(),
+                        message->sender_identity(),
+                        message->tag(),
+                        PeerState::Open
+                )
+        );
+    }
+
+    void NodeManager::on_peer_type_request(Event event) {
+
+        assert(m_initialized && "NodeManager::initialize() was not called");
+        auto message = event.get<PeerMessage>();
+        send_and_forget(
+                message->sender_identity(),
+                PeerMessage::create(
+                        PeerMessageType::PeerTypeResponse,
+                        m_signaling_client->identity(),
+                        message->sender_identity(),
+                        message->tag(),
+                        PeerType::Full
+                )
+        );
     }
 
     NodeManager::~NodeManager() {

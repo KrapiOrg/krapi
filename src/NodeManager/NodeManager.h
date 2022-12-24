@@ -21,7 +21,7 @@
 
 namespace krapi {
 
-    class NodeManager : public std::enable_shared_from_this<NodeManager> {
+    class NodeManager {
     protected:
 
         std::atomic<bool> m_blocking_bool;
@@ -35,6 +35,14 @@ namespace krapi {
         PeerType m_peer_type;
         bool m_initialized;
 
+        void on_rtc_setup(Event);
+
+        void on_rtc_candidate(Event);
+
+        void on_peer_state_request(Event);
+
+        void on_peer_type_request(Event);
+
     public:
 
         explicit NodeManager(
@@ -45,15 +53,16 @@ namespace krapi {
         [[nodiscard]]
         concurrencpp::result<void> send(
                 std::string id,
-                const PeerMessage &message
+                Box<PeerMessage> message
         );
 
+        void send_and_forget(
+                std::string id,
+                Box<PeerMessage> message
+        );
+
+        [[nodiscard]]
         concurrencpp::result<std::vector<std::string>> connect_to_peers();
-
-        void append_listener(
-                PeerMessageType,
-                const std::function<void(PeerMessage)> &listener
-        );
 
         [[nodiscard]]
         PeerState get_state() const;
@@ -61,11 +70,8 @@ namespace krapi {
         [[nodiscard]]
         std::string id() const;
 
+        [[nodiscard]]
         concurrencpp::result<void> initialize();
-
-        void on_rtc_setup(Event);
-
-        void on_rtc_candidate(Event);
 
         ~NodeManager();
     };

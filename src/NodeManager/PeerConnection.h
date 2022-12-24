@@ -34,10 +34,6 @@ namespace krapi {
 
         static RTCDataChannelResult wait_for_open(RTCDataChannel);
 
-        void setup_internal_listiners();
-
-        void setup_peer_connection();
-
         void on_local_candidate(rtc::Candidate);
 
         void on_local_description(rtc::Description);
@@ -58,6 +54,11 @@ namespace krapi {
                 std::string identity,
                 std::string description
         );
+
+        template<typename ...UU>
+        static inline std::shared_ptr<PeerConnection> create(UU &&... params) {
+            return std::make_shared<PeerConnection>(std::forward<UU>(params)...);
+        }
 
         concurrencpp::result<void> initialize_channel(RTCDataChannel);
 

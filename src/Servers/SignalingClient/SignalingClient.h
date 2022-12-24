@@ -35,13 +35,14 @@ namespace krapi {
          * @param message Message to be sent
          * @return result containing the response for the message request
          */
-        concurrencpp::result<Event> send(Box<SignalingMessage> message);
+        [[nodiscard]]
+        concurrencpp::result<Event> send(Box<SignalingMessage> message) const;
 
         /*!
          * Sends a message to the SignalingServer without the ability to block
          * @param message Message to be sent
          */
-        void send_and_forget(Box<SignalingMessage> message);
+        void send_and_forget(Box<SignalingMessage> message) const;
 
         /*!
          * Initializes the connection to the signaling server.
@@ -53,7 +54,16 @@ namespace krapi {
          * @return A result that completes when the connection is initialized.
          * @pre Must not be called more than once.
          */
+        [[nodiscard]]
         concurrencpp::result<void> initialize();
+
+        /*!
+         * Sends an AvailablePeersRequest to the signaling server
+         * @return A results that completes when the signaling server replies with
+         * the appropriate response
+         */
+        [[nodiscard]]
+        concurrencpp::result<Event> available_peers() const;
 
     private:
 
@@ -61,19 +71,22 @@ namespace krapi {
          * A helper to wait for the connection to the signaling server to open.
          * @return a result that completes when the underlying rtc::WebSocket's connection is open.
          */
-        concurrencpp::result<void> wait_for_open();
+        [[nodiscard]]
+        concurrencpp::result<void> wait_for_open() const;
 
         /*!
          * A helper that waits for the identity request to arrive from the signaling server
          */
-        concurrencpp::result<void> wait_for_identity_request();
+        [[nodiscard]]
+        concurrencpp::result<void> wait_for_identity_request() const;
 
         /*!
          * A helper that sends the identity acquired during construction to the signaling server
          */
-        concurrencpp::result<void> send_identity();
+        [[nodiscard]]
+        concurrencpp::result<void> send_identity() const;
 
-        NotNull<EventQueue *>m_event_queue;
+        NotNull<EventQueue *> m_event_queue;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
         bool m_initialized;

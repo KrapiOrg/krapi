@@ -17,7 +17,7 @@ namespace krapi {
             m_initialized(false) {
     }
 
-    concurrencpp::result<void> SignalingClient::wait_for_open() {
+    concurrencpp::result<void> SignalingClient::wait_for_open() const {
 
         m_ws->open("ws://127.0.0.1:8080");
         auto open_promise = std::make_shared<concurrencpp::result_promise<void>>();
@@ -25,7 +25,7 @@ namespace krapi {
         return open_promise->get_result();
     }
 
-    concurrencpp::result<void> SignalingClient::wait_for_identity_request() {
+    concurrencpp::result<void> SignalingClient::wait_for_identity_request() const {
 
         auto promise = std::make_shared<concurrencpp::result_promise<void>>();
 
@@ -41,7 +41,7 @@ namespace krapi {
         return promise->get_result();
     }
 
-    concurrencpp::result<void> SignalingClient::send_identity() {
+    concurrencpp::result<void> SignalingClient::send_identity() const {
 
         auto promise = std::make_shared<concurrencpp::result_promise<void>>();
         m_ws->onMessage(
@@ -93,7 +93,23 @@ namespace krapi {
         return m_identity;
     }
 
-    concurrencpp::result<Event> SignalingClient::send(Box<SignalingMessage> message) {
+    concurrencpp::result<Event> SignalingClient::available_peers() const {
+
+        auto tag = SignalingMessage::create_tag();
+        auto awaitable = m_event_queue->create_awaitable(tag);
+
+        m_ws->send(
+                SignalingMessage(
+                        SignalingMessageType::AvailablePeersRequest,
+                        m_identity,
+                        "signaling_server",
+                        tag
+                ).to_string()
+        );
+        return awaitable;
+    }
+
+    concurrencpp::result<Event> SignalingClient::send(Box<SignalingMessage> message) const {
 
         assert(m_initialized && "start() was not called on Signaling Client");
 
@@ -102,7 +118,7 @@ namespace krapi {
         return awaitable;
     }
 
-    void SignalingClient::send_and_forget(Box<SignalingMessage> message) {
+    void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
 
         assert(m_initialized && "start() was not called on Signaling Client");
 
