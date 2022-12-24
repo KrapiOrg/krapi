@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.23.2)
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 add_library(
         signaling_client
+        STATIC
         ${CMAKE_CURRENT_LIST_DIR}/SignalingClient.cpp
         ${CMAKE_CURRENT_LIST_DIR}/SignalingClient.h
 )
@@ -15,5 +16,6 @@ target_link_libraries(
         stduuid
         concurrencpp
         eventpp
+        krapi_event
         shared_models
 )

@@ -9,6 +9,8 @@
 #include "nlohmann/json.hpp"
 #include "uuid.h"
 
+#include "Box.h"
+
 namespace krapi {
     enum class PeerMessageType {
         DEFAULT,
@@ -62,10 +64,7 @@ namespace krapi {
         nlohmann::json m_content;
 
     public:
-        explicit PeerMessage() :
-                m_type(PeerMessageType::DEFAULT) {
 
-        }
 
         explicit PeerMessage(
                 PeerMessageType type,
@@ -79,6 +78,12 @@ namespace krapi {
             m_tag(std::move(tag)),
             m_content(std::move(content)) {
 
+        }
+
+        template<typename ...UU>
+        static Box<PeerMessage> create(UU &&... params) {
+
+            return make_box<PeerMessage>(std::forward<UU>(params)...);
         }
 
         [[nodiscard]]
@@ -134,21 +139,15 @@ namespace krapi {
             return uuids::to_string(uuids::uuid_system_generator{}());
         }
 
-        static inline PeerMessage from_json(nlohmann::json json) {
+        static inline Box<PeerMessage> from_json(nlohmann::json json) {
 
-            return PeerMessage{
+            return make_box<PeerMessage>(
                     json["type"].get<PeerMessageType>(),
                     json["sender_identity"].get<std::string>(),
                     json["receiver_identity"].get<std::string>(),
                     json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
-            };
-        }
-
-        static inline PeerMessage from_json(const std::string &str) {
-
-            auto json = nlohmann::json::parse(str);
-            return from_json(json);
+            );
         }
     };
 

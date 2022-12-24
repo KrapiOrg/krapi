@@ -4,15 +4,14 @@
 
 #pragma once
 
-#include "SignalingMessage.h"
 #include "rtc/websocket.hpp"
 #include "spdlog/spdlog.h"
-#include "concurrencpp/concurrencpp.h"
-#include "eventpp/eventdispatcher.h"
+#include "EventQueue.h"
+#include "NotNull.h"
 
 namespace krapi {
 
-    using RTCMessageCallback = std::function<void(SignalingMessage)>;
+    using RTCMessageCallback = std::function<void(Box<SignalingMessage>)>;
 
     class SignalingClient {
 
@@ -20,14 +19,8 @@ namespace krapi {
 
         /*!
          * Constructor for a signaling client
-         *
-         * @param A callback to be called when an RTCSetup messages arrives.
-         * @param A callback to called when and RTCCandidate message arrives.
          */
-        explicit SignalingClient(
-                const RTCMessageCallback& rtc_setup_callback,
-                const RTCMessageCallback& rtc_candidate_callback
-        );
+        explicit SignalingClient(NotNull<EventQueue *> event_queue);
 
         /*!
          * Getter for identity
@@ -42,13 +35,13 @@ namespace krapi {
          * @param message Message to be sent
          * @return result containing the response for the message request
          */
-        concurrencpp::result<SignalingMessage> send(SignalingMessage message);
+        concurrencpp::result<Event> send(Box<SignalingMessage> message);
 
         /*!
          * Sends a message to the SignalingServer without the ability to block
          * @param message Message to be sent
          */
-        void send_async(const SignalingMessage &message);
+        void send_and_forget(Box<SignalingMessage> message);
 
         /*!
          * Initializes the connection to the signaling server.
@@ -80,9 +73,7 @@ namespace krapi {
          */
         concurrencpp::result<void> send_identity();
 
-        std::unordered_map<std::string, concurrencpp::result_promise<SignalingMessage>> m_promises;
-        mutable std::recursive_mutex m_promises_mutex;
-        eventpp::EventDispatcher<SignalingMessageType, void(SignalingMessage)> m_dispatcher;
+        NotNull<EventQueue *>m_event_queue;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
         bool m_initialized;

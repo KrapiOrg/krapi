@@ -26,9 +26,9 @@ namespace krapi {
 
         std::atomic<bool> m_blocking_bool;
 
-        std::shared_ptr<SignalingClient> m_signaling_client;
+        std::unique_ptr<SignalingClient> m_signaling_client;
 
-        std::recursive_mutex m_connection_map_mutex;
+        NotNull<EventQueue *> m_event_queue;
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
 
         PeerState m_peer_state;
@@ -38,6 +38,7 @@ namespace krapi {
     public:
 
         explicit NodeManager(
+                NotNull<EventQueue *> event_queue,
                 PeerType pt
         );
 
@@ -62,9 +63,9 @@ namespace krapi {
 
         concurrencpp::result<void> initialize();
 
-        void on_rtc_setup(SignalingMessage message);
+        void on_rtc_setup(Event);
 
-        void on_rtc_candidate(const SignalingMessage &message);
+        void on_rtc_candidate(Event);
 
         ~NodeManager();
     };

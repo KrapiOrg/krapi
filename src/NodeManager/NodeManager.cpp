@@ -11,17 +11,25 @@ using namespace std::chrono_literals;
 namespace krapi {
 
     NodeManager::NodeManager(
+            NotNull<EventQueue *> event_queue,
             PeerType pt
-    ) : m_peer_state(PeerState::Closed),
-        m_peer_type(pt),
-        m_initialized(false),
-        m_signaling_client(
-                std::make_shared<SignalingClient>(
-                        std::bind_front(&NodeManager::on_rtc_setup, this),
-                        std::bind_front(&NodeManager::on_rtc_candidate, this)
-                )
-        ) {
+    ) :
+            m_blocking_bool(false),
+            m_signaling_client(std::make_unique<SignalingClient>(event_queue)),
+            m_event_queue(event_queue),
+            m_peer_state(PeerState::Closed),
+            m_peer_type(pt),
+            m_initialized(false) {
 
+        m_event_queue->append_listener(
+                SignalingMessageType::RTCCandidate,
+                std::bind_front(&NodeManager::on_rtc_candidate, this)
+        );
+
+        m_event_queue->append_listener(
+                SignalingMessageType::RTCSetup,
+                std::bind_front(&NodeManager::on_rtc_setup, this)
+        );
     }
 
     void NodeManager::append_listener(
@@ -48,21 +56,30 @@ namespace krapi {
     concurrencpp::result<std::vector<std::string>> NodeManager::connect_to_peers() {
 
         auto available_peers_response = co_await m_signaling_client->send(
-                SignalingMessage{
+                SignalingMessage::create(
                         SignalingMessageType::AvailablePeersRequest,
                         m_signaling_client->identity(),
                         "signaling_server",
                         SignalingMessage::create_tag()
-                }
+                )
         );
-        auto available_peers = available_peers_response.content().get<std::vector<std::string >>();
+        auto available_peers = available_peers_response
+                .get<SignalingMessage>()
+                ->content()
+                .get<std::vector<std::string>>();
 
         for (const auto &peer: available_peers) {
 
-            auto peer_connection = std::make_shared<PeerConnection>(peer, m_signaling_client);
+            spdlog::info("Creating connection to {}", peer);
+            auto peer_connection = std::make_shared<PeerConnection>(
+                    m_event_queue,
+                    make_not_null(m_signaling_client.get()),
+                    peer
+            );
+            spdlog::info("Creating Channel to {}", peer);
             co_await peer_connection->create_datachannel();
-
-            m_connection_map.insert({peer, std::move(peer_connection)});
+            spdlog::info("Channel with {} created", peer);
+            m_connection_map.emplace(peer, std::move(peer_connection));
         }
         co_return available_peers;
     }
@@ -79,41 +96,34 @@ namespace krapi {
         m_initialized = true;
     }
 
-    void NodeManager::on_rtc_setup(SignalingMessage message) {
+    void NodeManager::on_rtc_setup(Event event) {
 
-        auto type = message.content().get<std::string>();
-        auto description = rtc::Description(type);
+        auto message = event.get<SignalingMessage>();
 
-        std::shared_ptr<PeerConnection> peer_connection;
-        {
-            std::lock_guard l(m_connection_map_mutex);
-            if (m_connection_map.contains(message.sender_identity())) {
+        if (m_connection_map.contains(message->sender_identity())) {
 
-                peer_connection = m_connection_map[message.sender_identity()];
-            }
-        }
-        if (!peer_connection) {
-
-            peer_connection = std::make_shared<PeerConnection>(
-                    message.sender_identity(),
-                    m_signaling_client,
-                    message.content().get<std::string>()
-            );
-
-            std::lock_guard l(m_connection_map_mutex);
-            m_connection_map.emplace(message.sender_identity(), std::move(peer_connection));
+            auto description = message->content().get<std::string>();
+            m_connection_map[message->sender_identity()]->set_remote_description(description);
         } else {
 
-            peer_connection->set_remote_description(message.content().get<std::string>());
+            m_connection_map.emplace(
+                    message->sender_identity(),
+                    std::make_shared<PeerConnection>(
+                            m_event_queue,
+                            make_not_null(m_signaling_client.get()),
+                            message->sender_identity(),
+                            message->content().get<std::string>()
+                    )
+            );
         }
+
     }
 
-    void NodeManager::on_rtc_candidate(const SignalingMessage &message) {
+    void NodeManager::on_rtc_candidate(Event event) {
 
-        std::lock_guard l(m_connection_map_mutex);
-        m_connection_map.at(message.sender_identity())->add_remote_candidate(
-                message.content().get<std::string>()
-        );
+        auto message = event.get<SignalingMessage>();
+        auto spd = message->content().get<std::string>();
+        m_connection_map.at(message->sender_identity())->add_remote_candidate(spd);
     }
 
     NodeManager::~NodeManager() {

@@ -9,15 +9,12 @@
 
 namespace krapi {
     SignalingClient::SignalingClient(
-            const RTCMessageCallback &rtc_setup_callback,
-            const RTCMessageCallback &rtc_candidate_callback
+            NotNull<EventQueue *> event_queue
     ) :
+            m_event_queue(event_queue),
             m_identity(uuids::to_string(uuids::uuid_system_generator{}())),
             m_ws(std::make_unique<rtc::WebSocket>()),
             m_initialized(false) {
-
-        m_dispatcher.appendListener(SignalingMessageType::RTCSetup, rtc_setup_callback);
-        m_dispatcher.appendListener(SignalingMessageType::RTCCandidate, rtc_candidate_callback);
     }
 
     concurrencpp::result<void> SignalingClient::wait_for_open() {
@@ -37,7 +34,7 @@ namespace krapi {
                     auto message_str = std::get<std::string>(message);
                     auto message_json = nlohmann::json::parse(message_str);
                     auto signaling_message = SignalingMessage::from_json(message_json);
-                    if (signaling_message.type() == SignalingMessageType::IdentityRequest)
+                    if (signaling_message->type() == SignalingMessageType::IdentityRequest)
                         promise->set_result();
                 }
         );
@@ -52,7 +49,7 @@ namespace krapi {
                     auto message_str = std::get<std::string>(message);
                     auto message_json = nlohmann::json::parse(message_str);
                     auto signaling_message = SignalingMessage::from_json(message_json);
-                    if (signaling_message.type() == SignalingMessageType::Acknowledgement)
+                    if (signaling_message->type() == SignalingMessageType::Acknowledgement)
                         promise->set_result();
                 }
         );
@@ -79,24 +76,15 @@ namespace krapi {
         spdlog::info("SignalingClient: Sending identity {}", m_identity);
         co_await send_identity();
         spdlog::info("SignalingClient: identity acknowledged");
-        m_ws->onMessage([this](rtc::message_variant message) {
-            auto message_str = std::get<std::string>(message);
-            auto message_json = nlohmann::json::parse(message_str);
-            auto signaling_message = SignalingMessage::from_json(message_json);
-
-            bool contains_tag;
-            SignalingMessageType type;
-            {
-                std::lock_guard l(m_promises_mutex);
-                contains_tag = m_promises.contains(signaling_message.tag());
-                type = signaling_message.type();
-            }
-            if (contains_tag)
-                m_promises[signaling_message.tag()].set_result(signaling_message);
-            else
-                m_dispatcher.dispatch(signaling_message.type(), signaling_message);
-
-        });
+        m_ws->onMessage(
+                [this](rtc::message_variant message) {
+                    auto message_str = std::get<std::string>(message);
+                    auto message_json = nlohmann::json::parse(message_str);
+                    auto signaling_message = SignalingMessage::from_json(message_json);
+                    spdlog::info("{} from {}", message_json["type"], signaling_message->sender_identity());
+                    m_event_queue->enqueue(signaling_message->type(), signaling_message);
+                }
+        );
         m_initialized = true;
     }
 
@@ -105,20 +93,20 @@ namespace krapi {
         return m_identity;
     }
 
-    concurrencpp::result<SignalingMessage> SignalingClient::send(SignalingMessage message) {
+    concurrencpp::result<Event> SignalingClient::send(Box<SignalingMessage> message) {
 
         assert(m_initialized && "start() was not called on Signaling Client");
-        {
-            std::lock_guard l(m_promises_mutex);
-            m_promises.emplace(message.tag(), concurrencpp::result_promise<SignalingMessage>{});
-        }
-        m_ws->send(message.to_string());
-        co_return co_await m_promises[message.tag()].get_result();
+
+        auto awaitable = m_event_queue->create_awaitable(message->tag());
+        m_ws->send(message->to_string());
+        return awaitable;
     }
 
-    void SignalingClient::send_async(const SignalingMessage &message) {
+    void SignalingClient::send_and_forget(Box<SignalingMessage> message) {
 
         assert(m_initialized && "start() was not called on Signaling Client");
-        m_ws->send(message.to_string());
+
+        spdlog::info("sending {} to {}", message->to_json()["type"], message->receiver_identity());
+        m_ws->send(message->to_string());
     }
 } // krapi

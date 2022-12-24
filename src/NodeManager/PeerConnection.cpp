@@ -9,38 +9,81 @@
 using namespace std::chrono_literals;
 
 namespace krapi {
-    concurrencpp::result<std::shared_ptr<rtc::DataChannel>>
-    PeerConnection::wait_for_open(std::shared_ptr<rtc::DataChannel> datachannel) {
+
+    PeerConnection::PeerConnection(
+            NotNull<EventQueue *> event_queue,
+            NotNull<SignalingClient *> signaling_client,
+            std::string identity
+    ) :
+            m_signaling_client(signaling_client),
+            m_event_queue(event_queue),
+            m_peer_connection(std::make_shared<rtc::PeerConnection>(rtc::Configuration())),
+            m_identity(std::move(identity)),
+            m_initialized(false) {
+
+        setup_peer_connection();
+        setup_internal_listiners();
+    }
+
+    PeerConnection::PeerConnection(
+            NotNull<EventQueue *> event_queue,
+            NotNull<SignalingClient *> signaling_client,
+            std::string identity,
+            std::string description
+    ) :
+            m_signaling_client(signaling_client),
+            m_event_queue(event_queue),
+            m_peer_connection(std::make_shared<rtc::PeerConnection>(rtc::Configuration())),
+            m_identity(std::move(identity)),
+            m_initialized(false) {
+
+        setup_peer_connection();
+        m_peer_connection->setRemoteDescription(description);
+
+        setup_internal_listiners();
+    }
+
+    RTCDataChannelResult PeerConnection::wait_for_open(RTCDataChannel datachannel) {
 
         co_return datachannel;
     }
 
     void PeerConnection::setup_internal_listiners() {
 
-        m_dispatcher.appendListener(
+        m_peer_connection->onGatheringStateChange(
+                [](rtc::PeerConnection::GatheringState state) {
+                    std::stringstream ss;
+                    ss << state;
+                    spdlog::info("GatheringState: {}", ss.str());
+                }
+        );
+
+        m_event_queue->append_listener(
                 PeerMessageType::PeerTypeRequest,
-                [this](const PeerMessage &message) {
+                [this](Event event) {
+                    auto message = event.get<PeerMessage>();
                     m_datachannel->send(
                             PeerMessage{
                                     PeerMessageType::PeerTypeResponse,
                                     m_signaling_client->identity(),
                                     m_identity,
-                                    message.tag(),
+                                    message->tag(),
                                     PeerType::Full
                             }.to_string()
                     );
                 }
         );
 
-        m_dispatcher.appendListener(
+        m_event_queue->append_listener(
                 PeerMessageType::PeerStateRequest,
-                [this](const PeerMessage &message) {
+                [this](Event event) {
+                    auto message = event.get<PeerMessage>();
                     m_datachannel->send(
                             PeerMessage{
                                     PeerMessageType::PeerStateResponse,
                                     m_signaling_client->identity(),
                                     m_identity,
-                                    message.tag(),
+                                    message->tag(),
                                     PeerState::Open
                             }.to_string()
                     );
@@ -50,78 +93,16 @@ namespace krapi {
 
     void PeerConnection::setup_peer_connection() {
 
-        m_peer_connection->onLocalCandidate(
-                [this](const rtc::Candidate &candidate) {
-
-                    m_signaling_client->send_async(
-                            SignalingMessage{
-                                    SignalingMessageType::RTCCandidate,
-                                    m_signaling_client->identity(),
-                                    m_identity,
-                                    SignalingMessage::create_tag(),
-                                    std::string(candidate)
-                            }
-                    );
-                }
-        );
-        m_peer_connection->onLocalDescription(
-                [this](const rtc::Description &description) {
-
-                    m_signaling_client->send_async(
-                            SignalingMessage{
-                                    SignalingMessageType::RTCSetup,
-                                    m_signaling_client->identity(),
-                                    m_identity,
-                                    SignalingMessage::create_tag(),
-                                    std::string(description)
-                            }
-                    );
-                }
-        );
-
-        m_peer_connection->onDataChannel(
-                [this](std::shared_ptr<rtc::DataChannel> datachannel) {
-
-                    initialize_channel(std::move(datachannel));
-                }
-        );
+        m_peer_connection->onLocalCandidate(std::bind_front(&PeerConnection::on_local_candidate, this));
+        m_peer_connection->onLocalDescription(std::bind_front(&PeerConnection::on_local_description, this));
+        m_peer_connection->onDataChannel(std::bind_front(&PeerConnection::on_data_channel, this));
     }
 
-    PeerConnection::PeerConnection(
-            std::string
-            identity,
-            std::shared_ptr<SignalingClient> signaling_client
-    ) :
 
-            m_identity(std::move(identity)),
-            m_peer_connection(std::make_shared<rtc::PeerConnection>(m_configuration)),
-            m_signaling_client(std::move(signaling_client)),
-            m_initialized(false) {
-
-        setup_peer_connection();
-        setup_internal_listiners();
-    }
-
-    PeerConnection::PeerConnection(
-            std::string identity,
-            std::shared_ptr<SignalingClient> signaling_client,
-            std::string description
-    ) :
-
-            m_identity(std::move(identity)),
-            m_peer_connection(std::make_shared<rtc::PeerConnection>(m_configuration)),
-            m_signaling_client(std::move(signaling_client)),
-            m_initialized(false) {
-
-        setup_peer_connection();
-        m_peer_connection->setRemoteDescription(description);
-
-        setup_internal_listiners();
-    }
-
-    concurrencpp::result<void> PeerConnection::initialize_channel(std::shared_ptr<rtc::DataChannel> datachannel) {
+    concurrencpp::result<void> PeerConnection::initialize_channel(RTCDataChannel datachannel) {
 
         m_initialized = true;
+        spdlog::info("Waiting for DataChannel with {} to open", m_identity);
         m_datachannel = co_await wait_for_open(std::move(datachannel));
         spdlog::info("Datachannel with {} is open", m_identity);
         m_datachannel->onMessage(
@@ -130,11 +111,7 @@ namespace krapi {
                     auto message_json = nlohmann::json::parse(message_str);
                     auto peer_message = PeerMessage::from_json(message_json);
 
-                    if (m_promises.contains(peer_message.tag())) {
-                        m_promises.at(peer_message.tag()).set_result(peer_message);
-                    } else {
-                        m_dispatcher.dispatch(peer_message.type(), peer_message);
-                    }
+                    m_event_queue->enqueue(peer_message->type(), peer_message);
                 }
         );
 
@@ -153,37 +130,37 @@ namespace krapi {
         co_await initialize_channel(m_datachannel);
     }
 
-    concurrencpp::result<PeerMessage> PeerConnection::send(PeerMessage message) {
+    concurrencpp::result<Event> PeerConnection::send(Box<PeerMessage> message) {
 
-        m_promises.emplace(message.tag(), concurrencpp::result_promise<PeerMessage>{});
-        m_datachannel->send(message.to_string());
-        co_return co_await m_promises[message.tag()].get_result();
+        auto aw = m_event_queue->create_awaitable(message->tag());
+        m_datachannel->send(message->to_string());
+        return aw;
     }
 
     concurrencpp::result<PeerState> PeerConnection::request_state() {
 
         auto response = co_await send(
-                PeerMessage{
+                PeerMessage::create(
                         PeerMessageType::PeerStateRequest,
                         m_signaling_client->identity(),
                         m_identity,
                         PeerMessage::create_tag()
-                }
+                )
         );
-        co_return response.content().get<PeerState>();
+        co_return response.get<PeerMessage>()->content().get<PeerState>();
     }
 
     concurrencpp::result<PeerType> PeerConnection::request_type() {
 
         auto response = co_await send(
-                PeerMessage{
+                PeerMessage::create(
                         PeerMessageType::PeerTypeRequest,
                         m_signaling_client->identity(),
                         m_identity,
                         PeerMessage::create_tag()
-                }
+                )
         );
-        co_return response.content().get<PeerType>();
+        co_return response.get<PeerMessage>()->content().get<PeerType>();
     }
 
     void PeerConnection::set_remote_description(std::string description) {
@@ -195,6 +172,38 @@ namespace krapi {
     void PeerConnection::add_remote_candidate(std::string candidate) {
 
         m_peer_connection->addRemoteCandidate(std::move(candidate));
+    }
+
+    void PeerConnection::on_local_candidate(rtc::Candidate candidate) {
+
+        m_signaling_client->send_and_forget(
+                SignalingMessage::create(
+                        SignalingMessageType::RTCCandidate,
+                        m_signaling_client->identity(),
+                        m_identity,
+                        SignalingMessage::create_tag(),
+                        std::string(std::move(candidate))
+                )
+        );
+    }
+
+    void PeerConnection::on_local_description(rtc::Description description) {
+
+        m_signaling_client->send_and_forget(
+                SignalingMessage::create(
+                        SignalingMessageType::RTCSetup,
+                        m_signaling_client->identity(),
+                        m_identity,
+                        SignalingMessage::create_tag(),
+                        std::string(std::move(description))
+                )
+        );
+    }
+
+    void PeerConnection::on_data_channel(RTCDataChannel datachannel) {
+
+        initialize_channel(std::move(datachannel)).wait();
+        spdlog::info("OnDataChannel: Initialized");
     }
 
 } // krapi

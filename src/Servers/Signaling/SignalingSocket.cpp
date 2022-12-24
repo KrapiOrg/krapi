@@ -22,7 +22,7 @@ namespace krapi {
                     auto msg_str = std::get<std::string>(msg);
                     auto msg_json = nlohmann::json::parse(msg_str);
                     auto signaling_msg = SignalingMessage::from_json(msg_json);
-                    identity_promise->set_result(signaling_msg.content().get<std::string>());
+                    identity_promise->set_result(signaling_msg->content().get<std::string>());
                 }
         );
         m_socket->send(
@@ -54,8 +54,10 @@ namespace krapi {
 
     }
 
-    concurrencpp::result<std::string> SignalingSocket::initialize(std::function<void(SignalingMessage)> on_message,
-                                                                  std::function<void(std::string)> on_closed) {
+    concurrencpp::result<std::string> SignalingSocket::initialize(
+            std::function<void(Box<SignalingMessage>)> on_message,
+            std::function<void(std::string)> on_closed
+    ) {
 
         assert(!m_initialized && "Tried to call SignalingSocket::initialize() more than once");
         m_on_message = std::move(on_message);
@@ -80,10 +82,10 @@ namespace krapi {
         co_return m_identity;
     }
 
-    void SignalingSocket::send(const SignalingMessage &message) {
+    void SignalingSocket::send(Box<SignalingMessage> message) {
 
         assert(m_initialized && "SignalingSocket::initialized() has not been called");
-        m_socket->send(message.to_string());
+        m_socket->send(message->to_string());
     }
 
     std::string SignalingSocket::identity() const {

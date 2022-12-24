@@ -14,43 +14,56 @@
 #include "PeerType.h"
 #include "PeerState.h"
 #include "PeerMessage.h"
+#include "NotNull.h"
 
 namespace krapi {
 
+    using RTCPeerConnection = std::shared_ptr<rtc::PeerConnection>;
+    using RTCDataChannel = std::shared_ptr<rtc::DataChannel>;
+    using RTCDataChannelResult = concurrencpp::result<std::shared_ptr<rtc::DataChannel>>;
+
     class PeerConnection {
-        rtc::Configuration m_configuration;
-        std::shared_ptr<rtc::PeerConnection> m_peer_connection;
-        std::shared_ptr<rtc::DataChannel> m_datachannel;
-        std::shared_ptr<SignalingClient> m_signaling_client;
-        std::unordered_map<std::string, concurrencpp::result_promise<PeerMessage>> m_promises;
+
+        NotNull<SignalingClient *> m_signaling_client;
+        NotNull<EventQueue *> m_event_queue;
+        RTCPeerConnection m_peer_connection;
+        RTCDataChannel m_datachannel;
+
         std::string m_identity;
         bool m_initialized;
-        eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)> m_dispatcher;
 
-        static concurrencpp::result<std::shared_ptr<rtc::DataChannel>> wait_for_open(std::shared_ptr<rtc::DataChannel>);
+        static RTCDataChannelResult wait_for_open(RTCDataChannel);
 
         void setup_internal_listiners();
+
         void setup_peer_connection();
+
+        void on_local_candidate(rtc::Candidate);
+
+        void on_local_description(rtc::Description);
+
+        void on_data_channel(std::shared_ptr<rtc::DataChannel>);
 
     public:
 
         explicit PeerConnection(
-                std::string
-                identity,
-                std::shared_ptr<SignalingClient> signaling_client
+                NotNull<EventQueue *> event_queue,
+                NotNull<SignalingClient *> signaling_client,
+                std::string identity
         );
 
         explicit PeerConnection(
+                NotNull<EventQueue *> event_queue,
+                NotNull<SignalingClient *> signaling_client,
                 std::string identity,
-                std::shared_ptr<SignalingClient> signaling_client,
                 std::string description
         );
 
-        concurrencpp::result<void> initialize_channel(std::shared_ptr<rtc::DataChannel>);
+        concurrencpp::result<void> initialize_channel(RTCDataChannel);
 
         concurrencpp::result<void> create_datachannel();
 
-        concurrencpp::result<PeerMessage> send(PeerMessage);
+        concurrencpp::result<Event> send(Box<PeerMessage>);
 
         concurrencpp::result<PeerState> request_state();
 

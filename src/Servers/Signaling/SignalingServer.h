@@ -41,7 +41,7 @@ namespace krapi {
          * Handler for Signaling messages received from any currently open connection
          * @param message
          */
-        void on_client_message(const SignalingMessage &message) const;
+        void on_client_message(Box<SignalingMessage> message) const;
 
         /*!
          * For cleanup when a socket is closed

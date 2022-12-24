@@ -26,27 +26,27 @@ namespace krapi {
                | ranges::to<std::vector<std::string>>();
     }
 
-    void SignalingServer::on_client_message(const SignalingMessage &message) const {
+    void SignalingServer::on_client_message(Box<SignalingMessage> message) const {
 
-        if (message.type() == SignalingMessageType::AvailablePeersRequest) {
-            auto wsocket = get_socket(message.sender_identity());
+        if (message->type() == SignalingMessageType::AvailablePeersRequest) {
+            auto wsocket = get_socket(message->sender_identity());
             if (auto socket = wsocket.lock()) {
 
                 socket->send(
-                        SignalingMessage{
+                        make_box<SignalingMessage>(
                                 SignalingMessageType::AvailablePeersResponse,
                                 "signaling_server",
-                                message.sender_identity(),
-                                message.tag(),
-                                get_identities(message.sender_identity())
-                        }
+                                message->sender_identity(),
+                                message->tag(),
+                                get_identities(message->sender_identity())
+                        )
                 );
             }
         } else if (
-                message.type() == SignalingMessageType::RTCSetup ||
-                message.type() == SignalingMessageType::RTCCandidate) {
-            spdlog::info("{}", message.to_string());
-            if (auto socket = get_socket(message.receiver_identity()).lock()) {
+                message->type() == SignalingMessageType::RTCSetup ||
+                message->type() == SignalingMessageType::RTCCandidate) {
+            spdlog::info("{}", message->to_string());
+            if (auto socket = get_socket(message->receiver_identity()).lock()) {
                 socket->send(message);
             }
         }

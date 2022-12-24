@@ -19,7 +19,7 @@ namespace krapi {
      */
     class SignalingSocket {
 
-        std::function<void(SignalingMessage)> m_on_message;
+        std::function<void(Box<SignalingMessage>)> m_on_message;
         std::function<void(std::string)> m_on_disconnected;
         std::shared_ptr<rtc::WebSocket> m_socket;
         std::string m_identity;
@@ -67,7 +67,7 @@ namespace krapi {
          * @return The identity of the client acquired by performing the previous steps.
          */
         concurrencpp::result<std::string> initialize(
-                std::function<void(SignalingMessage)> on_message,
+                std::function<void(Box<SignalingMessage>)> on_message,
                 std::function<void(std::string)> on_closed
         );
 
@@ -76,7 +76,7 @@ namespace krapi {
          * @param message Message to be sent.
          * @pre SignalingSocket::initialize() has to have been called.
          */
-        void send(const SignalingMessage &message);
+        void send(Box<SignalingMessage> message);
 
         /*!
          * Getter for the identity of this socket

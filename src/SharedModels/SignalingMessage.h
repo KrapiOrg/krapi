@@ -6,6 +6,7 @@
 
 #include "nlohmann/json.hpp"
 #include "uuid.h"
+#include "Box.h"
 
 namespace krapi {
     enum class SignalingMessageType {
@@ -52,6 +53,12 @@ namespace krapi {
 
         }
 
+        template<typename ...UU>
+        static Box<SignalingMessage> create(UU &&... params) {
+
+            return make_box<SignalingMessage>(std::forward<UU>(params)...);
+        }
+
         [[nodiscard]]
         SignalingMessageType type() const {
 
@@ -91,11 +98,11 @@ namespace krapi {
         nlohmann::json to_json() const {
 
             return {
-                    {"type", m_type},
-                    {"sender_identity", m_sender_identity},
+                    {"type",              m_type},
+                    {"sender_identity",   m_sender_identity},
                     {"receiver_identity", m_receiver_identity},
-                    { "tag", m_tag },
-                    { "content", m_content }
+                    {"tag",               m_tag},
+                    {"content",           m_content}
             };
         }
 
@@ -105,15 +112,15 @@ namespace krapi {
             return to_json().dump();
         }
 
-        static SignalingMessage from_json(nlohmann::json json) {
+        static Box<SignalingMessage> from_json(nlohmann::json json) {
 
-            return SignalingMessage{
+            return make_box<SignalingMessage>(
                     json["type"].get<SignalingMessageType>(),
                     json["sender_identity"].get<std::string>(),
                     json["receiver_identity"].get<std::string>(),
                     json["tag"].get<std::string>(),
                     json["content"].get<nlohmann::json>()
-            };
+            );
         }
 
     private:
