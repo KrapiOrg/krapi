@@ -27,7 +27,6 @@ namespace krapi {
         EventQueuePtr m_event_queue;
         concurrencpp::timer m_event_loop;
         std::unique_ptr<SignalingClient> m_signaling_client;
-        std::shared_ptr<concurrencpp::thread_pool_executor> m_background;
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
         eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
