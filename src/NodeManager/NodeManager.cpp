@@ -31,26 +31,17 @@ namespace krapi {
 
     concurrencpp::shared_result<Event> NodeManager::send(Box<PeerMessage> message) {
 
-        auto awaitable = m_event_queue->create_awaitable(message->tag());
-
-        m_event_queue->enqueue(
+        return m_event_queue->submit<InternalMessage>(
                 InternalMessageType::SendPeerMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendPeerMessage,
-                        InternalMessage::create_tag(),
-                        message->to_json()
-                )
+                message->to_json()
         );
-        return awaitable;
     }
 
     void NodeManager::send_and_forget(Box<PeerMessage> message) {
 
         m_event_queue->enqueue(
-                InternalMessageType::SendPeerMessage,
                 InternalMessage::create(
                         InternalMessageType::SendPeerMessage,
-                        InternalMessage::create_tag(),
                         message->to_json()
                 )
         );
@@ -196,38 +187,30 @@ namespace krapi {
 
         auto message = event.get<PeerMessage>();
 
-        m_event_queue->enqueue(
+        m_event_queue->enqueue<InternalMessage>(
                 InternalMessageType::SendPeerMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendPeerMessage,
-                        InternalMessage::create_tag(),
-                        PeerMessage(
-                                PeerMessageType::PeerStateResponse,
-                                m_signaling_client->identity(),
-                                message->sender_identity(),
-                                message->tag(),
-                                m_peer_state
-                        ).to_json()
-                )
+                PeerMessage(
+                        PeerMessageType::PeerStateResponse,
+                        m_signaling_client->identity(),
+                        message->sender_identity(),
+                        message->tag(),
+                        m_peer_state
+                ).to_json()
         );
     }
 
     void NodeManager::on_peer_type_request(Event event) {
 
         auto message = event.get<PeerMessage>();
-        m_event_queue->enqueue(
+        m_event_queue->enqueue<InternalMessage>(
                 InternalMessageType::SendPeerMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendPeerMessage,
-                        InternalMessage::create_tag(),
-                        PeerMessage(
-                                PeerMessageType::PeerTypeResponse,
-                                m_signaling_client->identity(),
-                                message->sender_identity(),
-                                message->tag(),
-                                m_peer_type
-                        ).to_json()
-                )
+                PeerMessage(
+                        PeerMessageType::PeerTypeResponse,
+                        m_signaling_client->identity(),
+                        message->sender_identity(),
+                        message->tag(),
+                        m_peer_type
+                ).to_json()
         );
     }
 
@@ -247,13 +230,9 @@ namespace krapi {
                     to_string(message->type()),
                     message->receiver_identity()
             );
-            m_event_queue->enqueue(
+            m_event_queue->enqueue<InternalMessage>(
                     InternalMessageType::SendPeerMessage,
-                    InternalMessage::create(
-                            InternalMessageType::SendPeerMessage,
-                            message->tag(),
-                            message_json
-                    )
+                    message_json
             );
         }
     }
@@ -303,7 +282,7 @@ namespace krapi {
 
     concurrencpp::result<void> NodeManager::on_datachannel_opened(Event event) {
 
-        auto id = event.get<InternalMessage>()->tag();
+        auto id = event.get<InternalMessage>()->content().get<std::string>();
         spdlog::info("DataChannel with {} opened", id);
         auto connection = m_connection_map[id];
         auto state = co_await connection->state();
@@ -313,7 +292,7 @@ namespace krapi {
 
     void NodeManager::on_datachannel_closed(Event event) {
 
-        auto id = event.get<InternalMessage>()->tag();
+        auto id = event.get<InternalMessage>()->content().get<std::string>();
         spdlog::warn("DataChannel with {} closed", id);
     }
 

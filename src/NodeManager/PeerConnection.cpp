@@ -70,33 +70,25 @@ namespace krapi {
                     auto message_json = nlohmann::json::parse(message_str);
                     auto peer_message = PeerMessage::from_json(message_json);
 
-                    m_event_queue->enqueue(peer_message->type(), peer_message);
+                    m_event_queue->enqueue(peer_message);
                 }
         );
 
         m_datachannel->onOpen(
                 [this]() {
 
-                    m_event_queue->enqueue(
+                    m_event_queue->enqueue<InternalMessage>(
                             InternalMessageType::DataChannelOpened,
-                            InternalMessage::create(
-                                    InternalMessageType::DataChannelOpened,
-                                    m_identity,
-                                    nlohmann::json{}
-                            )
+                            nlohmann::json(m_identity)
                     );
                 }
         );
         m_datachannel->onClosed(
                 [this]() {
 
-                    m_event_queue->enqueue(
+                    m_event_queue->enqueue<InternalMessage>(
                             InternalMessageType::DataChannelClosed,
-                            InternalMessage::create(
-                                    InternalMessageType::DataChannelClosed,
-                                    m_identity,
-                                    nlohmann::json{}
-                            )
+                            nlohmann::json(m_identity)
                     );
                 }
         );
@@ -104,7 +96,7 @@ namespace krapi {
 
     bool PeerConnection::send_and_forget(Box<PeerMessage> message) const {
 
-        if(m_datachannel == nullptr)
+        if (m_datachannel == nullptr)
             return false;
 
         if (m_datachannel->isOpen() && !m_datachannel->isClosed()) {
@@ -127,37 +119,30 @@ namespace krapi {
 
     void PeerConnection::on_local_candidate(rtc::Candidate candidate) {
 
-        m_event_queue->enqueue(
+        m_event_queue->enqueue<InternalMessage>(
                 InternalMessageType::SendSignalingMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendSignalingMessage,
-                        InternalMessage::create_tag(),
-                        SignalingMessage(
-                                SignalingMessageType::RTCCandidate,
-                                m_signaling_client->identity(),
-                                m_identity,
-                                SignalingMessage::create_tag(),
-                                std::string(std::move(candidate))
-                        ).to_json()
-                )
+                SignalingMessage(
+                        SignalingMessageType::RTCCandidate,
+                        m_signaling_client->identity(),
+                        m_identity,
+                        SignalingMessage::create_tag(),
+                        std::string(std::move(candidate))
+                ).to_json()
+
         );
     }
 
     void PeerConnection::on_local_description(rtc::Description description) {
 
-        m_event_queue->enqueue(
+        m_event_queue->enqueue<InternalMessage>(
                 InternalMessageType::SendSignalingMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendSignalingMessage,
-                        InternalMessage::create_tag(),
-                        SignalingMessage(
-                                SignalingMessageType::RTCSetup,
-                                m_signaling_client->identity(),
-                                m_identity,
-                                SignalingMessage::create_tag(),
-                                std::string(std::move(description))
-                        ).to_json()
-                )
+                SignalingMessage(
+                        SignalingMessageType::RTCSetup,
+                        m_signaling_client->identity(),
+                        m_identity,
+                        SignalingMessage::create_tag(),
+                        std::string(std::move(description))
+                ).to_json()
         );
     }
 
@@ -165,22 +150,16 @@ namespace krapi {
 
         if (m_peer_state == PeerState::Unknown) {
 
-            auto tag = PeerMessage::create_tag();
-            m_event_queue->enqueue(
+            auto result = co_await m_event_queue->submit<InternalMessage>(
                     InternalMessageType::SendPeerMessage,
-                    InternalMessage::create(
-                            InternalMessageType::SendPeerMessage,
-                            InternalMessage::create_tag(),
-                            PeerMessage(
-                                    PeerMessageType::PeerStateRequest,
-                                    m_signaling_client->identity(),
-                                    m_identity,
-                                    tag,
-                                    nlohmann::json()
-                            ).to_json()
-                    )
+                    PeerMessage(
+                            PeerMessageType::PeerStateRequest,
+                            m_signaling_client->identity(),
+                            m_identity,
+                            PeerMessage::create_tag(),
+                            nlohmann::json()
+                    ).to_json()
             );
-            auto result = co_await m_event_queue->create_awaitable(tag);
             m_peer_state = result.get<PeerMessage>()->content().get<PeerState>();
         }
 
@@ -192,19 +171,15 @@ namespace krapi {
         if (m_peer_type == PeerType::Unknown) {
 
             auto tag = PeerMessage::create_tag();
-            m_event_queue->enqueue(
+            m_event_queue->enqueue<InternalMessage>(
                     InternalMessageType::SendPeerMessage,
-                    InternalMessage::create(
-                            InternalMessageType::SendPeerMessage,
-                            InternalMessage::create_tag(),
-                            PeerMessage(
-                                    PeerMessageType::PeerTypeRequest,
-                                    m_signaling_client->identity(),
-                                    m_identity,
-                                    tag,
-                                    nlohmann::json()
-                            ).to_json()
-                    )
+                    PeerMessage(
+                            PeerMessageType::PeerTypeRequest,
+                            m_signaling_client->identity(),
+                            m_identity,
+                            tag,
+                            nlohmann::json()
+                    ).to_json()
             );
             auto result = co_await m_event_queue->create_awaitable(tag);
             m_peer_type = result.get<PeerMessage>()->content().get<PeerType>();

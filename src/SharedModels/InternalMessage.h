@@ -42,11 +42,9 @@ namespace krapi {
 
         explicit InternalMessage(
                 InternalMessageType type,
-                std::string tag,
-                nlohmann::json content
+                nlohmann::json content = {}
         ) :
                 m_type(type),
-                m_tag(std::move(tag)),
                 m_content(std::move(content)) {
         }
 
@@ -56,21 +54,10 @@ namespace krapi {
             return make_box<InternalMessage>(std::forward<UU>(params)...);
         }
 
-        static std::string create_tag() {
-
-            return uuids::to_string(uuids::uuid_system_generator{}());
-        }
-
         [[nodiscard]]
         InternalMessageType type() const {
 
             return m_type;
-        }
-
-        [[nodiscard]]
-        std::string tag() const {
-
-            return m_tag;
         }
 
         [[nodiscard]]

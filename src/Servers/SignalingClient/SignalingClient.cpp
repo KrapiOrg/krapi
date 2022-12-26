@@ -67,7 +67,7 @@ namespace krapi {
                     auto message_str = std::get<std::string>(message);
                     auto message_json = nlohmann::json::parse(message_str);
                     auto signaling_message = SignalingMessage::from_json(message_json);
-                    m_event_queue->enqueue(signaling_message->type(), signaling_message);
+                    m_event_queue->enqueue(signaling_message);
                 }
         );
 
@@ -84,15 +84,7 @@ namespace krapi {
 
         m_ws->onClosed(
                 [this]() {
-
-                    m_event_queue->enqueue(
-                            InternalMessageType::SignalingServerClosed,
-                            InternalMessage::create(
-                                    InternalMessageType::SignalingServerClosed,
-                                    InternalMessage::create_tag(),
-                                    nlohmann::json()
-                            )
-                    );
+                    m_event_queue->enqueue<InternalMessage>(InternalMessageType::SignalingServerClosed);
                 }
         );
 
@@ -118,27 +110,17 @@ namespace krapi {
 
     concurrencpp::shared_result<Event> SignalingClient::send(Box<SignalingMessage> message) const {
 
-        auto awaitable = m_event_queue->create_awaitable(message->tag());
-        m_event_queue->enqueue(
+        return m_event_queue->submit<InternalMessage>(
                 InternalMessageType::SendSignalingMessage,
-                InternalMessage::create(
-                        InternalMessageType::SendSignalingMessage,
-                        InternalMessage::create_tag(),
-                        message->to_json()
-                )
+                message->to_json()
         );
-        return awaitable;
     }
 
     void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
 
-        m_event_queue->enqueue(
-                InternalMessageType::SendSignalingMessage,
-                InternalMessage::create(
+        m_event_queue->enqueue<InternalMessage>(
                         InternalMessageType::SendSignalingMessage,
-                        InternalMessage::create_tag(),
                         message->to_json()
-                )
         );
     }
 } // krapi

@@ -9,10 +9,10 @@
 namespace krapi {
 
     using EventType = std::variant<SignalingMessageType, PeerMessageType, InternalMessageType>;
-    using _Event = std::variant<Box<SignalingMessage>, Box<PeerMessage>, Box<InternalMessage>>;
+    using EventVariant = std::variant<Box<SignalingMessage>, Box<PeerMessage>, Box<InternalMessage>>;
 
-    struct Event : _Event {
-        using _Event::variant;
+    struct Event : EventVariant {
+        using EventVariant::variant;
 
         template<typename T>
         Box<T> get() const {
