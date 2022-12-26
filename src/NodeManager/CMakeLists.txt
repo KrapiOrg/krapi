@@ -1,5 +1,3 @@
-project(node_manager)
-
 set(CMAKE_CXX_STANDARD 20)
 
 add_library(
@@ -15,14 +13,15 @@ target_link_libraries(
         PRIVATE
         nlohmann_json
         spdlog
-        ixwebsocket
         cryptopp
         datachannel
         eventpp
         stduuid
+        range-v3
         tl::expected
         concurrencpp
         signaling_client
         transaction_pool
+        krapi_event
         shared_models
 )

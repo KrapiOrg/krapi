@@ -1,4 +1,3 @@
-project(blockchain_models)
 set(CMAKE_CXX_STANDARD 20)
 
 add_library(

@@ -8,6 +8,8 @@
 #include <sstream>
 
 #include "rtc/peerconnection.hpp"
+#include "eventpp/utilities/scopedremover.h"
+#include "EventQueue.h"
 
 #include "SignalingMessage.h"
 #include "SignalingClient.h"
@@ -28,17 +30,16 @@ namespace krapi {
         NotNull<EventQueue *> m_event_queue;
         RTCPeerConnection m_peer_connection;
         RTCDataChannel m_datachannel;
-
+        PeerType m_peer_type;
+        std::atomic<PeerState> m_peer_state;
         std::string m_identity;
-        bool m_initialized;
-
-        static RTCDataChannelResult wait_for_open(RTCDataChannel);
+        eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
         void on_local_candidate(rtc::Candidate);
 
         void on_local_description(rtc::Description);
 
-        void on_data_channel(std::shared_ptr<rtc::DataChannel>);
+        void on_peer_state_update(Event);
 
     public:
 
@@ -60,18 +61,21 @@ namespace krapi {
             return std::make_shared<PeerConnection>(std::forward<UU>(params)...);
         }
 
-        concurrencpp::result<void> initialize_channel(RTCDataChannel);
+        void initialize_channel(RTCDataChannel);
 
-        concurrencpp::result<void> create_datachannel();
-
-        concurrencpp::result<Event> send(Box<PeerMessage>);
-
-        concurrencpp::result<PeerState> request_state();
-
-        concurrencpp::result<PeerType> request_type();
+        [[nodiscard]]
+        bool send_and_forget(Box<PeerMessage>) const;
 
         void set_remote_description(std::string);
 
         void add_remote_candidate(std::string);
+
+        concurrencpp::result<PeerState> state();
+
+        concurrencpp::result<PeerType> type();
+
+        concurrencpp::result<Event> wait_for_datachannel_open(std::string);
+
+        ~PeerConnection();
     };
 } // krapi

@@ -12,7 +12,8 @@ namespace krapi {
         WaitingForPeers,
         Closed,
         Open,
-        Error
+        Error,
+        Unknown
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerState, {
@@ -20,7 +21,8 @@ namespace krapi {
         { PeerState::WaitingForPeers, "waiting_for_peers" },
         { PeerState::Closed, "closed" },
         { PeerState::Open, "open" },
-        { PeerState::Error, "error" }
+        { PeerState::Error, "error" },
+        { PeerState::Unknown, "unknown" },
     })
 
     inline std::string to_string(PeerState state) {
@@ -37,6 +39,8 @@ namespace krapi {
                 return "open";
             case PeerState::Error:
                 return "error";
+            case PeerState::Unknown:
+                return "unknown";
         }
         return "error";
     }

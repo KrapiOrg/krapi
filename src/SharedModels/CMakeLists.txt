@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.23)
-project(shared_models)
 set(CMAKE_CXX_STANDARD 20)
 
 add_library(
         shared_models
         ${CMAKE_CURRENT_LIST_DIR}/SignalingMessage.h
         ${CMAKE_CURRENT_LIST_DIR}/PeerMessage.h
+        ${CMAKE_CURRENT_LIST_DIR}/InternalMessage.h
         ${CMAKE_CURRENT_LIST_DIR}/PeerType.h
         ${CMAKE_CURRENT_LIST_DIR}/Content/SetTransactionStatusContent.h
         ${CMAKE_CURRENT_LIST_DIR}/Content/BlocksResponseContent.h

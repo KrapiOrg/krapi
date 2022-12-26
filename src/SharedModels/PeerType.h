@@ -8,29 +8,29 @@
 
 namespace krapi {
     enum class PeerType {
-        Full,
         Light,
+        Full,
         Observer,
         Unknown
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(PeerType, {
-        { PeerType::Full, "peer_type_full" },
-        { PeerType::Light, "peer_type_light" },
-        { PeerType::Observer, "peer_type_observer" },
-        { PeerType::Observer, "peer_type_unknown" }
+        { PeerType::Full, "full" },
+        { PeerType::Light, "light" },
+        { PeerType::Observer, "observer" },
+        { PeerType::Unknown, "unknown" }
     })
 
     inline std::string to_string(PeerType type) {
 
         if (type == PeerType::Full)
-            return "Full";
+            return "full";
         if(type == PeerType::Light)
-            return "Light";
+            return "light";
         if(type == PeerType::Observer)
-            return "Observer";
+            return "observer";
 
-        return "Unknown";
+        return "unknown";
     }
 
 }// krapi

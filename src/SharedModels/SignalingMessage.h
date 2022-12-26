@@ -10,29 +10,55 @@
 
 namespace krapi {
     enum class SignalingMessageType {
+        DEFAULT,
         AvailablePeersRequest,
         AvailablePeersResponse,
         IdentityRequest,
         IdentityResponse,
         Acknowledgement,
-        SetIdentityRequest,
         PeerAvailable,
         RTCSetup,
-        RTCCandidate
+        RTCCandidate,
+        PeerClosed
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(SignalingMessageType, {
+        { SignalingMessageType::DEFAULT, "default" },
         { SignalingMessageType::AvailablePeersRequest, "available_peers_request" },
         { SignalingMessageType::AvailablePeersResponse, "available_peers_response" },
         { SignalingMessageType::IdentityRequest, "identity_request" },
         { SignalingMessageType::IdentityResponse, "identity_response" },
-        { SignalingMessageType::Acknowledgement, "acknowledgement" },
-        { SignalingMessageType::SetIdentityRequest, "set_identity_request" },
-        { SignalingMessageType::IdentityResponse, "identity_response" },
         { SignalingMessageType::PeerAvailable, "peer_available" },
         { SignalingMessageType::RTCSetup, "rtc_setup" },
-        { SignalingMessageType::RTCCandidate, "rtc_candidate" }
+        { SignalingMessageType::RTCCandidate, "rtc_candidate" },
+        { SignalingMessageType::PeerClosed, "peer_closed" }
     })
+
+    inline std::string to_string(SignalingMessageType type) {
+
+        switch (type) {
+            case SignalingMessageType::DEFAULT:
+                return "default";
+            case SignalingMessageType::AvailablePeersRequest:
+                return "available_peers_request";
+            case SignalingMessageType::AvailablePeersResponse:
+                return "available_peers_response";
+            case SignalingMessageType::IdentityRequest:
+                return "identity_request";
+            case SignalingMessageType::IdentityResponse:
+                return "identity_response";
+            case SignalingMessageType::Acknowledgement:
+                return "acknowledgement";
+            case SignalingMessageType::PeerAvailable:
+                return "peer_available";
+            case SignalingMessageType::RTCSetup:
+                return "rtc_setup";
+            case SignalingMessageType::RTCCandidate:
+                return "rtc_candidate";
+            case SignalingMessageType::PeerClosed:
+                return "peer_closed";
+        }
+    }
 
     class SignalingMessage {
 

@@ -36,7 +36,7 @@ namespace krapi {
          * @return result containing the response for the message request
          */
         [[nodiscard]]
-        concurrencpp::result<Event> send(Box<SignalingMessage> message) const;
+        concurrencpp::shared_result<Event> send(Box<SignalingMessage> message) const;
 
         /*!
          * Sends a message to the SignalingServer without the ability to block
@@ -44,16 +44,7 @@ namespace krapi {
          */
         void send_and_forget(Box<SignalingMessage> message) const;
 
-        /*!
-         * Initializes the connection to the signaling server.
-         * Does the following in sequence
-         * 1. Waits for the connection with the signaling server to open.
-         * 2. Waits for the identity request to arrive from the server.
-         * 3. Responds with the identity acquired during construction.
-         * 4. Sets the message handler.
-         * @return A result that completes when the connection is initialized.
-         * @pre Must not be called more than once.
-         */
+
         [[nodiscard]]
         concurrencpp::result<void> initialize();
 
@@ -63,7 +54,14 @@ namespace krapi {
          * the appropriate response
          */
         [[nodiscard]]
-        concurrencpp::result<Event> available_peers() const;
+        concurrencpp::shared_result<Event> available_peers() const;
+
+        template<typename ...UU>
+        [[nodiscard]]
+        static inline std::unique_ptr<SignalingClient> create(UU &&...uu) {
+
+            return std::make_unique<SignalingClient>(std::forward<UU>(uu)...);
+        }
 
     private:
 
@@ -72,24 +70,18 @@ namespace krapi {
          * @return a result that completes when the underlying rtc::WebSocket's connection is open.
          */
         [[nodiscard]]
-        concurrencpp::result<void> wait_for_open() const;
-
-        /*!
-         * A helper that waits for the identity request to arrive from the signaling server
-         */
-        [[nodiscard]]
-        concurrencpp::result<void> wait_for_identity_request() const;
+        concurrencpp::result<void> for_open() const;
 
         /*!
          * A helper that sends the identity acquired during construction to the signaling server
          */
         [[nodiscard]]
-        concurrencpp::result<void> send_identity() const;
+        concurrencpp::shared_result<std::string> request_identity() const;
 
         NotNull<EventQueue *> m_event_queue;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
-        bool m_initialized;
     };
 
+    using SignalingClientPtr = std::unique_ptr<SignalingClient>;
 } // krapi

@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char *argv[]) {
 
-    concurrencpp::runtime runtime;
+    auto runtime = std::make_shared<concurrencpp::runtime>() ;
 
     constexpr int BATCH_SZE = 10;
     std::string path;
@@ -25,20 +25,10 @@ int main(int argc, char *argv[]) {
         spdlog::error("Could not find {}, creating...", path);
         fs::create_directory(path);
     }
-    auto event_queue = EventQueue::create();
-    auto event_loop = runtime.timer_queue()->make_timer(
-            0s,
-            30ms,
-            runtime.make_worker_thread_executor(),
-            [&]() {
-                event_queue->process_one();
-            }
-    );
+
     auto manager = std::make_shared<NodeManager>(
-            make_not_null(event_queue.get()),
+            runtime->make_worker_thread_executor(),
             PeerType::Full
     );
-    manager->initialize().wait();
-    auto peers = manager->connect_to_peers().get();
-    spdlog::info("Main: Connected to [{}]", fmt::join(peers,", "));
+    manager->initialize(runtime->timer_queue()).wait();
 }

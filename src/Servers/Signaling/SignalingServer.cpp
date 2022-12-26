@@ -6,9 +6,10 @@
 #include "spdlog/spdlog.h"
 
 #include "SignalingServer.h"
+#include "SignalingMessage.h"
 
 namespace krapi {
-    std::weak_ptr<SignalingSocket> SignalingServer::get_socket(const std::string &identity) const {
+    std::weak_ptr<rtc::WebSocket> SignalingServer::get_socket(const std::string &identity) const {
 
         std::lock_guard l(m_mutex);
         if (m_sockets.contains(identity))
@@ -26,38 +27,75 @@ namespace krapi {
                | ranges::to<std::vector<std::string>>();
     }
 
-    void SignalingServer::on_client_message(Box<SignalingMessage> message) const {
+    void SignalingServer::on_client_message(std::string sender_identity, rtc::message_variant rtc_message) const {
 
-        if (message->type() == SignalingMessageType::AvailablePeersRequest) {
+        auto message_str = std::get<std::string>(rtc_message);
+        auto message = SignalingMessage::from_json(nlohmann::json::parse(message_str));
+
+        if (message->type() == SignalingMessageType::IdentityRequest) {
+            auto wsocket = get_socket(sender_identity);
+            if (auto socket = wsocket.lock()) {
+
+                socket->send(
+                        SignalingMessage(
+                                SignalingMessageType::IdentityResponse,
+                                "signaling_server",
+                                "",
+                                message->tag(),
+                                sender_identity
+                        ).to_string()
+                );
+            }
+        } else if (message->type() == SignalingMessageType::AvailablePeersRequest) {
+
             auto wsocket = get_socket(message->sender_identity());
             if (auto socket = wsocket.lock()) {
 
                 socket->send(
-                        make_box<SignalingMessage>(
+                        SignalingMessage(
                                 SignalingMessageType::AvailablePeersResponse,
                                 "signaling_server",
                                 message->sender_identity(),
                                 message->tag(),
                                 get_identities(message->sender_identity())
-                        )
+                        ).to_string()
                 );
             }
         } else if (
                 message->type() == SignalingMessageType::RTCSetup ||
                 message->type() == SignalingMessageType::RTCCandidate) {
-            spdlog::info("{}", message->to_string());
+
             if (auto socket = get_socket(message->receiver_identity()).lock()) {
-                socket->send(message);
+                socket->send(message->to_string());
             }
         }
     }
 
-    void SignalingServer::on_client_closed(const std::string &identity) {
+    void SignalingServer::on_client_closed(std::string identity) {
 
-        std::lock_guard l(m_mutex);
-        if (m_sockets.erase(identity)) {
-            spdlog::info("connection with {} closed", identity);
+        bool erased;
+
+        {
+            std::lock_guard l(m_mutex);
+            erased = m_sockets.erase(identity);
         }
+
+        if (!erased)
+            return;
+
+        spdlog::info("connection with {} closed", identity);
+        for (auto &[receiver, socket]: m_sockets) {
+            socket->send(
+                    SignalingMessage(
+                            SignalingMessageType::PeerClosed,
+                            "signaling_server",
+                            receiver,
+                            SignalingMessage::create_tag(),
+                            identity
+                    ).to_string()
+            );
+        }
+
     }
 
     SignalingServer::SignalingServer() :
@@ -65,15 +103,17 @@ namespace krapi {
 
         m_server.onClient(
                 [this](std::shared_ptr<rtc::WebSocket> ws) {
-                    auto signaling_socket = std::make_shared<SignalingSocket>(
-                            std::move(ws)
-                    );
-                    auto identity = signaling_socket->initialize(
-                            std::bind_front(&SignalingServer::on_client_message, this),
-                            std::bind_front(&SignalingServer::on_client_closed, this)
-                    ).get();
+
+                    auto identity = uuids::to_string(uuids::uuid_system_generator{}());
+
+                    ws->onOpen([identity]() { spdlog::info("{} Connected", identity); });
+                    ws->onMessage([identity, this](rtc::message_variant message) {
+
+                        on_client_message(identity, std::move(message));
+                    });
+                    ws->onClosed([identity, this]() { auto iden = identity; on_client_closed(iden); });
                     std::lock_guard l(m_mutex);
-                    m_sockets.emplace(identity, signaling_socket);
+                    m_sockets.emplace(identity, std::move(ws));
                 }
         );
     }

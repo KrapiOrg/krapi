@@ -3,11 +3,11 @@
 //
 
 #pragma once
+
 #include <string>
 #include <unordered_map>
 #include <mutex>
-
-#include "SignalingSocket.h"
+#include "rtc/websocketserver.hpp"
 
 namespace krapi {
 
@@ -15,9 +15,11 @@ namespace krapi {
     * A simple wrapper around an rtc::WebSocketServer that keeps track of its clients
     * and blocks the thread its running on.
     */
+    using RTCWebSocket = std::shared_ptr<rtc::WebSocket>;
+
     class SignalingServer {
 
-        std::unordered_map<std::string, std::shared_ptr<SignalingSocket>> m_sockets;
+        std::unordered_map<std::string, RTCWebSocket> m_sockets;
         mutable std::recursive_mutex m_mutex;
         std::atomic<bool> m_blocking_bool;
         rtc::WebSocketServer m_server;
@@ -27,7 +29,7 @@ namespace krapi {
          * @param identity the identity for the client whose socket to be fetched
          * @return A weak_ptr to the SignalingSocket, nullptr if the socket is not present
          */
-        std::weak_ptr<SignalingSocket> get_socket(const std::string &identity) const;
+        std::weak_ptr<rtc::WebSocket> get_socket(const std::string &identity) const;
 
         /*!
          * A helper that fetches the identities for the sockets currently open
@@ -41,13 +43,13 @@ namespace krapi {
          * Handler for Signaling messages received from any currently open connection
          * @param message
          */
-        void on_client_message(Box<SignalingMessage> message) const;
+        void on_client_message(std::string sender_identity, rtc::message_variant message) const;
 
         /*!
          * For cleanup when a socket is closed
          * @param identity
          */
-        void on_client_closed(const std::string &identity);
+        void on_client_closed(std::string identity);
 
     public:
 

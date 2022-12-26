@@ -55,6 +55,50 @@ namespace krapi {
         { PeerMessageType::GetLastBlockResponse, "get_last_block_response" }
     })
 
+    inline std::string to_string(PeerMessageType type){
+
+        switch (type) {
+            case PeerMessageType::PeerTypeRequest:
+                return "peer_type_request";
+            case PeerMessageType::PeerTypeResponse:
+                return "peer_type_response";
+            case PeerMessageType::AddTransaction:
+                return "add_transaction";
+            case PeerMessageType::RemoveTransactions:
+                return "remove_transactions";
+            case PeerMessageType::SetTransactionStatus:
+                return "set_transaction_status";
+            case PeerMessageType::BlockHeadersRequest:
+                return "block_headers_request";
+            case PeerMessageType::BlockHeadersResponse:
+                return "block_headers_response";
+            case PeerMessageType::BlockRequest:
+                return "block_request";
+            case PeerMessageType::BlockResponse:
+                return "block_response";
+            case PeerMessageType::BlockNotFoundResponse:
+                return "block_not_found_response";
+            case PeerMessageType::PeerStateRequest:
+                return "peer_state_request";
+            case PeerMessageType::PeerStateResponse:
+                return "peer_state_response";
+            case PeerMessageType::PeerStateUpdate:
+                return "peer_state_update";
+            case PeerMessageType::AddBlock:
+                return "add_block";
+            case PeerMessageType::BlockRejected:
+                return "block_rejected";
+            case PeerMessageType::BlockAccepted:
+                return "block_accepted";
+            case PeerMessageType::GetLastBlockRequest:
+                return "get_last_block_request";
+            case PeerMessageType::GetLastBlockResponse:
+                return "get_last_block_response";
+            case PeerMessageType::DEFAULT:
+                return "default";
+        }
+    }
+
     class PeerMessage {
 
         PeerMessageType m_type;

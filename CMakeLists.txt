@@ -9,7 +9,8 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 
 
 # set up libraries
-set(JSON_USE_IMPLICIT_CONVERSIONS OFF)
+set(JSON_ImplicitConversions OFF)
+set(JSON_DisableEnumSerialization ON)
 add_subdirectory(libs/json)
 add_subdirectory(libs/fmt)
 set(SPDLOG_FMT_EXTERNAL ON)

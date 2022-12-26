@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.23)
-project(krapi_event)
 
 add_library(
         krapi_event

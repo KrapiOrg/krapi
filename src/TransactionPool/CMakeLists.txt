@@ -1,4 +1,3 @@
-project(transaction_pool)
 add_library(
         transaction_pool
         ${CMAKE_CURRENT_LIST_DIR}/TransactionPool.cpp

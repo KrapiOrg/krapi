@@ -4,9 +4,7 @@
 
 #pragma once
 
-#include <set>
 #include <utility>
-#include "ixwebsocket/IXWebSocket.h"
 #include "rtc/peerconnection.hpp"
 #include "eventpp/eventdispatcher.h"
 #include "concurrencpp/concurrencpp.h"
@@ -25,13 +23,15 @@ namespace krapi {
     protected:
 
         std::atomic<bool> m_blocking_bool;
-
+        std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
+        EventQueuePtr m_event_queue;
+        concurrencpp::timer m_event_loop;
         std::unique_ptr<SignalingClient> m_signaling_client;
-
-        NotNull<EventQueue *> m_event_queue;
+        std::shared_ptr<concurrencpp::thread_pool_executor> m_background;
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
+        eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
-        PeerState m_peer_state;
+        std::atomic<PeerState> m_peer_state;
         PeerType m_peer_type;
         bool m_initialized;
 
@@ -43,26 +43,29 @@ namespace krapi {
 
         void on_peer_type_request(Event);
 
+        void on_peer_state_update(Event);
+
+        void on_send_peer_message(Event);
+
+        concurrencpp::result<void> on_datachannel_opened(Event);
+
+        void on_datachannel_closed(Event);
+
+        void on_peer_closed(Event);
+
+        void on_signaling_server_closed(Event);
+
+        [[nodiscard]]
+        concurrencpp::result<void> connect_to_peers();
+
     public:
 
         explicit NodeManager(
-                NotNull<EventQueue *> event_queue,
+                std::shared_ptr<concurrencpp::worker_thread_executor> worker,
                 PeerType pt
         );
 
-        [[nodiscard]]
-        concurrencpp::result<void> send(
-                std::string id,
-                Box<PeerMessage> message
-        );
-
-        void send_and_forget(
-                std::string id,
-                Box<PeerMessage> message
-        );
-
-        [[nodiscard]]
-        concurrencpp::result<std::vector<std::string>> connect_to_peers();
+        void set_state(PeerState state);
 
         [[nodiscard]]
         PeerState get_state() const;
@@ -71,7 +74,15 @@ namespace krapi {
         std::string id() const;
 
         [[nodiscard]]
-        concurrencpp::result<void> initialize();
+        concurrencpp::result<void> initialize(std::shared_ptr<concurrencpp::timer_queue>);
+
+        concurrencpp::shared_result<Event> send(Box<PeerMessage>);
+
+        void send_and_forget(Box<PeerMessage>);
+
+        std::vector<concurrencpp::shared_result<Event>> broadcast(PeerMessageType, nlohmann::json = {});
+
+        void broadcast_and_forget(PeerMessageType, nlohmann::json = {});
 
         ~NodeManager();
     };
