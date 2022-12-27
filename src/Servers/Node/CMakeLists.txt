@@ -22,7 +22,6 @@ target_link_libraries(
         eventpp
         cryptopp
         datachannel
-        ixwebsocket
         merklecpp
         leveldb
         concurrencpp
