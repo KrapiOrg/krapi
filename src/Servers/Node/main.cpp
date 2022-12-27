@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char *argv[]) {
 
-    auto runtime = std::make_shared<concurrencpp::runtime>() ;
+    auto runtime = std::make_shared<concurrencpp::runtime>();
 
     constexpr int BATCH_SZE = 10;
     std::string path;
@@ -26,9 +26,18 @@ int main(int argc, char *argv[]) {
         fs::create_directory(path);
     }
 
+
+    auto worker = runtime->make_worker_thread_executor();
     auto manager = std::make_shared<NodeManager>(
-            runtime->make_worker_thread_executor(),
+            worker,
             PeerType::Full
     );
-    manager->initialize(runtime->timer_queue()).wait();
+    worker->submit(
+            [=]() -> concurrencpp::null_result {
+
+                co_await manager->initialize(runtime->timer_queue());
+                manager->set_state(PeerState::WaitingForPeers);
+            }
+    ).wait();
+
 }

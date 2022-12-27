@@ -41,6 +41,8 @@ namespace krapi {
 
         void on_peer_state_update(Event);
 
+        void on_rtc_candidate(Event);
+
     public:
 
         explicit PeerConnection(
@@ -67,8 +69,6 @@ namespace krapi {
         bool send_and_forget(Box<PeerMessage>) const;
 
         void set_remote_description(std::string);
-
-        void add_remote_candidate(std::string);
 
         concurrencpp::result<PeerState> state();
 

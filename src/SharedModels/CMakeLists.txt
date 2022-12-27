@@ -12,6 +12,7 @@ add_library(
         ${CMAKE_CURRENT_LIST_DIR}/Content/BlockHeadersResponseContent.h
         ${CMAKE_CURRENT_LIST_DIR}/PeerState.h
         ${CMAKE_CURRENT_LIST_DIR}/Content/PoolResponseContent.h
+        ${CMAKE_CURRENT_LIST_DIR}/InternalNotification.h
 )
 target_link_libraries(shared_models PRIVATE nlohmann_json stduuid)
 set_target_properties(shared_models PROPERTIES LINKER_LANGUAGE CXX)

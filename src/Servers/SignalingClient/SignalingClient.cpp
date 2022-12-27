@@ -16,6 +16,7 @@ namespace krapi {
             NotNull<EventQueue *> event_queue
     ) :
             m_event_queue(event_queue),
+            m_subscription_remover(event_queue->internal_queue()),
             m_ws(std::make_unique<rtc::WebSocket>()) {
     }
 
@@ -71,24 +72,21 @@ namespace krapi {
                 }
         );
 
-        m_event_queue->append_listener(
+        m_subscription_remover.appendListener(
                 InternalMessageType::SendSignalingMessage,
                 [this](Event event) {
-
-                    auto internal_message = event.get<InternalMessage>();
-                    auto message_json = internal_message->content();
-                    auto message_str = message_json.dump();
-                    m_ws->send(message_str);
+                    auto internal_message = event.get<InternalMessage<SignalingMessage>>();
+                    m_ws->send(internal_message->content()->to_string());
                 }
         );
 
         m_ws->onClosed(
                 [this]() {
-                    m_event_queue->enqueue<InternalMessage>(InternalMessageType::SignalingServerClosed);
+                    m_event_queue->enqueue<InternalNotification<void>>(
+                            InternalNotificationType::SignalingServerClosed
+                    );
                 }
         );
-
-
     }
 
     std::string SignalingClient::identity() const noexcept {
@@ -110,17 +108,17 @@ namespace krapi {
 
     concurrencpp::shared_result<Event> SignalingClient::send(Box<SignalingMessage> message) const {
 
-        return m_event_queue->submit<InternalMessage>(
+        return m_event_queue->submit<InternalMessage<SignalingMessage>>(
                 InternalMessageType::SendSignalingMessage,
-                message->to_json()
+                std::move(message)
         );
     }
 
     void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
 
-        m_event_queue->enqueue<InternalMessage>(
-                        InternalMessageType::SendSignalingMessage,
-                        message->to_json()
+        m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
+                InternalMessageType::SendSignalingMessage,
+                std::move(message)
         );
     }
 } // krapi

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "rtc/websocket.hpp"
+#include "eventpp/utilities/scopedremover.h"
 #include "spdlog/spdlog.h"
 #include "EventQueue.h"
 #include "NotNull.h"
@@ -81,6 +82,7 @@ namespace krapi {
         NotNull<EventQueue *> m_event_queue;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
+        eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
     };
 
     using SignalingClientPtr = std::unique_ptr<SignalingClient>;

@@ -28,9 +28,14 @@ namespace krapi {
         m_peer_connection->onLocalDescription(std::bind_front(&PeerConnection::on_local_description, this));
         m_datachannel = m_peer_connection->createDataChannel("krapi");
         initialize_channel(m_datachannel);
-        m_event_queue->append_listener(
+
+        m_subscription_remover.appendListener(
                 PeerMessageType::PeerStateUpdate,
                 std::bind_front(&PeerConnection::on_peer_state_update, this)
+        );
+        m_subscription_remover.appendListener(
+                SignalingMessageType::RTCCandidate,
+                std::bind_front(&PeerConnection::on_rtc_candidate, this)
         );
     }
 
@@ -52,9 +57,15 @@ namespace krapi {
         m_peer_connection->onLocalDescription(std::bind_front(&PeerConnection::on_local_description, this));
         m_peer_connection->onDataChannel(std::bind_front(&PeerConnection::initialize_channel, this));
         m_peer_connection->setRemoteDescription(description);
-        m_event_queue->append_listener(
+
+        m_subscription_remover.appendListener(
                 PeerMessageType::PeerStateUpdate,
                 std::bind_front(&PeerConnection::on_peer_state_update, this)
+        );
+
+        m_subscription_remover.appendListener(
+                SignalingMessageType::RTCCandidate,
+                std::bind_front(&PeerConnection::on_rtc_candidate, this)
         );
     }
 
@@ -77,18 +88,18 @@ namespace krapi {
         m_datachannel->onOpen(
                 [this]() {
 
-                    m_event_queue->enqueue<InternalMessage>(
-                            InternalMessageType::DataChannelOpened,
-                            nlohmann::json(m_identity)
+                    m_event_queue->enqueue<InternalNotification<std::string>>(
+                            InternalNotificationType::DataChannelOpened,
+                            m_identity
                     );
                 }
         );
         m_datachannel->onClosed(
                 [this]() {
 
-                    m_event_queue->enqueue<InternalMessage>(
-                            InternalMessageType::DataChannelClosed,
-                            nlohmann::json(m_identity)
+                    m_event_queue->enqueue<InternalNotification<std::string>>(
+                            InternalNotificationType::DataChannelClosed,
+                            m_identity
                     );
                 }
         );
@@ -112,37 +123,32 @@ namespace krapi {
         m_peer_connection->setRemoteDescription(description);
     }
 
-    void PeerConnection::add_remote_candidate(std::string candidate) {
-
-        m_peer_connection->addRemoteCandidate(std::move(candidate));
-    }
-
     void PeerConnection::on_local_candidate(rtc::Candidate candidate) {
 
-        m_event_queue->enqueue<InternalMessage>(
+        m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
                 InternalMessageType::SendSignalingMessage,
-                SignalingMessage(
+                SignalingMessage::create(
                         SignalingMessageType::RTCCandidate,
                         m_signaling_client->identity(),
                         m_identity,
                         SignalingMessage::create_tag(),
                         std::string(std::move(candidate))
-                ).to_json()
+                )
 
         );
     }
 
     void PeerConnection::on_local_description(rtc::Description description) {
 
-        m_event_queue->enqueue<InternalMessage>(
+        m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
                 InternalMessageType::SendSignalingMessage,
-                SignalingMessage(
+                SignalingMessage::create(
                         SignalingMessageType::RTCSetup,
                         m_signaling_client->identity(),
                         m_identity,
                         SignalingMessage::create_tag(),
                         std::string(std::move(description))
-                ).to_json()
+                )
         );
     }
 
@@ -150,15 +156,15 @@ namespace krapi {
 
         if (m_peer_state == PeerState::Unknown) {
 
-            auto result = co_await m_event_queue->submit<InternalMessage>(
+            auto result = co_await m_event_queue->submit<InternalMessage<PeerMessage>>(
                     InternalMessageType::SendPeerMessage,
-                    PeerMessage(
+                    PeerMessage::create(
                             PeerMessageType::PeerStateRequest,
                             m_signaling_client->identity(),
                             m_identity,
                             PeerMessage::create_tag(),
                             nlohmann::json()
-                    ).to_json()
+                    )
             );
             m_peer_state = result.get<PeerMessage>()->content().get<PeerState>();
         }
@@ -171,15 +177,15 @@ namespace krapi {
         if (m_peer_type == PeerType::Unknown) {
 
             auto tag = PeerMessage::create_tag();
-            m_event_queue->enqueue<InternalMessage>(
+            m_event_queue->enqueue<InternalMessage<PeerMessage>>(
                     InternalMessageType::SendPeerMessage,
-                    PeerMessage(
+                    PeerMessage::create(
                             PeerMessageType::PeerTypeRequest,
                             m_signaling_client->identity(),
                             m_identity,
                             tag,
                             nlohmann::json()
-                    ).to_json()
+                    )
             );
             auto result = co_await m_event_queue->create_awaitable(tag);
             m_peer_type = result.get<PeerMessage>()->content().get<PeerType>();
@@ -191,6 +197,7 @@ namespace krapi {
     void PeerConnection::on_peer_state_update(Event event) {
 
         auto message = event.get<PeerMessage>();
+
         auto peer_id = message->sender_identity();
         if (peer_id == m_identity) {
 
@@ -200,6 +207,16 @@ namespace krapi {
                     peer_id,
                     to_string(new_state)
             );
+        }
+    }
+
+    void PeerConnection::on_rtc_candidate(Event event) {
+
+        auto message = event.get<SignalingMessage>();
+        if (m_identity == message->sender_identity()) {
+
+            auto spd = message->content().get<std::string>();
+            m_peer_connection->addRemoteCandidate(spd);
         }
     }
 

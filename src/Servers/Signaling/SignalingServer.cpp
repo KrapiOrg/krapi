@@ -108,10 +108,12 @@ namespace krapi {
 
                     ws->onOpen([identity]() { spdlog::info("{} Connected", identity); });
                     ws->onMessage([identity, this](rtc::message_variant message) {
-
                         on_client_message(identity, std::move(message));
                     });
-                    ws->onClosed([identity, this]() { auto iden = identity; on_client_closed(iden); });
+                    ws->onClosed([identity, this]() {
+                        auto iden = identity;
+                        on_client_closed(iden);
+                    });
                     std::lock_guard l(m_mutex);
                     m_sockets.emplace(identity, std::move(ws));
                 }

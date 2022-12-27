@@ -4,16 +4,18 @@
 
 #pragma once
 
-#include "Event.h"
 #include "eventpp/eventqueue.h"
-#include "eventpp/utilities/counterremover.h"
-
 #include "concurrencpp/concurrencpp.h"
+#include "spdlog/spdlog.h"
+
+#include "Event.h"
 #include "Overload.h"
+#include "NotNull.h"
 
 namespace krapi {
     using EventPromise = concurrencpp::result_promise<Event>;
     using EventQueueType = eventpp::EventQueue<EventType, void(Event)>;
+
 
     template<typename T>
     concept has_create = requires(T){
@@ -23,12 +25,9 @@ namespace krapi {
     class EventQueue {
 
         EventQueueType m_event_queue;
-
         std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
         std::unordered_map<std::string, EventPromise> m_promises;
         std::atomic<bool> m_closed;
-
-
     public:
 
         explicit EventQueue() :
@@ -53,7 +52,7 @@ namespace krapi {
             enqueue(T::create(std::forward<U>(params)...));
         }
 
-        concurrencpp::shared_result<Event> create_awaitable(std::string tag) {
+        concurrencpp::shared_result <Event> create_awaitable(std::string tag) {
 
             auto promise = EventPromise();
             auto result = promise.get_result();
@@ -63,19 +62,10 @@ namespace krapi {
         }
 
         template<has_create T, typename ...U>
-        concurrencpp::shared_result<Event> submit(U &&...params) {
+        concurrencpp::shared_result <Event> submit(U &&...params) {
 
             Event event = T::create(std::forward<U>(params)...);
-            auto awaitable = create_awaitable(std::visit(
-                    Overload{
-                            [](Box<InternalMessage> e) {
-                                return e->content()["tag"].template get<std::string>();
-                            },
-                            [](auto &&e) {
-                                return e->tag();
-                            }
-                    }, event
-            ));
+            auto awaitable = create_awaitable(std::visit([](auto &&e) { return e->tag(); }, event));
             enqueue(std::move(event));
             return awaitable;
         }
@@ -91,8 +81,17 @@ namespace krapi {
 
                 return std::visit(
                         Overload{
-                                [=, this](Box<InternalMessage>) {
+                                [=, this]<typename T>(Box<InternalMessage<T>> ev) {
                                     m_event_queue.dispatch(queue_event);
+                                    return true;
+                                },
+                                [=, this](Box<InternalNotification<std::string>> notif) {
+                                    auto content = notif->content();
+
+                                    if (m_promises.contains(content))
+                                        m_promises.find(content)->second.set_result(notif);
+                                    else
+                                        m_event_queue.dispatch(notif->type(), notif);
                                     return true;
                                 },
                                 [=, this](auto &&ev) {
@@ -113,11 +112,6 @@ namespace krapi {
             }
 
             return false;
-        }
-
-        void append_listener(EventType event_type, std::function<void(Event)> callback) {
-
-            m_event_queue.appendListener(event_type, callback);
         }
 
         void close() {

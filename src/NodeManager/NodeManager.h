@@ -22,7 +22,6 @@ namespace krapi {
     class NodeManager {
     protected:
 
-        std::atomic<bool> m_blocking_bool;
         std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
         EventQueuePtr m_event_queue;
         concurrencpp::timer m_event_loop;
@@ -30,7 +29,9 @@ namespace krapi {
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
         eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
-        std::atomic<PeerState> m_peer_state;
+        std::atomic<bool> m_blocked;
+
+        PeerState m_peer_state;
         PeerType m_peer_type;
         bool m_initialized;
 
@@ -41,8 +42,6 @@ namespace krapi {
         void on_peer_state_request(Event);
 
         void on_peer_type_request(Event);
-
-        void on_peer_state_update(Event);
 
         void on_send_peer_message(Event);
 
