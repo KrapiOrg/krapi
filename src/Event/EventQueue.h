@@ -44,7 +44,6 @@ namespace krapi {
         template<has_create T, typename ...U>
         void enqueue(U &&...params) {
 
-            spdlog::info("Thread {} enqueued a message", std::hash<std::thread::id>{}(std::this_thread::get_id()));
             enqueue(T::create(std::forward<U>(params)...));
         }
 
@@ -73,11 +72,6 @@ namespace krapi {
             if (m_event_queue.takeEvent(&queue_event)) {
                 auto event_type = queue_event.getEvent();
                 auto event = queue_event.getArgument<0>();
-                spdlog::info(
-                        "Processing {} on {}",
-                        std::visit([](auto &&ev) { return to_string(ev->type()); }, event),
-                        std::hash<std::thread::id>{}(std::this_thread::get_id())
-                );
 
                 return std::visit(
                         Overload{

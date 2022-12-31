@@ -32,14 +32,13 @@ int main(int argc, char *argv[]) {
     event_queue->append_listener(
             InternalNotificationType::SignalingServerClosed,
             [=](Event) {
-                spdlog::info("Signaling Server Closed");
+                spdlog::warn("Signaling Server Closed...");
                 end->exchange(true);
             }
     );
     auto worker = runtime->thread_executor();
     auto event_loop = worker->submit(
             [=]() {
-                spdlog::info("Eventloop Thread is {}", std::hash<std::thread::id>{}(std::this_thread::get_id()));
                 while (!end->load()) {
                     event_queue->wait();
                     event_queue->process_one();

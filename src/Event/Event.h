@@ -27,6 +27,10 @@ namespace krapi {
     struct Event : EventVariant {
         using EventVariant::variant;
 
+        bool listenable;
+
+        explicit Event(bool listenable = false) : listenable(listenable) {}
+
         template<typename T>
         Box<T> get() const {
 
