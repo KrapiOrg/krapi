@@ -8,6 +8,8 @@
 #include "concurrencpp/concurrencpp.h"
 #include "spdlog/spdlog.h"
 
+#include "PromiseStore.h"
+
 #include "Event.h"
 #include "Overload.h"
 #include "NotNull.h"
@@ -20,42 +22,6 @@ namespace krapi {
     template<typename T>
     concept has_create = requires(T){
         T::create();
-    };
-
-    template<typename ResultType, typename TagType=std::string>
-    class PromiseStore {
-        mutable std::recursive_mutex m_mutex;
-        std::unordered_map<TagType, concurrencpp::result_promise<ResultType>> m_promises;
-    public:
-        concurrencpp::shared_result<ResultType> add(TagType tag) {
-
-            auto promise = concurrencpp::result_promise<ResultType>();
-            auto result = promise.get_result();
-
-            {
-                std::lock_guard l(m_mutex);
-                m_promises.emplace(tag, std::move(promise));
-            }
-            return result;
-        }
-
-        bool contains(TagType tag) const {
-
-            std::lock_guard l(m_mutex);
-            return m_promises.contains(tag);
-        }
-
-        bool set_result(std::string tag, ResultType result) {
-
-            std::lock_guard l(m_mutex);
-            if (m_promises.contains(tag)) {
-
-                m_promises.find(tag)->second.set_result(result);
-                m_promises.erase(tag);
-                return false;
-            }
-            return true;
-        }
     };
 
     class EventQueue {
@@ -80,21 +46,25 @@ namespace krapi {
         template<has_create T, typename ...U>
         void enqueue(U &&...params) {
 
-            enqueue(T::create(std::forward<U>(params)...));
+            Event event = T::create(std::forward<U>(params)...);
+            auto event_type = std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
+            m_event_queue.enqueue(event_type, std::move(event));
         }
 
-        concurrencpp::shared_result<Event> create_awaitable(std::string tag) {
+        concurrencpp::shared_result <Event> create_awaitable(std::string tag) {
 
             return m_promise_store.add(tag);
         }
 
         template<has_create T, typename ...U>
-        concurrencpp::shared_result<Event> submit(U &&...params) {
-
+        concurrencpp::shared_result <Event> submit(U &&...params) {
 
             Event event = T::create(std::forward<U>(params)...);
-            auto awaitable = create_awaitable(std::visit([](auto &&e) { return e->tag(); }, event));
-            enqueue(std::move(event));
+            auto tag = std::visit([](auto &&e) { return e->tag(); }, event);
+            auto event_type = std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
+
+            auto awaitable = m_promise_store.add(tag);
+            m_event_queue.enqueue(event_type, std::move(event));
             return awaitable;
         }
 
@@ -102,32 +72,29 @@ namespace krapi {
 
             EventQueueType::QueuedEvent queue_event;
             if (m_event_queue.takeEvent(&queue_event)) {
-                auto event_type = queue_event.getEvent();
-                auto event = queue_event.getArgument<0>();
 
-                return std::visit(
+                Event event = queue_event.getArgument<0>();
+
+                std::visit(
                         Overload{
                                 [=, this]<typename T>(Box<InternalMessage<T>> ev) {
                                     m_event_queue.dispatch(queue_event);
-                                    return true;
                                 },
                                 [=, this](Box<InternalNotification<std::string>> notif) {
                                     auto tag = notif->content();
-                                    if (m_promise_store.set_result(tag,notif))
+                                    if (m_promise_store.set_result(tag, notif))
                                         m_event_queue.dispatch(queue_event);
-                                    return true;
                                 },
                                 [=, this](auto &&ev) {
                                     auto tag = ev->tag();
 
-                                    if (m_promise_store.set_result(tag,ev))
+                                    if (m_promise_store.set_result(tag, ev))
                                         m_event_queue.dispatch(queue_event);
-
-                                    return true;
                                 }
                         },
                         event
                 );
+                return true;
             }
 
             return false;

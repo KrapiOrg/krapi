@@ -5,6 +5,7 @@ add_library(
         STATIC
         ${CMAKE_CURRENT_LIST_DIR}/Event.h
         ${CMAKE_CURRENT_LIST_DIR}/EventQueue.h
+        ${CMAKE_CURRENT_LIST_DIR}/PromiseStore.h
 )
 target_link_libraries(
         krapi_event
