@@ -19,21 +19,59 @@
 
 namespace krapi {
 
-    class NodeManager {
-    protected:
+    class [[nodiscard]] NodeManager final {
 
-        std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
+    public:
+
+        [[nodiscard]]
+        static inline concurrencpp::result<std::shared_ptr<NodeManager>> create(
+                EventQueuePtr event_queue,
+                PeerType pt
+        ) {
+
+            auto manager = std::shared_ptr<NodeManager>(new NodeManager(std::move(event_queue), pt));
+
+            co_await manager->m_signaling_client->initialize();
+            co_await manager->connect_to_peers();
+
+            for (const auto &[peer_id, connection]: manager->m_connection_map) {
+                auto state = co_await connection->state();
+                auto type = co_await connection->type();
+                spdlog::info("{}: {} {}", peer_id, to_string(type), to_string(state));
+            }
+            co_return manager;
+        }
+
+        void set_state(PeerState state);
+
+        [[nodiscard]]
+        PeerState get_state() const;
+
+        [[nodiscard]]
+        std::string id() const;
+
+        concurrencpp::shared_result<Event> send(Box<PeerMessage>);
+
+        void send_and_forget(Box<PeerMessage>);
+
+        std::vector<concurrencpp::shared_result<Event>> broadcast(PeerMessageType, nlohmann::json = {});
+
+        void broadcast_and_forget(PeerMessageType, nlohmann::json = {});
+
+    private:
+
+        explicit NodeManager(
+                EventQueuePtr,
+                PeerType pt
+        );
+
         EventQueuePtr m_event_queue;
-        concurrencpp::timer m_event_loop;
         std::unique_ptr<SignalingClient> m_signaling_client;
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
         eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
-        std::atomic<bool> m_blocked;
-
         PeerState m_peer_state;
         PeerType m_peer_type;
-        bool m_initialized;
 
         void on_rtc_setup(Event);
 
@@ -51,38 +89,8 @@ namespace krapi {
 
         void on_peer_closed(Event);
 
-        void on_signaling_server_closed(Event);
-
         [[nodiscard]]
         concurrencpp::result<void> connect_to_peers();
-
-    public:
-
-        explicit NodeManager(
-                std::shared_ptr<concurrencpp::worker_thread_executor> worker,
-                PeerType pt
-        );
-
-        void set_state(PeerState state);
-
-        [[nodiscard]]
-        PeerState get_state() const;
-
-        [[nodiscard]]
-        std::string id() const;
-
-        [[nodiscard]]
-        concurrencpp::result<void> initialize(std::shared_ptr<concurrencpp::timer_queue>);
-
-        concurrencpp::shared_result<Event> send(Box<PeerMessage>);
-
-        void send_and_forget(Box<PeerMessage>);
-
-        std::vector<concurrencpp::shared_result<Event>> broadcast(PeerMessageType, nlohmann::json = {});
-
-        void broadcast_and_forget(PeerMessageType, nlohmann::json = {});
-
-        ~NodeManager();
     };
 
 } // krapi

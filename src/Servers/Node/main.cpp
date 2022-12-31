@@ -26,18 +26,30 @@ int main(int argc, char *argv[]) {
         fs::create_directory(path);
     }
 
+    auto end = std::make_shared<std::atomic<bool>>(false);
+    auto event_queue = EventQueue::create();
 
-    auto worker = runtime->make_worker_thread_executor();
-    auto manager = std::make_shared<NodeManager>(
-            worker,
+    event_queue->append_listener(
+            InternalNotificationType::SignalingServerClosed,
+            [=](Event) {
+                spdlog::info("Signaling Server Closed");
+                end->exchange(true);
+            }
+    );
+    auto worker = runtime->thread_executor();
+    auto event_loop = worker->submit(
+            [=]() {
+                spdlog::info("Eventloop Thread is {}", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+                while (!end->load()) {
+                    event_queue->wait();
+                    event_queue->process_one();
+                }
+            }
+    );
+    auto manager = NodeManager::create(
+            event_queue,
             PeerType::Full
     );
-    worker->submit(
-            [=]() -> concurrencpp::null_result {
 
-                co_await manager->initialize(runtime->timer_queue());
-                manager->set_state(PeerState::WaitingForPeers);
-            }
-    ).wait();
-
+    event_loop.wait();
 }

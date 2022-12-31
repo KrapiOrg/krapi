@@ -13,15 +13,48 @@ using namespace std::chrono_literals;
 namespace krapi {
 
     NodeManager::NodeManager(
-            std::shared_ptr<concurrencpp::worker_thread_executor> worker,
+            EventQueuePtr event_queue,
             PeerType pt
     ) :
-            m_blocked(true),
-            m_worker(std::move(worker)),
+            m_event_queue(event_queue),
+            m_subscription_remover(event_queue->internal_queue()),
+            m_signaling_client(SignalingClient::create(make_not_null(m_event_queue.get()))),
             m_peer_state(PeerState::Closed),
-            m_peer_type(pt),
-            m_initialized(false) {
+            m_peer_type(pt) {
+        m_subscription_remover.appendListener(
+                SignalingMessageType::RTCSetup,
+                std::bind_front(&NodeManager::on_rtc_setup, this)
+        );
 
+        m_subscription_remover.appendListener(
+                PeerMessageType::PeerTypeRequest,
+                std::bind_front(&NodeManager::on_peer_type_request, this)
+        );
+
+        m_subscription_remover.appendListener(
+                PeerMessageType::PeerStateRequest,
+                std::bind_front(&NodeManager::on_peer_state_request, this)
+        );
+
+        m_subscription_remover.appendListener(
+                InternalMessageType::SendPeerMessage,
+                std::bind_front(&NodeManager::on_send_peer_message, this)
+        );
+
+        m_subscription_remover.appendListener(
+                InternalNotificationType::DataChannelOpened,
+                std::bind_front(&NodeManager::on_datachannel_opened, this)
+        );
+
+        m_subscription_remover.appendListener(
+                InternalNotificationType::DataChannelClosed,
+                std::bind_front(&NodeManager::on_datachannel_closed, this)
+        );
+
+        m_subscription_remover.appendListener(
+                SignalingMessageType::PeerClosed,
+                std::bind_front(&NodeManager::on_peer_closed, this)
+        );
     }
 
     std::string NodeManager::id() const {
@@ -78,75 +111,6 @@ namespace krapi {
     PeerState NodeManager::get_state() const {
 
         return m_peer_state;
-    }
-
-    concurrencpp::result<void> NodeManager::initialize(std::shared_ptr<concurrencpp::timer_queue> timer_queue) {
-
-        assert(!m_initialized && "Called NodeManager::initialize() more than once");
-
-        m_event_queue = EventQueue::create();
-        m_subscription_remover = eventpp::ScopedRemover<EventQueueType>(m_event_queue->internal_queue());
-        m_signaling_client = SignalingClient::create(make_not_null(m_event_queue.get()));
-        m_event_loop = timer_queue->make_timer(
-                0ms,
-                30ms,
-                m_worker,
-                [this]() {
-                    m_event_queue->wait();
-                    m_event_queue->process_one();
-                }
-        );
-
-        m_subscription_remover.appendListener(
-                SignalingMessageType::RTCSetup,
-                std::bind_front(&NodeManager::on_rtc_setup, this)
-        );
-
-        m_subscription_remover.appendListener(
-                PeerMessageType::PeerTypeRequest,
-                std::bind_front(&NodeManager::on_peer_type_request, this)
-        );
-
-        m_subscription_remover.appendListener(
-                PeerMessageType::PeerStateRequest,
-                std::bind_front(&NodeManager::on_peer_state_request, this)
-        );
-
-        m_subscription_remover.appendListener(
-                InternalMessageType::SendPeerMessage,
-                std::bind_front(&NodeManager::on_send_peer_message, this)
-        );
-
-        m_subscription_remover.appendListener(
-                InternalNotificationType::DataChannelOpened,
-                std::bind_front(&NodeManager::on_datachannel_opened, this)
-        );
-
-        m_subscription_remover.appendListener(
-                InternalNotificationType::DataChannelClosed,
-                std::bind_front(&NodeManager::on_datachannel_closed, this)
-        );
-
-        m_subscription_remover.appendListener(
-                SignalingMessageType::PeerClosed,
-                std::bind_front(&NodeManager::on_peer_closed, this)
-        );
-
-        m_subscription_remover.appendListener(
-                InternalNotificationType::SignalingServerClosed,
-                std::bind_front(&NodeManager::on_signaling_server_closed, this)
-        );
-
-        m_initialized = true;
-        co_await m_signaling_client->initialize();
-
-        co_await connect_to_peers();
-
-        for (const auto &[peer_id, connection]: m_connection_map) {
-            auto state = co_await connection->state();
-            auto type = co_await connection->type();
-            spdlog::info("{}: {} {}", peer_id, to_string(type), to_string(state));
-        }
     }
 
     void NodeManager::on_rtc_setup(Event event) {
@@ -287,23 +251,11 @@ namespace krapi {
         m_connection_map.erase(id);
     }
 
-    void NodeManager::on_signaling_server_closed(Event event) {
-
-        spdlog::info("NodeManager: signaling server closed");
-        m_event_queue->close();
-        m_event_loop.cancel();
-        m_blocked.exchange(false);
-        m_blocked.notify_one();
-    }
-
     void NodeManager::set_state(PeerState state) {
 
         m_peer_state = state;
         broadcast_and_forget(PeerMessageType::PeerStateUpdate, state);
     }
 
-    NodeManager::~NodeManager() {
 
-        m_blocked.wait(true);
-    }
 } // krapi

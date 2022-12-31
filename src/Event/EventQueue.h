@@ -25,19 +25,14 @@ namespace krapi {
     class EventQueue {
 
         EventQueueType m_event_queue;
-        std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
         std::unordered_map<std::string, EventPromise> m_promises;
-        std::atomic<bool> m_closed;
+
     public:
 
-        explicit EventQueue() :
-                m_closed(false) {
+        [[nodiscard]]
+        static inline std::shared_ptr<EventQueue> create() {
 
-        }
-
-        static std::unique_ptr<EventQueue> create() {
-
-            return std::make_unique<EventQueue>();
+            return std::make_shared<EventQueue>();
         }
 
         void enqueue(Event event) {
@@ -49,6 +44,7 @@ namespace krapi {
         template<has_create T, typename ...U>
         void enqueue(U &&...params) {
 
+            spdlog::info("Thread {} enqueued a message", std::hash<std::thread::id>{}(std::this_thread::get_id()));
             enqueue(T::create(std::forward<U>(params)...));
         }
 
@@ -64,6 +60,7 @@ namespace krapi {
         template<has_create T, typename ...U>
         concurrencpp::shared_result <Event> submit(U &&...params) {
 
+
             Event event = T::create(std::forward<U>(params)...);
             auto awaitable = create_awaitable(std::visit([](auto &&e) { return e->tag(); }, event));
             enqueue(std::move(event));
@@ -72,12 +69,15 @@ namespace krapi {
 
         bool process_one() {
 
-            if (m_closed)
-                return false;
             EventQueueType::QueuedEvent queue_event;
             if (m_event_queue.takeEvent(&queue_event)) {
                 auto event_type = queue_event.getEvent();
                 auto event = queue_event.getArgument<0>();
+                spdlog::info(
+                        "Processing {} on {}",
+                        std::visit([](auto &&ev) { return to_string(ev->type()); }, event),
+                        std::hash<std::thread::id>{}(std::this_thread::get_id())
+                );
 
                 return std::visit(
                         Overload{
@@ -114,9 +114,13 @@ namespace krapi {
             return false;
         }
 
+        void append_listener(EventType type, std::function<void(Event)> callback) {
+
+            m_event_queue.appendListener(type, callback);
+        }
+
         void close() {
 
-            m_closed = true;
             m_event_queue.clearEvents();
         }
 
@@ -131,5 +135,5 @@ namespace krapi {
         }
     };
 
-    using EventQueuePtr = std::unique_ptr<EventQueue>;
+    using EventQueuePtr = std::shared_ptr<EventQueue>;
 }
