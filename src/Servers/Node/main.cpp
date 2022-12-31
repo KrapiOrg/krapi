@@ -2,7 +2,7 @@
 // Created by mythi on 12/10/22.
 //
 #include "NodeManager.h"
-#include "EventQueue.h"
+#include "EventLoop.h"
 
 using namespace krapi;
 using namespace std::chrono_literals;
@@ -26,37 +26,26 @@ int main(int argc, char *argv[]) {
         fs::create_directory(path);
     }
 
-    auto worker = runtime->make_worker_thread_executor();
-    auto event_queue = EventQueue::create();
-    auto signaling_client = SignalingClient::create(event_queue);
+    auto event_loop = EventLoop::create(runtime->make_worker_thread_executor());
+
+    auto signaling_client = SignalingClient::create(event_loop->event_queue());
     signaling_client->initialize().wait();
 
-    auto end = std::make_shared<std::atomic_bool>(false);
-
-    event_queue->append_listener(
+    event_loop->append_listener(
             InternalNotificationType::SignalingServerClosed,
             [=](Event) {
                 spdlog::warn("Signaling Server Closed...");
-                end->exchange(true);
-            }
-    );
-
-    worker->enqueue(
-            [=]() {
-
-                while (!end->load()) {
-                    event_queue->wait();
-                    event_queue->process_one();
-                }
+                event_loop->end();
             }
     );
 
     auto manager = NodeManager::create(
-            event_queue,
+            event_loop->event_queue(),
             signaling_client,
             PeerType::Full
     );
     manager->connect_to_peers().wait();
     manager->set_state(PeerState::InitialBlockDownload);
-    end->wait(false);
+
+    event_loop->wait();
 }
