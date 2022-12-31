@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 namespace krapi {
     SignalingClient::SignalingClient(
-            NotNull<EventQueue *> event_queue
+            EventQueuePtr event_queue
     ) :
             m_event_queue(event_queue),
             m_subscription_remover(event_queue->internal_queue()),

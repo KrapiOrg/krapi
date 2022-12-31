@@ -14,13 +14,15 @@ namespace krapi {
 
     NodeManager::NodeManager(
             EventQueuePtr event_queue,
+            SignalingClientPtr signaling_client,
             PeerType pt
     ) :
             m_event_queue(event_queue),
             m_subscription_remover(event_queue->internal_queue()),
-            m_signaling_client(SignalingClient::create(make_not_null(m_event_queue.get()))),
+            m_signaling_client(std::move(signaling_client)),
             m_peer_state(PeerState::Closed),
             m_peer_type(pt) {
+
         m_subscription_remover.appendListener(
                 SignalingMessageType::RTCSetup,
                 std::bind_front(&NodeManager::on_rtc_setup, this)
@@ -106,6 +108,12 @@ namespace krapi {
             co_await event;
         }
         spdlog::info("Created connections to : [{}]", fmt::join(available_peers, ", "));
+
+        for (const auto &[peer_id, connection]: m_connection_map) {
+            auto state = co_await connection->state();
+            auto type = co_await connection->type();
+            spdlog::info("{}: {} {}", peer_id, to_string(type), to_string(state));
+        }
     }
 
     PeerState NodeManager::get_state() const {
@@ -256,6 +264,4 @@ namespace krapi {
         m_peer_state = state;
         broadcast_and_forget(PeerMessageType::PeerStateUpdate, state);
     }
-
-
 } // krapi

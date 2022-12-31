@@ -22,10 +22,46 @@ namespace krapi {
         T::create();
     };
 
+    template<typename ResultType, typename TagType=std::string>
+    class PromiseStore {
+        mutable std::recursive_mutex m_mutex;
+        std::unordered_map<TagType, concurrencpp::result_promise<ResultType>> m_promises;
+    public:
+        concurrencpp::shared_result<ResultType> add(TagType tag) {
+
+            auto promise = concurrencpp::result_promise<ResultType>();
+            auto result = promise.get_result();
+
+            {
+                std::lock_guard l(m_mutex);
+                m_promises.emplace(tag, std::move(promise));
+            }
+            return result;
+        }
+
+        bool contains(TagType tag) const {
+
+            std::lock_guard l(m_mutex);
+            return m_promises.contains(tag);
+        }
+
+        bool set_result(std::string tag, ResultType result) {
+
+            std::lock_guard l(m_mutex);
+            if (m_promises.contains(tag)) {
+
+                m_promises.find(tag)->second.set_result(result);
+                m_promises.erase(tag);
+                return false;
+            }
+            return true;
+        }
+    };
+
     class EventQueue {
 
         EventQueueType m_event_queue;
-        std::unordered_map<std::string, EventPromise> m_promises;
+        PromiseStore<Event> m_promise_store;
 
     public:
 
@@ -47,17 +83,13 @@ namespace krapi {
             enqueue(T::create(std::forward<U>(params)...));
         }
 
-        concurrencpp::shared_result <Event> create_awaitable(std::string tag) {
+        concurrencpp::shared_result<Event> create_awaitable(std::string tag) {
 
-            auto promise = EventPromise();
-            auto result = promise.get_result();
-
-            m_promises.emplace(tag, std::move(promise));
-            return result;
+            return m_promise_store.add(tag);
         }
 
         template<has_create T, typename ...U>
-        concurrencpp::shared_result <Event> submit(U &&...params) {
+        concurrencpp::shared_result<Event> submit(U &&...params) {
 
 
             Event event = T::create(std::forward<U>(params)...);
@@ -80,24 +112,17 @@ namespace krapi {
                                     return true;
                                 },
                                 [=, this](Box<InternalNotification<std::string>> notif) {
-                                    auto content = notif->content();
-
-                                    if (m_promises.contains(content))
-                                        m_promises.find(content)->second.set_result(notif);
-                                    else
-                                        m_event_queue.dispatch(notif->type(), notif);
+                                    auto tag = notif->content();
+                                    if (m_promise_store.set_result(tag,notif))
+                                        m_event_queue.dispatch(queue_event);
                                     return true;
                                 },
                                 [=, this](auto &&ev) {
                                     auto tag = ev->tag();
 
-                                    if (m_promises.contains(tag)) {
-                                        m_promises.find(tag)->second.set_result(ev);
-                                        m_promises.erase(tag);
-                                        return true;
-                                    }
+                                    if (m_promise_store.set_result(tag,ev))
+                                        m_event_queue.dispatch(queue_event);
 
-                                    m_event_queue.dispatch(queue_event);
                                     return true;
                                 }
                         },

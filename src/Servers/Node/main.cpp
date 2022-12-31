@@ -26,8 +26,12 @@ int main(int argc, char *argv[]) {
         fs::create_directory(path);
     }
 
-    auto end = std::make_shared<std::atomic<bool>>(false);
+    auto worker = runtime->make_worker_thread_executor();
     auto event_queue = EventQueue::create();
+    auto signaling_client = SignalingClient::create(event_queue);
+    signaling_client->initialize().wait();
+
+    auto end = std::make_shared<std::atomic_bool>(false);
 
     event_queue->append_listener(
             InternalNotificationType::SignalingServerClosed,
@@ -36,19 +40,23 @@ int main(int argc, char *argv[]) {
                 end->exchange(true);
             }
     );
-    auto worker = runtime->thread_executor();
-    auto event_loop = worker->submit(
+
+    worker->enqueue(
             [=]() {
+
                 while (!end->load()) {
                     event_queue->wait();
                     event_queue->process_one();
                 }
             }
     );
+
     auto manager = NodeManager::create(
             event_queue,
+            signaling_client,
             PeerType::Full
     );
-
-    event_loop.wait();
+    manager->connect_to_peers().wait();
+    manager->set_state(PeerState::InitialBlockDownload);
+    end->wait(false);
 }

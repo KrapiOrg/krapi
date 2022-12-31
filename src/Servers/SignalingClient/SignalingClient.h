@@ -8,7 +8,6 @@
 #include "eventpp/utilities/scopedremover.h"
 #include "spdlog/spdlog.h"
 #include "EventQueue.h"
-#include "NotNull.h"
 
 namespace krapi {
 
@@ -21,7 +20,7 @@ namespace krapi {
         /*!
          * Constructor for a signaling client
          */
-        explicit SignalingClient(NotNull<EventQueue *> event_queue);
+        explicit SignalingClient(EventQueuePtr event_queue);
 
         /*!
          * Getter for identity
@@ -59,9 +58,9 @@ namespace krapi {
 
         template<typename ...UU>
         [[nodiscard]]
-        static inline std::unique_ptr<SignalingClient> create(UU &&...uu) {
+        static inline std::shared_ptr<SignalingClient> create(UU &&...uu) {
 
-            return std::make_unique<SignalingClient>(std::forward<UU>(uu)...);
+            return std::make_shared<SignalingClient>(std::forward<UU>(uu)...);
         }
 
     private:
@@ -79,11 +78,11 @@ namespace krapi {
         [[nodiscard]]
         concurrencpp::shared_result<std::string> request_identity() const;
 
-        NotNull<EventQueue *> m_event_queue;
+        EventQueuePtr m_event_queue;
         std::unique_ptr<rtc::WebSocket> m_ws;
         std::string m_identity;
         eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
     };
 
-    using SignalingClientPtr = std::unique_ptr<SignalingClient>;
+    using SignalingClientPtr = std::shared_ptr<SignalingClient>;
 } // krapi

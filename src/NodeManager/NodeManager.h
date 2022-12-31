@@ -24,23 +24,17 @@ namespace krapi {
     public:
 
         [[nodiscard]]
-        static inline concurrencpp::result<std::shared_ptr<NodeManager>> create(
+        static inline std::shared_ptr<NodeManager> create(
                 EventQueuePtr event_queue,
+                SignalingClientPtr signaling_client,
                 PeerType pt
         ) {
 
-            auto manager = std::shared_ptr<NodeManager>(new NodeManager(std::move(event_queue), pt));
-
-            co_await manager->m_signaling_client->initialize();
-            co_await manager->connect_to_peers();
-
-            for (const auto &[peer_id, connection]: manager->m_connection_map) {
-                auto state = co_await connection->state();
-                auto type = co_await connection->type();
-                spdlog::info("{}: {} {}", peer_id, to_string(type), to_string(state));
-            }
-            co_return manager;
+            return std::shared_ptr<NodeManager>(new NodeManager(std::move(event_queue), std::move(signaling_client) ,pt));
         }
+
+        [[nodiscard]]
+        concurrencpp::result<void> connect_to_peers();
 
         void set_state(PeerState state);
 
@@ -62,11 +56,12 @@ namespace krapi {
 
         explicit NodeManager(
                 EventQueuePtr,
+                SignalingClientPtr,
                 PeerType pt
         );
 
         EventQueuePtr m_event_queue;
-        std::unique_ptr<SignalingClient> m_signaling_client;
+        SignalingClientPtr m_signaling_client;
         std::unordered_map<std::string, std::shared_ptr<PeerConnection>> m_connection_map;
         eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
@@ -88,9 +83,6 @@ namespace krapi {
         void on_datachannel_closed(Event);
 
         void on_peer_closed(Event);
-
-        [[nodiscard]]
-        concurrencpp::result<void> connect_to_peers();
     };
 
 } // krapi
