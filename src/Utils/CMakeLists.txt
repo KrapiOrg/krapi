@@ -4,7 +4,6 @@ set(UTILSPREFIX ${CMAKE_CURRENT_SOURCE_DIR}/src/Utils)
 add_library(
         utils
         ${UTILSPREFIX}/Box.h
-        ${UTILSPREFIX}/ErrorOr.h
         ${UTILSPREFIX}/Overload.h
         ${UTILSPREFIX}/AsyncQueue.h
         ${UTILSPREFIX}/NotNull.h
