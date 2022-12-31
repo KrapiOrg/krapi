@@ -4,7 +4,6 @@
 
 #include "NodeManager.h"
 #include "spdlog/spdlog.h"
-#include "ErrorOr.h"
 #include "range/v3/view.hpp"
 
 using namespace std::chrono_literals;

@@ -18,7 +18,6 @@ target_link_libraries(
         eventpp
         stduuid
         range-v3
-        tl::expected
         concurrencpp
         signaling_client
         transaction_pool
