@@ -12,7 +12,6 @@ target_link_libraries(
         PRIVATE
         nlohmann_json
         datachannel
-        range-v3
         spdlog
         stduuid
 )

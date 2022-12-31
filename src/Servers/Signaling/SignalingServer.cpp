@@ -2,7 +2,6 @@
 // Created by mythi on 17/12/22.
 //
 
-#include "range/v3/view.hpp"
 #include "spdlog/spdlog.h"
 
 #include "SignalingServer.h"
@@ -21,10 +20,15 @@ namespace krapi {
     std::vector<std::string> SignalingServer::get_identities(std::string_view identity_to_filter_for) const {
 
         std::lock_guard l(m_mutex);
-        return m_sockets
-               | ranges::views::keys
-               | ranges::views::filter([=](std::string_view identity) { return identity != identity_to_filter_for; })
-               | ranges::to<std::vector<std::string>>();
+
+        auto identities = std::vector<std::string>();
+
+        for (const auto &[identity, _]: m_sockets) {
+            if (identity != identity_to_filter_for)
+                identities.push_back(identity);
+        }
+
+        return identities;
     }
 
     void SignalingServer::on_client_message(std::string sender_identity, rtc::message_variant rtc_message) const {

@@ -17,7 +17,6 @@ target_link_libraries(
         datachannel
         eventpp
         stduuid
-        range-v3
         concurrencpp
         signaling_client
         transaction_pool

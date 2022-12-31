@@ -4,7 +4,7 @@
 
 #include "NodeManager.h"
 #include "spdlog/spdlog.h"
-#include "range/v3/view.hpp"
+#include <tuple>
 
 using namespace std::chrono_literals;
 
@@ -201,7 +201,7 @@ namespace krapi {
 
         std::vector<concurrencpp::shared_result<Event>> results;
 
-        for (const auto &peer: m_connection_map | ranges::views::keys) {
+        for (const auto &[peer, ignore]: m_connection_map) {
             results.push_back(
                     send(
                             PeerMessage::create(
