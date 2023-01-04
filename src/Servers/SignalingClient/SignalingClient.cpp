@@ -12,113 +12,103 @@ using namespace std::chrono_literals;
 #include "uuid.h"
 
 namespace krapi {
-    SignalingClient::SignalingClient(
-            EventQueuePtr event_queue
-    ) :
-            m_event_queue(event_queue),
-            m_subscription_remover(event_queue->internal_queue()),
-            m_ws(std::make_unique<rtc::WebSocket>()) {
-    }
+  SignalingClient::SignalingClient(EventQueuePtr event_queue)
+      : m_event_queue(event_queue),
+        m_subscription_remover(event_queue->internal_queue()),
+        m_ws(std::make_unique<rtc::WebSocket>()) {}
 
-    concurrencpp::result<void> SignalingClient::for_open() const {
+  concurrencpp::result<void> SignalingClient::for_open() const {
 
-        auto promise = std::make_shared<concurrencpp::result_promise<void>>();
-        m_ws->onOpen([promise]() { promise->set_result(); });
-        m_ws->open("ws://127.0.0.1:8080");
+    auto promise = std::make_shared<concurrencpp::result_promise<void>>();
+    m_ws->onOpen([promise]() { promise->set_result(); });
+    m_ws->open("ws://127.0.0.1:8080");
 
-        return promise->get_result();
-    }
+    return promise->get_result();
+  }
 
-    concurrencpp::shared_result<std::string> SignalingClient::request_identity() const {
+  concurrencpp::shared_result<std::string>
+  SignalingClient::request_identity() const {
 
-        auto promise = std::make_shared<concurrencpp::result_promise<std::string>>();
-        m_ws->onMessage(
-                [promise](rtc::message_variant message) {
-                    auto message_str = std::get<std::string>(message);
-                    auto message_json = nlohmann::json::parse(message_str);
-                    auto signaling_message = SignalingMessage::from_json(message_json);
-                    if (signaling_message->type() == SignalingMessageType::IdentityResponse)
-                        promise->set_result(signaling_message->content().get<std::string>());
-                }
-        );
+    auto promise =
+      std::make_shared<concurrencpp::result_promise<std::string>>();
+    m_ws->onMessage([promise](rtc::message_variant message) {
+      auto message_str = std::get<std::string>(message);
+      auto message_json = nlohmann::json::parse(message_str);
+      auto signaling_message = SignalingMessage::from_json(message_json);
+      if (signaling_message->type() == SignalingMessageType::IdentityResponse)
+        promise->set_result(signaling_message->content().get<std::string>());
+    });
 
-        m_ws->send(
-                SignalingMessage(
-                        SignalingMessageType::IdentityRequest,
-                        "unknown_identity",
-                        "signaling_server",
-                        SignalingMessage::create_tag()
-                ).to_string()
-        );
+    m_ws->send(SignalingMessage(
+                 SignalingMessageType::IdentityRequest,
+                 "unknown_identity",
+                 "signaling_server",
+                 SignalingMessage::create_tag()
+    )
+                 .to_string());
 
-        return promise->get_result();
-    }
+    return promise->get_result();
+  }
 
 
-    concurrencpp::result<void> SignalingClient::initialize() {
+  concurrencpp::result<void> SignalingClient::initialize() {
 
-        co_await for_open();
-        spdlog::info("SignalingClient: connected to signaling server {}", *m_ws->remoteAddress());
-        m_identity = co_await request_identity();
-        spdlog::info("SignalingClient: identity {}", m_identity);
+    co_await for_open();
+    spdlog::info(
+      "SignalingClient: connected to signaling server {}",
+      *m_ws->remoteAddress()
+    );
+    m_identity = co_await request_identity();
+    spdlog::info("SignalingClient: identity {}", m_identity);
 
-        m_ws->onMessage(
-                [this](rtc::message_variant message) {
+    m_ws->onMessage([this](rtc::message_variant message) {
+      auto message_str = std::get<std::string>(message);
+      auto message_json = nlohmann::json::parse(message_str);
+      auto signaling_message = SignalingMessage::from_json(message_json);
+      m_event_queue->enqueue(signaling_message);
+    });
 
-                    auto message_str = std::get<std::string>(message);
-                    auto message_json = nlohmann::json::parse(message_str);
-                    auto signaling_message = SignalingMessage::from_json(message_json);
-                    m_event_queue->enqueue(signaling_message);
-                }
-        );
+    m_subscription_remover.appendListener(
+      InternalMessageType::SendSignalingMessage,
+      [this](Event event) {
+        auto internal_message = event.get<InternalMessage<SignalingMessage>>();
+        m_ws->send(internal_message->content()->to_string());
+      }
+    );
 
-        m_subscription_remover.appendListener(
-                InternalMessageType::SendSignalingMessage,
-                [this](Event event) {
-                    auto internal_message = event.get<InternalMessage<SignalingMessage>>();
-                    m_ws->send(internal_message->content()->to_string());
-                }
-        );
+    m_ws->onClosed([this]() {
+      m_event_queue->enqueue<InternalNotification<void>>(
+        InternalNotificationType::SignalingServerClosed
+      );
+    });
+  }
 
-        m_ws->onClosed(
-                [this]() {
-                    m_event_queue->enqueue<InternalNotification<void>>(
-                            InternalNotificationType::SignalingServerClosed
-                    );
-                }
-        );
-    }
+  std::string SignalingClient::identity() const noexcept { return m_identity; }
 
-    std::string SignalingClient::identity() const noexcept {
+  concurrencpp::shared_result<Event> SignalingClient::available_peers() const {
 
-        return m_identity;
-    }
+    return send(SignalingMessage::create(
+      SignalingMessageType::AvailablePeersRequest,
+      m_identity,
+      "signaling_server",
+      SignalingMessage::create_tag()
+    ));
+  }
 
-    concurrencpp::shared_result<Event> SignalingClient::available_peers() const {
+  concurrencpp::shared_result<Event>
+  SignalingClient::send(Box<SignalingMessage> message) const {
 
-        return send(
-                SignalingMessage::create(
-                        SignalingMessageType::AvailablePeersRequest,
-                        m_identity,
-                        "signaling_server",
-                        SignalingMessage::create_tag()
-                )
-        );
-    }
+    return m_event_queue->submit<InternalMessage<SignalingMessage>>(
+      InternalMessageType::SendSignalingMessage,
+      std::move(message)
+    );
+  }
 
-    concurrencpp::shared_result<Event> SignalingClient::send(Box<SignalingMessage> message) const {
+  void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
 
-        return m_event_queue->submit<InternalMessage<SignalingMessage>>(
-                InternalMessageType::SendSignalingMessage,
-                std::move(message)
-        );
-    }
-
-    void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
-
-        m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
-                InternalMessageType::SendSignalingMessage,
-                std::move(message)
-        );
-    }
-} // krapi
+    m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
+      InternalMessageType::SendSignalingMessage,
+      std::move(message)
+    );
+  }
+}// namespace krapi

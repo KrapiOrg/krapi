@@ -4,5 +4,4 @@
 
 #include "BlockHeader.h"
 
-namespace krapi {
-} // krapi
+namespace krapi {}// namespace krapi

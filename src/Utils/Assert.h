@@ -7,7 +7,7 @@
 #define K_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #endif
 
-#define K_CONTRACT_CHECK(type, cond)                                                             \
-    (K_LIKELY(cond) ? static_cast<void>(0) : std::terminate())
+#define K_CONTRACT_CHECK(type, cond)                                           \
+  (K_LIKELY(cond) ? static_cast<void>(0) : std::terminate())
 
 #define Expects(cond) K_CONTRACT_CHECK("Precondition", cond)

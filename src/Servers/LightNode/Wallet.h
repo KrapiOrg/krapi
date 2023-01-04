@@ -4,47 +4,33 @@
 
 #pragma once
 
-#include <mutex>
+#include <memory>
 #include <unordered_map>
 
 #include "cryptopp/sha.h"
-#include "effolkronium/random.hpp"
-#include "eventpp/eventdispatcher.h"
 
 #include "Transaction.h"
 
 namespace krapi {
 
-    class Wallet {
-    public:
-        enum class Event {
-            TransactionStatusChanged
-        };
+  class Wallet {
 
-    private:
-        using Random = effolkronium::random_local;
-        using TransactionChangeCallback = void(Transaction, TransactionStatus, TransactionStatus);
-        using TransactionStatusChangeDispatcher = eventpp::EventDispatcher<Event, TransactionChangeCallback>;
+   private:
+    std::unordered_map<std::string, Transaction> m_transactions;
+    std::unordered_map<std::string, int> m_confirmations;
 
-        TransactionStatusChangeDispatcher m_transaction_status_change_dispatcher;
+    Wallet() = default;
 
-        CryptoPP::SHA256 m_sha_256;
-        Random m_random;
+   public:
+    bool add_transaction(Transaction);
+    void set_transaction_status(TransactionStatus, std::string);
 
-        std::mutex m_mutex;
-        std::unordered_map<std::string, Transaction> m_transactions;
-        std::unordered_map<std::string, int> m_confirmations;
+    static std::shared_ptr<Wallet> create() {
 
+      return std::shared_ptr<Wallet>(new Wallet());
+    }
 
-
-    public:
-
-        bool add_transaction(Transaction);
-        void set_transaction_status(TransactionStatus, std::string);
-
-        Transaction create_transaction(int my_id, int receiver_id);
-
-        void append_listener(Event, std::function<TransactionChangeCallback>);
-    };
-
-} // krapi
+    Transaction create_transaction(std::string my_id, std::string receiver_id);
+  };
+  using WalletPtr = std::shared_ptr<Wallet>;
+}// namespace krapi

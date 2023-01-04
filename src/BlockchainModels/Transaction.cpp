@@ -5,104 +5,81 @@
 
 namespace krapi {
 
-    Transaction::Transaction(
-            TransactionType type,
-            TransactionStatus status,
-            std::string hash,
-            uint64_t timestamp,
-            int from,
-            int to
-    ) :
-            m_type(type),
-            m_status(status),
-            m_hash(std::move(hash)),
-            m_timestamp(timestamp),
-            m_from(from),
-            m_to(to) {
+  Transaction::Transaction(
+    TransactionType type,
+    TransactionStatus status,
+    std::string hash,
+    uint64_t timestamp,
+    std::string from,
+    std::string to
+  )
+      : m_type(type), m_status(status), m_hash(std::move(hash)),
+        m_timestamp(timestamp), m_from(std::move(from)), m_to(std::move(to)) {
 
-        CryptoPP::StringSource s(m_hash, true,
-                                 new CryptoPP::HexDecoder(new CryptoPP::ArraySink(m_byte_hash.data(), 32)));
-    }
+    CryptoPP::StringSource s(
+      m_hash,
+      true,
+      new CryptoPP::HexDecoder(new CryptoPP::ArraySink(m_byte_hash.data(), 32))
+    );
+  }
 
-    Transaction Transaction::from_json(const nlohmann::json &json) {
+  Transaction Transaction::from_json(const nlohmann::json &json) {
 
 
-        return Transaction{
-                json["type"].get<TransactionType>(),
-                json["status"].get<TransactionStatus>(),
-                json["hash"].get<std::string>(),
-                json["timestamp"].get<uint64_t>(),
-                json["from"].get<int>(),
-                json["to"].get<int>()
-        };
-    }
+    return Transaction{
+      json["type"].get<TransactionType>(),
+      json["status"].get<TransactionStatus>(),
+      json["hash"].get<std::string>(),
+      json["timestamp"].get<uint64_t>(),
+      json["from"].get<std::string>(),
+      json["to"].get<std::string>()};
+  }
 
-    nlohmann::json Transaction::to_json() const {
+  nlohmann::json Transaction::to_json() const {
 
-        return {
-                {"type",      nlohmann::json(m_type)},
-                {"status",    m_status},
-                {"hash",      m_hash},
-                {"timestamp", m_timestamp},
-                {"from",      m_from},
-                {"to",        m_to}
-        };
-    }
+    return {
+      {"type", nlohmann::json(m_type)},
+      {"status", m_status},
+      {"hash", m_hash},
+      {"timestamp", m_timestamp},
+      {"from", m_from},
+      {"to", m_to}};
+  }
 
-    bool Transaction::operator==(const Transaction &) const = default;
+  bool Transaction::operator==(const Transaction &) const = default;
 
-    TransactionType Transaction::type() const {
+  TransactionType Transaction::type() const { return m_type; }
 
-        return m_type;
-    }
+  std::string Transaction::from() const { return m_from; }
 
-    int Transaction::from() const {
+  std::string Transaction::to() const { return m_to; }
 
-        return m_from;
-    }
+  std::string Transaction::hash() const { return m_hash; }
 
-    int Transaction::to() const {
+  std::array<CryptoPP::byte, 32> Transaction::byte_hash() const {
 
-        return m_to;
-    }
+    return m_byte_hash;
+  }
 
-    std::string Transaction::hash() const {
+  TransactionStatus Transaction::status() const { return m_status; }
 
-        return m_hash;
-    }
+  uint64_t Transaction::timestamp() const { return m_timestamp; }
 
-    std::array<CryptoPP::byte, 32> Transaction::byte_hash() const {
+  bool Transaction::set_status(TransactionStatus status) const {
 
-        return m_byte_hash;
-    }
+    if (m_status == TransactionStatus::Verified) { return false; }
 
-    TransactionStatus Transaction::status() const {
+    m_status = status;
+    return true;
+  }
 
-        return m_status;
-    }
+  bool Transaction::operator<(const Transaction &other) const {
 
-    uint64_t Transaction::timestamp() const {
+    return m_timestamp < other.m_timestamp;
+  }
 
-        return m_timestamp;
-    }
+  std::string Transaction::contrived_hash() const {
 
-    bool Transaction::set_status(TransactionStatus status) const {
-
-        if (m_status == TransactionStatus::Verified) {
-            return false;
-        }
-
-        m_status = status;
-        return true;
-    }
-
-    bool Transaction::operator<(const Transaction &other) const {
-
-        return m_timestamp < other.m_timestamp;
-    }
-
-    std::string Transaction::contrived_hash() const {
-
-        return m_hash.substr(0, 10);
-    }
-}
+    return m_hash.substr(0, 10);
+  }
+}// namespace krapi

@@ -4,51 +4,42 @@
 
 #pragma once
 
+#include "Transaction.h"
 #include <set>
 #include <span>
-#include "Transaction.h"
 
 namespace krapi {
-    struct PoolResponseContent {
-        std::set<Transaction> m_transactions;
-    public:
+  struct PoolResponseContent {
+    std::set<Transaction> m_transactions;
 
-        explicit PoolResponseContent(
-                std::set<Transaction> transactions
-        ) :
-                m_transactions(std::move(transactions)) {
+   public:
+    explicit PoolResponseContent(std::set<Transaction> transactions)
+        : m_transactions(std::move(transactions)) {}
 
-        }
+    [[nodiscard]] std::set<Transaction> transactions() const {
 
-        [[nodiscard]]
-        std::set<Transaction> transactions() const {
+      return m_transactions;
+    }
 
-            return m_transactions;
-        }
+    static PoolResponseContent from_json(nlohmann::json json) {
 
-        static PoolResponseContent from_json(nlohmann::json json) {
+      auto transactions = std::set<Transaction>{};
 
-            auto transactions = std::set<Transaction>{};
+      for (const auto &json_block: json["transactions"]) {
+        transactions.insert(Transaction::from_json(json_block));
+      }
 
-            for (const auto &json_block: json["transactions"]) {
-                transactions.insert(Transaction::from_json(json_block));
-            }
+      return PoolResponseContent{std::move(transactions)};
+    }
 
-            return PoolResponseContent{std::move(transactions)};
-        }
+    [[nodiscard]] nlohmann::json to_json() const {
 
-        [[nodiscard]]
-        nlohmann::json to_json() const {
+      auto json = nlohmann::json::array();
+      for (const auto &block: m_transactions) {
+        json.push_back(block.to_json());
+      }
 
-            auto json = nlohmann::json::array();
-            for (const auto &block: m_transactions) {
-                json.push_back(block.to_json());
-            }
-
-            return {
-                    {"transactions", json}
-            };
-        }
-
-    };
-} // krapi
+      return {{"transactions", json}};
+    }
+  };
+}// namespace krapi

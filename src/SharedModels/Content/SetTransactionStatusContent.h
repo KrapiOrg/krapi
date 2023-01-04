@@ -8,49 +8,32 @@
 
 namespace krapi {
 
-    class SetTransactionStatusContent {
+  class SetTransactionStatusContent {
 
-        TransactionStatus m_status;
-        std::string m_hash;
-    public:
+    TransactionStatus m_status;
+    std::string m_hash;
 
-        explicit SetTransactionStatusContent(
-                TransactionStatus status,
-                std::string hash
-        ) :
-                m_status(status),
-                m_hash(std::move(hash)) {
+   public:
+    explicit SetTransactionStatusContent(
+      TransactionStatus status,
+      std::string hash
+    )
+        : m_status(status), m_hash(std::move(hash)) {}
 
-        }
+    [[nodiscard]] TransactionStatus status() const { return m_status; }
 
-        [[nodiscard]]
-        TransactionStatus status() const {
+    [[nodiscard]] std::string hash() const { return m_hash; }
 
-            return m_status;
-        }
+    static SetTransactionStatusContent from_json(nlohmann::json json) {
 
-        [[nodiscard]]
-        std::string hash() const {
+      return SetTransactionStatusContent{
+        json["status"].get<TransactionStatus>(),
+        json["hash"].get<std::string>()};
+    }
 
-            return m_hash;
-        }
+    [[nodiscard]] nlohmann::json to_json() const {
 
-        static SetTransactionStatusContent from_json(nlohmann::json json) {
-
-            return SetTransactionStatusContent{
-                    json["status"].get<TransactionStatus>(),
-                    json["hash"].get<std::string>()
-            };
-        }
-
-        [[nodiscard]]
-        nlohmann::json to_json() const {
-
-            return {
-                    {"status", m_status},
-                    {"hash",   m_hash}
-            };
-        }
-
-    };
-}
+      return {{"status", m_status}, {"hash", m_hash}};
+    }
+  };
+}// namespace krapi

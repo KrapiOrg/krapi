@@ -4,122 +4,111 @@
 
 #pragma once
 
-#include "eventpp/eventqueue.h"
 #include "concurrencpp/concurrencpp.h"
+#include "eventpp/eventqueue.h"
 #include "spdlog/spdlog.h"
 
 #include "PromiseStore.h"
 
 #include "Event.h"
-#include "Overload.h"
 #include "NotNull.h"
+#include "Overload.h"
 
 namespace krapi {
-    using EventPromise = concurrencpp::result_promise<Event>;
-    using EventQueueType = eventpp::EventQueue<EventType, void(Event)>;
+  using EventPromise = concurrencpp::result_promise<Event>;
+  using EventQueueType = eventpp::EventQueue<EventType, void(Event)>;
 
 
-    template<typename T>
-    concept has_create = requires(T){
-        T::create();
-    };
+  template<typename T>
+  concept has_create = requires(T) { T::create(); };
 
-    class EventQueue {
+  class EventQueue {
 
-        EventQueueType m_event_queue;
-        PromiseStore<Event> m_promise_store;
+    EventQueueType m_event_queue;
+    PromiseStore<Event> m_promise_store;
 
-    public:
+   public:
+    [[nodiscard]] static inline std::shared_ptr<EventQueue> create() {
 
-        [[nodiscard]]
-        static inline std::shared_ptr<EventQueue> create() {
+      return std::make_shared<EventQueue>();
+    }
 
-            return std::make_shared<EventQueue>();
-        }
+    void enqueue(Event event) {
 
-        void enqueue(Event event) {
+      auto event_type =
+        std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
+      m_event_queue.enqueue(event_type, std::move(event));
+    }
 
-            auto event_type = std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
-            m_event_queue.enqueue(event_type, std::move(event));
-        }
+    template<has_create T, typename... U>
+    void enqueue(U &&...params) {
 
-        template<has_create T, typename ...U>
-        void enqueue(U &&...params) {
+      Event event = T::create(std::forward<U>(params)...);
+      auto event_type =
+        std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
+      m_event_queue.enqueue(event_type, std::move(event));
+    }
 
-            Event event = T::create(std::forward<U>(params)...);
-            auto event_type = std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
-            m_event_queue.enqueue(event_type, std::move(event));
-        }
+    concurrencpp::shared_result<Event> create_awaitable(std::string tag) {
 
-        concurrencpp::shared_result <Event> create_awaitable(std::string tag) {
+      return m_promise_store.add(tag);
+    }
 
-            return m_promise_store.add(tag);
-        }
+    template<has_create T, typename... U>
+    concurrencpp::shared_result<Event> submit(U &&...params) {
 
-        template<has_create T, typename ...U>
-        concurrencpp::shared_result <Event> submit(U &&...params) {
+      Event event = T::create(std::forward<U>(params)...);
+      auto tag = std::visit([](auto &&e) { return e->tag(); }, event);
+      auto event_type =
+        std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
 
-            Event event = T::create(std::forward<U>(params)...);
-            auto tag = std::visit([](auto &&e) { return e->tag(); }, event);
-            auto event_type = std::visit([](auto &&ev) -> EventType { return ev->type(); }, event);
+      auto awaitable = m_promise_store.add(tag);
+      m_event_queue.enqueue(event_type, std::move(event));
+      return awaitable;
+    }
 
-            auto awaitable = m_promise_store.add(tag);
-            m_event_queue.enqueue(event_type, std::move(event));
-            return awaitable;
-        }
+    bool process_one() {
 
-        bool process_one() {
+      EventQueueType::QueuedEvent queue_event;
+      if (m_event_queue.takeEvent(&queue_event)) {
 
-            EventQueueType::QueuedEvent queue_event;
-            if (m_event_queue.takeEvent(&queue_event)) {
+        Event event = queue_event.getArgument<0>();
 
-                Event event = queue_event.getArgument<0>();
+        std::visit(
+          Overload{
+            [=, this]<typename T>(Box<InternalMessage<T>> ev) {
+              m_event_queue.dispatch(queue_event);
+            },
+            [=, this](Box<InternalNotification<std::string>> notif) {
+              auto tag = notif->content();
+              m_promise_store.set_result(tag, notif);
+              m_event_queue.dispatch(queue_event);
+            },
+            [=, this](auto &&ev) {
+              auto tag = ev->tag();
 
-                std::visit(
-                        Overload{
-                                [=, this]<typename T>(Box<InternalMessage<T>> ev) {
-                                    m_event_queue.dispatch(queue_event);
-                                },
-                                [=, this](Box<InternalNotification<std::string>> notif) {
-                                    auto tag = notif->content();
-                                    if (m_promise_store.set_result(tag, notif))
-                                        m_event_queue.dispatch(queue_event);
-                                },
-                                [=, this](auto &&ev) {
-                                    auto tag = ev->tag();
+              m_promise_store.set_result(tag, ev);
+              m_event_queue.dispatch(queue_event);
+            }},
+          event
+        );
+        return true;
+      }
 
-                                    if (m_promise_store.set_result(tag, ev))
-                                        m_event_queue.dispatch(queue_event);
-                                }
-                        },
-                        event
-                );
-                return true;
-            }
+      return false;
+    }
 
-            return false;
-        }
+    void append_listener(EventType type, std::function<void(Event)> callback) {
 
-        void append_listener(EventType type, std::function<void(Event)> callback) {
+      m_event_queue.appendListener(type, callback);
+    }
 
-            m_event_queue.appendListener(type, callback);
-        }
+    void close() { m_event_queue.clearEvents(); }
 
-        void close() {
+    void wait() { m_event_queue.wait(); }
 
-            m_event_queue.clearEvents();
-        }
+    EventQueueType &internal_queue() { return m_event_queue; }
+  };
 
-        void wait() {
-
-            m_event_queue.wait();
-        }
-
-        EventQueueType &internal_queue() {
-
-            return m_event_queue;
-        }
-    };
-
-    using EventQueuePtr = std::shared_ptr<EventQueue>;
-}
+  using EventQueuePtr = std::shared_ptr<EventQueue>;
+}// namespace krapi

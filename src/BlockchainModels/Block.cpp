@@ -5,69 +5,52 @@
 #include "Block.h"
 
 namespace krapi {
-    Block::Block(BlockHeader header, std::set<Transaction> transactions) :
-            m_header(std::move(header)),
-            m_transactions(std::move(transactions)) {
+  Block::Block(BlockHeader header, std::set<Transaction> transactions)
+      : m_header(std::move(header)), m_transactions(std::move(transactions)) {}
+
+  Block Block::from_json(const nlohmann::json &json) {
+
+    std::set<Transaction> transactions;
+    for (const auto &tx: json["transactions"]) {
+      transactions.insert(Transaction::from_json(tx));
     }
 
-    Block Block::from_json(const nlohmann::json &json) {
+    return Block{BlockHeader::from_json(json["header"]), transactions};
+  }
 
-        std::set<Transaction> transactions;
-        for (const auto &tx: json["transactions"]) {
-            transactions.insert(Transaction::from_json(tx));
-        }
+  std::string Block::hash() const { return m_header.m_hash; }
 
-        return Block{
-                BlockHeader::from_json(json["header"]),
-                transactions
-        };
+  std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
+
+    return m_header.m_hash_bytes;
+  }
+
+  nlohmann::json Block::to_json() const {
+
+    auto transactions = nlohmann::json::array();
+    for (const auto &tx: m_transactions) {
+      transactions.push_back(tx.to_json());
     }
 
-    std::string Block::hash() const {
+    return {{"header", m_header.to_json()}, {"transactions", transactions}};
+  }
 
-        return m_header.m_hash;
-    }
+  BlockHeader Block::header() const { return m_header; }
 
-    std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
+  std::set<Transaction> Block::transactions() const { return m_transactions; }
 
-        return m_header.m_hash_bytes;
-    }
+  bool Block::operator==(const Block &other) const {
 
-    nlohmann::json Block::to_json() const {
+    return m_header.m_hash == other.m_header.m_hash;
+  }
 
-        auto transactions = nlohmann::json::array();
-        for (const auto &tx: m_transactions) {
-            transactions.push_back(tx.to_json());
-        }
+  bool Block::operator<(const Block &other) const {
 
-        return {
-                {"header",       m_header.to_json()},
-                {"transactions", transactions}
-        };
-    }
+    return m_header.m_timestamp < other.m_header.m_timestamp;
+  }
 
-    BlockHeader Block::header() const {
+  std::string Block::contrived_hash() const {
 
-        return m_header;
-    }
-
-    std::set<Transaction> Block::transactions() const {
-
-        return m_transactions;
-    }
-
-    bool Block::operator==(const Block &other) const {
-
-        return m_header.m_hash == other.m_header.m_hash;
-    }
-
-    bool Block::operator<(const Block &other) const {
-
-        return m_header.m_timestamp < other.m_header.m_timestamp;
-    }
-
-    std::string Block::contrived_hash() const {
-
-        return m_header.m_hash.substr(0, 10);
-    }
-} // krapi
+    return m_header.m_hash.substr(0, 10);
+  }
+}// namespace krapi

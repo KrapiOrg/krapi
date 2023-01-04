@@ -1,64 +1,61 @@
 #pragma once
 
-#include <list>
-#include <vector>
 #include <filesystem>
 #include <fstream>
+#include <list>
+#include <vector>
 
-#include "leveldb/db.h"
 #include "Block.h"
-#include "spdlog/spdlog.h"
+#include "leveldb/db.h"
 #include "sha.h"
+#include "spdlog/spdlog.h"
 
 namespace krapi {
 
-    class Blockchain {
+  class Blockchain {
 
-        std::unique_ptr<leveldb::DB> m_db;
-        leveldb::Options m_db_options;
-        leveldb::ReadOptions m_read_options;
-        leveldb::WriteOptions m_write_options;
+    std::unique_ptr<leveldb::DB> m_db;
+    leveldb::Options m_db_options;
+    leveldb::ReadOptions m_read_options;
+    leveldb::WriteOptions m_write_options;
 
-        [[nodiscard]]
-        static Block block_from_slice(const leveldb::Slice &slice) ;
+    [[nodiscard]] static Block block_from_slice(const leveldb::Slice &slice);
 
-        static Block create_genesis_block();
+    static Block create_genesis_block();
 
-    public:
+    explicit Blockchain(const std::string &path);
 
-        explicit Blockchain(const std::string &path);
+   public:
+    [[nodiscard]] static inline std::shared_ptr<Blockchain>
+    from_path(const std::string &path) {
 
-        [[nodiscard]]
-        int length() const;
+      return std::shared_ptr<Blockchain>(new Blockchain(path));
+    }
 
-        [[nodiscard]]
-        std::optional<Block> get(std::string hash) const;
+    [[nodiscard]] int length() const;
 
-        bool remove(std::string hash);
+    [[nodiscard]] std::optional<Block> get(std::string hash) const;
 
-        [[nodiscard]]
-        bool contains(std::string hash) const;
+    bool remove(std::string hash);
 
-        bool put(Block block);
+    [[nodiscard]] bool contains(std::string hash) const;
 
-        [[nodiscard]]
-        Block last() const;
+    bool put(Block block);
 
-        [[nodiscard]]
-        std::set<Block> get_blocks() const;
+    [[nodiscard]] Block last() const;
 
-        [[nodiscard]]
-        std::vector<std::string> get_hashes() const;
+    [[nodiscard]] std::set<Block> get_blocks() const;
 
-        [[nodiscard]]
-        std::vector<BlockHeader> get_headers() const;
+    [[nodiscard]] std::vector<std::string> get_hashes() const;
 
-        [[nodiscard]]
-        std::vector<BlockHeader> get_all_after(const BlockHeader &header) const;
+    [[nodiscard]] std::vector<BlockHeader> get_headers() const;
 
-        std::vector<Block> remove_all_after(std::string hash);
+    [[nodiscard]] std::vector<BlockHeader>
+    get_all_after(const BlockHeader &header) const;
 
-        bool contains_transaction(std::string transaction_hash) const;
-    };
+    std::vector<Block> remove_all_after(std::string hash);
 
-} // krapi
+    bool contains_transaction(std::string transaction_hash) const;
+  };
+  using BlockchainPtr = std::shared_ptr<Blockchain>;
+}// namespace krapi

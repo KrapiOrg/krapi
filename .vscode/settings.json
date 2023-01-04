@@ -1,0 +1,19 @@
+{
+  "editor.formatOnSave": true,
+  "C_Cpp.formatting": "Disabled",
+  "C_Cpp.intelliSenseEngine": "Default",
+  "clangd.checkUpdates": true,
+  "clangd.onConfigChanged": "restart",
+  "clangd.arguments": [
+    "-background-index",
+    "-header-insertion=iwyu",
+    "-header-insertion-decorators",
+    "--inlay-hints",
+    "--function-arg-placeholders",
+    "--compile-commands-dir=/${workspaceFolder}/cmake-build-debug"
+  ],
+  "lldb.displayFormat": "auto",
+  "lldb.showDisassembly": "never",
+  "lldb.dereferencePointers": true,
+  "lldb.consoleMode": "commands"
+}

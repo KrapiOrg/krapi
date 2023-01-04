@@ -1,40 +1,36 @@
 #pragma once
 
-#include <variant>
-#include "SignalingMessage.h"
-#include "PeerMessage.h"
 #include "InternalMessage.h"
 #include "InternalNotification.h"
-#include "Box.h"
+#include <variant>
 
 namespace krapi {
 
-    using EventType = std::variant<
-            SignalingMessageType,
-            PeerMessageType,
-            InternalMessageType,
-            InternalNotificationType
-    >;
-    using EventVariant = std::variant<
-            Box<SignalingMessage>,
-            Box<PeerMessage>,
-            Box<InternalMessage<SignalingMessage>>,
-            Box<InternalMessage<PeerMessage>>,
-            Box<InternalNotification<std::string>>,
-            Box<InternalNotification<Empty>>
-    >;
+  using EventType = std::variant<
+    SignalingMessageType,
+    PeerMessageType,
+    InternalMessageType,
+    InternalNotificationType>;
+  using EventVariant = std::variant<
+    Box<SignalingMessage>,
+    Box<PeerMessage>,
+    Box<InternalMessage<SignalingMessage>>,
+    Box<InternalMessage<PeerMessage>>,
+    Box<InternalNotification<std::string>>,
+    Box<InternalNotification<int>>,
+    Box<InternalNotification<Empty>>>;
 
-    struct Event : EventVariant {
-        using EventVariant::variant;
+  struct Event : EventVariant {
+    using EventVariant::variant;
 
-        bool listenable;
+    bool listenable;
 
-        explicit Event(bool listenable = false) : listenable(listenable) {}
+    explicit Event(bool listenable = false) : listenable(listenable) {}
 
-        template<typename T>
-        Box<T> get() const {
+    template<typename T>
+    Box<T> get() const {
 
-            return std::get<Box<T>>(*this);
-        }
-    };
-}
+      return std::get<Box<T>>(*this);
+    }
+  };
+}// namespace krapi

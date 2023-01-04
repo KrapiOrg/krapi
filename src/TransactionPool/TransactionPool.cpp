@@ -4,54 +4,48 @@
 
 #include "TransactionPool.h"
 
-#include <utility>
 #include "spdlog/spdlog.h"
+#include <utility>
 
 namespace krapi {
 
 
-    TransactionPool::TransactionPool(int batchsize) :
-            m_batchsize(batchsize) {
+  TransactionPool::TransactionPool(int batchsize) : m_batchsize(batchsize) {}
+
+  bool TransactionPool::add(const Transaction &transaction) {
+
+    bool added;
+    {
+      std::lock_guard l(m_pool_mutex);
+      added = m_pool.insert(transaction).second;
     }
 
-    bool TransactionPool::add(const Transaction &transaction) {
-
-        bool added;
+    if (added) {
+      if (m_pool.size() >= m_batchsize) {
+        std::set<Transaction> batch;
         {
-            std::lock_guard l(m_pool_mutex);
-            added = m_pool.insert(transaction).second;
+          std::lock_guard l(m_pool_mutex);
+          batch = m_pool;
+          m_pool.clear();
         }
-
-        if (added) {
-            if (m_pool.size() >= m_batchsize) {
-                std::set<Transaction> batch;
-                {
-                    std::lock_guard l(m_pool_mutex);
-                    batch = m_pool;
-                    m_pool.clear();
-                }
-                m_batch_queue.push_task(
-                        [batch = std::move(batch), this]() {
-                            m_on_batch_callback(batch);
-                        }
-                );
-            }
-        }
-
-        return added;
+        m_batch_queue.push_task([batch = std::move(batch), this]() {
+          m_on_batch_callback(batch);
+        });
+      }
     }
 
-    void TransactionPool::remove(const std::set<Transaction> &transactions) {
+    return added;
+  }
 
-        std::lock_guard l(m_pool_mutex);
-        for (const auto &transaction: transactions) {
-            m_pool.erase(transaction);
-        }
-    }
+  void TransactionPool::remove(const std::set<Transaction> &transactions) {
 
-    void TransactionPool::on_batch(OnBatchCallback callback) {
+    std::lock_guard l(m_pool_mutex);
+    for (const auto &transaction: transactions) { m_pool.erase(transaction); }
+  }
 
-        m_on_batch_callback = std::move(callback);
-    }
+  void TransactionPool::on_batch(OnBatchCallback callback) {
 
-} // krapi
+    m_on_batch_callback = std::move(callback);
+  }
+
+}// namespace krapi

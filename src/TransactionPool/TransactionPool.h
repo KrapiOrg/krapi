@@ -4,35 +4,34 @@
 
 #pragma once
 
-#include <thread>
-#include <set>
 #include "AsyncQueue.h"
 #include "eventpp/eventdispatcher.h"
+#include <set>
+#include <thread>
 
 #include "Transaction.h"
 
 namespace krapi {
 
-    class TransactionPool {
+  class TransactionPool {
 
-        using OnBatchCallback = std::function<void(std::set<Transaction>)>;
+    using OnBatchCallback = std::function<void(std::set<Transaction>)>;
 
-        std::mutex m_pool_mutex;
-        std::set<Transaction> m_pool;
-        AsyncQueue m_batch_queue;
-        OnBatchCallback m_on_batch_callback;
+    std::mutex m_pool_mutex;
+    std::set<Transaction> m_pool;
+    AsyncQueue m_batch_queue;
+    OnBatchCallback m_on_batch_callback;
 
-        int m_batchsize;
+    int m_batchsize;
 
-    public:
+   public:
+    explicit TransactionPool(int batchsize = 3);
 
-        explicit TransactionPool(int batchsize = 3);
+    bool add(const Transaction &transaction);
 
-        bool add(const Transaction &transaction);
+    void remove(const std::set<Transaction> &transactions);
 
-        void remove(const std::set<Transaction> &transactions);
+    void on_batch(OnBatchCallback callback);
+  };
 
-        void on_batch(OnBatchCallback callback);
-    };
-
-} // krapi
+}// namespace krapi

@@ -1,0 +1,102 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "delay",
+            "type": "shell",
+            "command": "sleep 3",
+            "group": "none",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "showReuseMessage": false
+            }
+        },
+        {
+            "type": "cmake",
+            "label": "build-signaling",
+            "command": "build",
+            "targets": [
+                "signaling"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for signaling server"
+        },
+        {
+            "type": "cmake",
+            "label": "build-node-no-delay",
+            "command": "build",
+            "targets": [
+                "node"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for node"
+        },
+        {
+            "type": "cmake",
+            "label": "build-light-no-delay",
+            "command": "build",
+            "targets": [
+                "lightnode"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for light node"
+        },
+        {
+            "type": "cmake",
+            "label": "build-node",
+            "command": "build",
+            "dependsOrder": "sequence",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "dependsOn": [
+                "delay",
+                "build-node-no-delay"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for node with delay"
+        },
+        {
+            "type": "cmake",
+            "label": "build-light",
+            "command": "build",
+            "dependsOrder": "sequence",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "dependsOn": [
+                "delay",
+                "build-light-no-delay"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for light node with delay"
+        },
+    ]
+}
