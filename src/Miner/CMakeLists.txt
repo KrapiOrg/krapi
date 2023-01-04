@@ -2,7 +2,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(
         miner
-        ${CMAKE_CURRENT_LIST_DIR}/Miner.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Miner.h
 )
 target_link_libraries(
@@ -13,4 +12,7 @@ target_link_libraries(
         cryptopp
         nlohmann_json
         eventpp
+        concurrencpp
+        shared_models
+        krapi_event
 )

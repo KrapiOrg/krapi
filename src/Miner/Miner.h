@@ -4,14 +4,10 @@
 
 #pragma once
 
-#include <future>
-#include <functional>
 #include <unordered_set>
-#include <chrono>
 #include "Block.h"
 #include "merklecpp.h"
 #include "sha.h"
-#include "AsyncQueue.h"
 #include "fmt/core.h"
 
 using namespace std::chrono;
@@ -19,10 +15,12 @@ using namespace std::chrono;
 
 namespace krapi {
 
-    class MiningJob {
+    struct MiningJob {
+
+        eventpp::ScopedRemover<EventQueueType> m_event_queue;
         std::string m_previous_hash;
         std::set<Transaction> m_transactions;
-        std::shared_ptr<std::atomic<bool>> m_cancelled;
+        bool m_stop;
 
         static void hash_function(
                 const merkle::HashT<32> &l,
@@ -36,114 +34,108 @@ namespace krapi {
             sha_256.Final(out.bytes);
         }
 
-    public:
+        std::string obtain_merkle_root() {
 
-        explicit MiningJob(
-                std::string hash,
-                std::set<Transaction> transactions,
-                std::shared_ptr<std::atomic<bool>> cancellation_token
-        ) : m_previous_hash(std::move(hash)),
-            m_transactions(std::move(transactions)),
-            m_cancelled(std::move(cancellation_token)) {
-
-        }
-
-        std::pair<bool, Block> operator()() {
-
-            CryptoPP::SHA256 sha_256;
             merkle::TreeT<32, hash_function> tree;
             for (const auto &tx: m_transactions) {
                 tree.insert(tx.hash());
             }
+            return tree.root().to_string(32, false);
+        }
 
-            auto merkle_root = tree.root().to_string(32, false);
+        uint64_t obtain_current_timestamp() {
 
-            auto timestamp = (uint64_t) duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        }
 
-            for (uint64_t nonce = 0;; nonce++) {
+    public:
+
+        explicit MiningJob(
+                EventQueuePtr event_queue,
+                std::string hash,
+                std::set<Transaction> transactions
+        ) :
+                m_stop(false),
+                m_event_queue(event_queue->internal_queue()),
+                m_previous_hash(std::move(hash)),
+                m_transactions(std::move(transactions)) {
+
+            m_event_queue.appendListener(
+                    PeerMessageType::BlockAccepted,
+                    [this](Event event) {
+
+                        m_stop = true;
+                    }
+            );
+
+        }
+
+        std::optional<Block> operator()() {
+
+            CryptoPP::SHA256 sha_256;
+
+            auto merkle_root = obtain_merkle_root();
+
+            auto timestamp = obtain_current_timestamp();
+
+            uint64_t nonce = 0;
+            while (!m_stop) {
 
                 auto block_hash = std::string{};
+
                 StringSource s2(
                         fmt::format("{}{}{}{}", m_previous_hash, merkle_root, timestamp, nonce),
                         true,
                         new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
                 );
 
-                if (*m_cancelled) {
+                if (block_hash.starts_with("00000")) {
 
-                    return {
-                            true,
-                            Block{
-                                    BlockHeader{
-                                            block_hash,
-                                            m_previous_hash,
-                                            merkle_root,
-                                            timestamp,
-                                            nonce
-                                    },
-                                    m_transactions
-                            }
-                    };
-                } else if (block_hash.starts_with("00000")) {
-
-                    return {
-                            false,
-                            Block{
-                                    BlockHeader{
-                                            block_hash,
-                                            m_previous_hash,
-                                            merkle_root,
-                                            timestamp,
-                                            nonce
-                                    },
-                                    m_transactions
-                            }
+                    return Block{
+                            BlockHeader{
+                                    block_hash,
+                                    m_previous_hash,
+                                    merkle_root,
+                                    timestamp,
+                                    nonce
+                            },
+                            m_transactions
                     };
                 }
+                nonce++;
             }
-        }
-
-        [[nodiscard]]
-        std::string previous_hash() const {
-
-            return m_previous_hash;
-        }
-
-        [[nodiscard]]
-        std::set<Transaction> transactions() const {
-
-            return m_transactions;
-        }
-
-        [[nodiscard]]
-        bool operator==(const MiningJob &other) const {
-
-            return m_previous_hash == other.m_previous_hash;
+            return {};
         }
     };
 
     class Miner {
+        std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
 
-    private:
-
-        AsyncQueue m_queue;
-
-        std::mutex m_used_mutex;
-        std::unordered_set<std::string> m_used;
-        std::shared_ptr<std::atomic<bool>> m_cancellation_token;
-
+        EventQueuePtr m_event_queue;
 
     public:
+        Miner(
+                std::shared_ptr<concurrencpp::worker_thread_executor> worker,
+                EventQueuePtr event_queue
+        ) : m_event_queue(event_queue),
+            m_worker(std::move(worker)) {
 
-        explicit Miner();
+        }
 
-        std::optional<std::shared_future<std::pair<bool, Block>>> mine(std::string previous_hash, std::set<Transaction>);
+        concurrencpp::shared_result<std::optional<Block>> mine(
+                std::string previous_hash,
+                std::set<Transaction> transactions
+        ) {
 
-        bool was_used(std::string hash);
-
-        bool remove_hash(std::string hash);
-
-        void cancel();
+            return
+                    m_worker->submit(
+                            MiningJob{
+                                    m_event_queue,
+                                    std::move(previous_hash),
+                                    std::move(transactions)
+                            }
+                    );
+        }
     };
 
 } // krapi
