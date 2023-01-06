@@ -5,9 +5,6 @@
 #ifndef NODE_BLOCKCHAIN_TRANSACTION_H
 #define NODE_BLOCKCHAIN_TRANSACTION_H
 
-#include <set>
-#include <sstream>
-
 #include "cryptopp/hex.h"
 #include "nlohmann/json.hpp"
 
@@ -45,6 +42,7 @@ namespace krapi {
 
   class Transaction {
    public:
+    explicit Transaction() = default;
     explicit Transaction(
       TransactionType type,
       TransactionStatus status,
@@ -91,14 +89,7 @@ namespace krapi {
     std::array<CryptoPP::byte, 32> m_byte_hash{};
   };
 
-  inline std::string to_string(const std::set<Transaction> &batch) {
-    std::stringstream ss;
-    for (const auto &tx: batch) {
-      ss << "== Tx: #" << tx.hash().substr(0, 10) << '\n';
-    }
-    return ss.str();
-  }
-
+  using Transactions = std::vector<Transaction>;
 }// namespace krapi
 
 namespace std {

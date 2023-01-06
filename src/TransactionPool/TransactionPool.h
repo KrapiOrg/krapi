@@ -4,34 +4,61 @@
 
 #pragma once
 
-#include "AsyncQueue.h"
-#include "eventpp/eventdispatcher.h"
-#include <set>
-#include <thread>
-
+#include "DBInterface.h"
+#include "EventQueue.h"
 #include "Transaction.h"
+#include <concurrencpp/results/result.h>
+#include <concurrencpp/results/shared_result.h>
+#include <memory>
+#include <queue>
+#include <valarray>
 
 namespace krapi {
 
-  class TransactionPool {
+  using TransactionsPromise = concurrencpp::result_promise<Transactions>;
+  using TransactionsResult = concurrencpp::shared_result<Transactions>;
 
-    using OnBatchCallback = std::function<void(std::set<Transaction>)>;
-
-    std::mutex m_pool_mutex;
-    std::set<Transaction> m_pool;
-    AsyncQueue m_batch_queue;
-    OnBatchCallback m_on_batch_callback;
-
-    int m_batchsize;
+  class TransactionPool : public DBInternface<Transaction>,
+                          public std::enable_shared_from_this<TransactionPool> {
 
    public:
-    explicit TransactionPool(int batchsize = 3);
+    static inline std::shared_ptr<TransactionPool>
+    create(std::string path, EventQueuePtr event_queue) {
 
-    bool add(const Transaction &transaction);
+      return std::shared_ptr<TransactionPool>(
+        new TransactionPool(std::move(path), std::move(event_queue))
+      );
+    }
 
-    void remove(const std::set<Transaction> &transactions);
+    bool add(Transaction);
 
-    void on_batch(OnBatchCallback callback);
+    concurrencpp::shared_result<Transactions> wait_for(int) const;
+
+   private:
+    Transactions m_pool;
+    EventQueuePtr m_event_queue;
+    mutable std::queue<Transaction> m_transaction_queue;
+
+    Transactions take_from_queue(int n) const {
+      std::vector<Transaction> taken;
+      if (std::ssize(m_transaction_queue) >= n) {
+        while (n--) {
+          auto front = m_transaction_queue.front();
+          m_transaction_queue.pop();
+          taken.push_back(front);
+        }
+      } else {
+        while (!m_transaction_queue.empty()) {
+          auto front = m_transaction_queue.front();
+          m_transaction_queue.pop();
+          taken.push_back(front);
+        }
+      }
+
+      return taken;
+    }
+    explicit TransactionPool(std::string, EventQueuePtr);
   };
 
+  using TransactionPoolPtr = std::shared_ptr<TransactionPool>;
 }// namespace krapi

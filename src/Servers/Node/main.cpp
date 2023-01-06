@@ -6,16 +6,19 @@
 #include "EventLoop.h"
 #include "EventQueue.h"
 #include "InternalNotification.h"
-#include "Miner.h"
+#include "Miner/Miner.h"
 #include "NodeManager.h"
 #include "PeerMessage.h"
 #include "PeerType.h"
+#include "SignalingClient.h"
+#include "TransactionPool.h"
 #include "eventpp/utilities/scopedremover.h"
 #include "fmt/format.h"
 #include "spdlog/spdlog.h"
 #include <concurrencpp/executors/thread_executor.h>
 #include <concurrencpp/results/result.h>
 #include <concurrencpp/results/result_fwd_declarations.h>
+#include <concurrencpp/results/when_result.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,7 +32,10 @@ request_headers(
   std::vector<std::string> identities,
   BlockHeader last_known_header
 ) {
-
+  spdlog::info(
+    "## Syncing Headers after {}",
+    last_known_header.contrived_hash()
+  );
   struct SizeSorter {
     bool operator()(
       const std::vector<BlockHeader> &a,
@@ -39,11 +45,13 @@ request_headers(
       return a.size() > b.size();
     }
   };
+  using Headers = std::vector<BlockHeader>;
+  using Map = std::map<Headers, std::string, SizeSorter>;
 
-  auto header_peer_map =
-    std::map<std::vector<BlockHeader>, std::string, SizeSorter>(SizeSorter{});
+  auto header_peer_map = Map(SizeSorter{});
 
   for (const auto identity: identities) {
+
     auto result = co_await manager->send(
       PeerMessageType::BlockHeadersRequest,
       manager->id(),
@@ -51,9 +59,12 @@ request_headers(
       PeerMessage::create_tag(),
       last_known_header.to_json()
     );
+
     auto message = result.get<PeerMessage>();
+
     auto respose_content =
       BlockHeadersResponseContent::from_json(message->content());
+
     header_peer_map.emplace(
       respose_content.headers(),
       message->sender_identity()
@@ -63,37 +74,21 @@ request_headers(
   co_return *header_peer_map.begin();
 }
 
-concurrencpp::null_result initial_block_download(
-  concurrencpp::executor_tag,
-  std::shared_ptr<concurrencpp::thread_executor> executor,
-  EventQueuePtr event_queue,
+concurrencpp::result<std::vector<Block>> download_blocks(
   NodeManagerPtr manager,
-  BlockchainPtr blockchain
+  std::string peer_id,
+  std::vector<BlockHeader> block_headers
 ) {
 
-  auto last_known_header = blockchain->last().header();
   auto blocks = std::vector<Block>{};
-  auto peers =
-    co_await manager
-      ->wait_for_peers(executor, 1, {PeerType::Full}, {PeerState::Open});
 
-  spdlog::info("Requesting headers from {}", fmt::join(peers, ", "));
-  auto [headers, peer_id] =
-    co_await request_headers(manager, peers, last_known_header);
-  if (headers.empty()) {
-    spdlog::info("There were no headers to sync");
-    co_return;
-  }
-  spdlog::info(
-    "## Syncing Headers after {} from peer {}",
-    last_known_header.contrived_hash(),
-    peer_id
-  );
-  for (const auto &header: headers) {
+  for (const auto &header: block_headers) {
+
     spdlog::info(
       "## Downloading Block associated with header {}",
       header.contrived_hash()
     );
+
     auto event = co_await manager->send(
       PeerMessageType::BlockRequest,
       manager->id(),
@@ -101,12 +96,15 @@ concurrencpp::null_result initial_block_download(
       PeerMessage::create_tag(),
       header.to_json()
     );
+
     auto response = event.get<PeerMessage>();
 
     if (response->type() == PeerMessageType::BlockResponse) {
 
       auto block = Block::from_json(response->content());
+
       spdlog::info("## {} Downloaded", header.contrived_hash());
+
       blocks.push_back(block);
     } else {
 
@@ -117,10 +115,50 @@ concurrencpp::null_result initial_block_download(
       );
     }
   }
-  for (const auto &block: blocks) {
-    blockchain->put(block);
-    spdlog::info("Added {} to blockchain", block.contrived_hash());
+  co_return blocks;
+}
+
+concurrencpp::null_result initial_block_download(
+  concurrencpp::executor_tag,
+  std::shared_ptr<concurrencpp::thread_executor> executor,
+  SignalingClientPtr signaling_client,
+  EventQueuePtr event_queue,
+  NodeManagerPtr manager,
+  BlockchainPtr blockchain
+) {
+
+  co_await signaling_client->initialize();
+
+  auto last_known_header = blockchain->last().header();
+
+  auto peers =
+    co_await manager
+      ->wait_for_peers(executor, 1, {PeerType::Full}, {PeerState::Open});
+
+  spdlog::info("Requesting headers from {}", fmt::join(peers, ", "));
+
+  auto [headers, peer_id] =
+    co_await request_headers(manager, peers, last_known_header);
+
+  if (!headers.empty()) {
+    spdlog::info("Downloading blocks from {}", peer_id);
+    auto blocks = co_await download_blocks(manager, peer_id, headers);
+
+    for (const auto &block: blocks) {
+      blockchain->put(block);
+      spdlog::info("Added {} to blockchain", block.contrived_hash());
+    }
   }
+
+  spdlog::info("Broadcasting SyncPoolRequest");
+  manager->broadcast_to_peers_of_type_and_forget(
+    executor,
+    PeerType::Full,
+    PeerMessageType::SyncPoolRequest
+  );
+  spdlog::info("Broadcasted SyncPoolRequest");
+
+  spdlog::info("Initial Block download compeleted");
 }
 
 int main(int argc, char *argv[]) {
@@ -139,6 +177,9 @@ int main(int argc, char *argv[]) {
   }
 
   auto blockchain = Blockchain::from_path(path);
+  auto pool_path = fmt::format("{}/txpool", path);
+  auto transaction_pool =
+    TransactionPool::create(pool_path, event_loop->event_queue());
   auto signaling_client = SignalingClient::create(event_loop->event_queue());
 
   auto manager = NodeManager::create(
@@ -147,10 +188,12 @@ int main(int argc, char *argv[]) {
     signaling_client,
     PeerType::Full
   );
-  auto miner =
-    Miner(runtime->make_worker_thread_executor(), event_loop->event_queue());
-
-  signaling_client->initialize().wait();
+  auto miner = Miner(
+    runtime->thread_executor(),
+    event_loop->event_queue(),
+    transaction_pool,
+    blockchain
+  );
 
   event_loop->append_listener(
     InternalNotificationType::SignalingServerClosed,
@@ -185,7 +228,7 @@ int main(int argc, char *argv[]) {
       peer_message->sender_identity(),
       block_header.contrived_hash()
     );
-    auto block = blockchain->get(block_header.hash());
+    auto block = blockchain->get(block_header.timestamp(), block_header.hash());
     if (block) {
 
       manager->send_and_forget(
@@ -206,25 +249,59 @@ int main(int argc, char *argv[]) {
     }
   });
 
-  event_loop->append_listener(PeerMessageType::AddTransaction, [](Event event) {
-    auto peer_message = event.get<PeerMessage>();
-    auto transaction = Transaction::from_json(peer_message->content());
+  event_loop->append_listener(
+    PeerMessageType::AddTransaction,
+    [=](Event event) {
+      auto peer_message = event.get<PeerMessage>();
+      auto transaction = Transaction::from_json(peer_message->content());
+
+      if (transaction_pool->add(transaction)) {
+
+        spdlog::info(
+          "Added transaction #{} from {}",
+          transaction.contrived_hash(),
+          peer_message->sender_identity()
+        );
+      }
+    }
+  );
+  event_loop->append_listener(PeerMessageType::SyncPoolRequest, [=](Event e) {
+    auto peer_message = e.get<PeerMessage>();
+    auto transactions = transaction_pool->get_all();
 
     spdlog::info(
-      "{} wants to send {} a transaction",
-      transaction.from(),
-      transaction.to()
+      "{} Requested to sync transaction pools",
+      peer_message->sender_identity()
     );
+
+    for (const auto &transaction: transactions) {
+
+      spdlog::info(
+        "Sending pool transaction #{} to {}",
+        transaction.contrived_hash(),
+        peer_message->sender_identity()
+      );
+
+      manager->send_and_forget(
+        PeerMessageType::AddTransaction,
+        manager->id(),
+        peer_message->sender_identity(),
+        peer_message->tag(),
+        transaction.to_json()
+      );
+    }
   });
 
   spdlog::info("Starting initial block download");
   initial_block_download(
     {},
     runtime->thread_executor(),
+    signaling_client,
     event_loop->event_queue(),
     manager,
     blockchain
   );
+
   manager->set_state(PeerState::Open);
   event_loop->wait();
 }

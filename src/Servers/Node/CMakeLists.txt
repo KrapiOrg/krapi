@@ -6,6 +6,11 @@ set(
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
+        ${CMAKE_CURRENT_LIST_DIR}/Miner/Miner.h
+)
+include_directories(
+        ${CMAKE_CURRENT_LIST_DIR}/Miner 
+        ${CMAKE_CURRENT_LIST_DIR}/Blockchain
 )
 add_executable(node ${NODESOURCES})
 target_include_directories(
@@ -26,7 +31,6 @@ target_link_libraries(
         leveldb
         concurrencpp
         krapi_event
-        miner
         shared_models
         blockchain_models
         transaction_pool

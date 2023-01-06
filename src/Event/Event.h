@@ -18,6 +18,8 @@ namespace krapi {
     Box<InternalMessage<PeerMessage>>,
     Box<InternalNotification<std::string>>,
     Box<InternalNotification<int>>,
+    Box<InternalNotification<Transaction>>,
+    Box<InternalNotification<Block>>,
     Box<InternalNotification<Empty>>>;
 
   struct Event : EventVariant {

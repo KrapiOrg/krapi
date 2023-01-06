@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <set>
 #include <string>
 
@@ -19,7 +20,7 @@ namespace krapi {
    public:
     explicit Block(
       BlockHeader header = BlockHeader{},
-      std::set<Transaction> transactions = {}
+      Transactions transactions = {}
     );
 
     static Block from_json(const nlohmann::json &json);
@@ -32,9 +33,11 @@ namespace krapi {
 
     [[nodiscard]] BlockHeader header() const;
 
-    [[nodiscard]] std::set<Transaction> transactions() const;
+    [[nodiscard]] Transactions transactions() const;
 
     [[nodiscard]] std::string contrived_hash() const;
+
+    [[nodiscard]] uint64_t timestamp() const;
 
     bool operator==(const Block &) const;
 
@@ -42,7 +45,7 @@ namespace krapi {
 
    private:
     BlockHeader m_header;
-    std::set<Transaction> m_transactions;
+    Transactions m_transactions;
   };
 }// namespace krapi
 namespace std {

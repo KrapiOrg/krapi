@@ -4,17 +4,24 @@
 
 #pragma once
 
+#include <string>
 #include <variant>
 
 #include "Box.h"
+#include "uuid.h"
 
 namespace krapi {
+
+  class Block;
+  class Transaction;
 
   enum class InternalNotificationType {
     DataChannelOpened,
     DataChannelClosed,
     SignalingServerClosed,
-    BlockAccepted
+    BlockAccepted,
+    TransactionAddedToPool,
+    BlockMined
   };
 
   inline std::string to_string(InternalNotificationType type) {
@@ -29,14 +36,19 @@ namespace krapi {
         return "signaling_server_closed";
       case InternalNotificationType::BlockAccepted:
         return "block_accepted";
+      case InternalNotificationType::TransactionAddedToPool:
+        return "transaction_added_to_pool";
+      case InternalNotificationType::BlockMined:
+        return "block_mined";
     }
   }
 
   struct Empty {};
 
   template<typename T>
-  concept InternalNotificationContentConcept =
-    requires(T) { std::is_same_v<T, std::string>; };
+  concept InternalNotificationContentConcept = requires(T) {
+    std::is_same_v<T, std::string> || std::is_same_v<T, Transaction> || std::is_same_v<T, Block>;
+  };
 
 
   template<typename T>

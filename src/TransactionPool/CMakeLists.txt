@@ -5,10 +5,14 @@ add_library(
 )
 target_link_libraries(
         transaction_pool PRIVATE
+        concurrencpp
         datachannel
         nlohmann_json
+        stduuid
         eventpp
         cryptopp
         spdlog
+        leveldb
         blockchain_models
+        shared_models
 )

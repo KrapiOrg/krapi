@@ -13,6 +13,8 @@
 #include "Event.h"
 #include "NotNull.h"
 #include "Overload.h"
+#include "Block.h"
+#include "Transaction.h"
 
 namespace krapi {
   using EventPromise = concurrencpp::result_promise<Event>;

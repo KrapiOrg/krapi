@@ -31,7 +31,8 @@ namespace krapi {
     BlockRejected,
     BlockAccepted,
     GetLastBlockRequest,
-    GetLastBlockResponse
+    GetLastBlockResponse,
+    SyncPoolRequest
   };
 
   NLOHMANN_JSON_SERIALIZE_ENUM(
@@ -53,7 +54,8 @@ namespace krapi {
      {PeerMessageType::BlockRejected, "block_rejected"},
      {PeerMessageType::BlockAccepted, "block_accepted"},
      {PeerMessageType::GetLastBlockRequest, "get_last_block_request"},
-     {PeerMessageType::GetLastBlockResponse, "get_last_block_response"}}
+     {PeerMessageType::GetLastBlockResponse, "get_last_block_response"},
+     {PeerMessageType::SyncPoolRequest, "sync_pool_request"}}
   )
 
   inline std::string to_string(PeerMessageType type) {
@@ -95,6 +97,8 @@ namespace krapi {
         return "get_last_block_request";
       case PeerMessageType::GetLastBlockResponse:
         return "get_last_block_response";
+      case PeerMessageType::SyncPoolRequest:
+        return "sync_pool_request";
       case PeerMessageType::DEFAULT:
         return "default";
     }

@@ -11,7 +11,9 @@ add_library(
 target_link_libraries(
         krapi_event
         concurrencpp
+        stduuid
         eventpp
+        cryptopp
         shared_models
         utils
 )

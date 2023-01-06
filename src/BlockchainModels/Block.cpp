@@ -5,14 +5,14 @@
 #include "Block.h"
 
 namespace krapi {
-  Block::Block(BlockHeader header, std::set<Transaction> transactions)
+  Block::Block(BlockHeader header, Transactions transactions)
       : m_header(std::move(header)), m_transactions(std::move(transactions)) {}
 
   Block Block::from_json(const nlohmann::json &json) {
 
-    std::set<Transaction> transactions;
+    Transactions transactions;
     for (const auto &tx: json["transactions"]) {
-      transactions.insert(Transaction::from_json(tx));
+      transactions.push_back(Transaction::from_json(tx));
     }
 
     return Block{BlockHeader::from_json(json["header"]), transactions};
@@ -37,7 +37,7 @@ namespace krapi {
 
   BlockHeader Block::header() const { return m_header; }
 
-  std::set<Transaction> Block::transactions() const { return m_transactions; }
+  Transactions Block::transactions() const { return m_transactions; }
 
   bool Block::operator==(const Block &other) const {
 
@@ -53,4 +53,5 @@ namespace krapi {
 
     return m_header.m_hash.substr(0, 10);
   }
+  uint64_t Block::timestamp() const { return m_header.m_timestamp; }
 }// namespace krapi

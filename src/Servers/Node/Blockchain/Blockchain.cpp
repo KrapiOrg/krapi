@@ -3,16 +3,13 @@
 //
 
 #include "Blockchain.h"
+#include "BlockHeader.h"
+#include "spdlog/spdlog.h"
 
+#include <filesystem>
 #include <utility>
 
 namespace krapi {
-
-
-  inline Block Blockchain::block_from_slice(const leveldb::Slice &slice) {
-
-    return Block::from_json(nlohmann::json::parse(slice.ToString()));
-  }
 
   Block Blockchain::create_genesis_block() {
 
@@ -36,113 +33,45 @@ namespace krapi {
   }
 
   Blockchain::Blockchain(const std::string &path) {
-
-    m_db_options.create_if_missing = true;
-    m_write_options.sync = true;
-
-    leveldb::DB *db;
-    auto status = leveldb::DB::Open(m_db_options, path, &db);
-    if (status.ok()) {
-
-      m_db = std::unique_ptr<leveldb::DB>(db);
-      if (length() == 0) {
-
-        spdlog::info("Creating Genesis Block...");
-        put(create_genesis_block());
-      }
-    } else {
-
-      spdlog::error("Failed to open blockchain database");
+    if (!initialize(path)) {
+      spdlog::error("Failed to open blocks database");
+      exit(1);
+    }
+    if (size() == 0) {
+      auto block = create_genesis_block();
+      spdlog::info("Creating gensis block...");
+      put(block);
     }
   }
 
-  int Blockchain::length() const {
-
-    int counter = 0;
-
-    auto itr_begin =
-      std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(m_read_options));
-    itr_begin->SeekToFirst();
-
-    for (; itr_begin->Valid(); itr_begin->Next()) { counter++; }
-
-    return counter;
-  }
-
-  std::optional<Block> Blockchain::get(std::string hash) const {
-
-    auto block_str = std::string{};
-    auto status = m_db->Get(m_read_options, hash.data(), &block_str);
-
-    if (status.ok() && !status.IsNotFound()) {
-      auto block_json = nlohmann::json::parse(block_str);
-      return Block::from_json(block_json);
-    }
-    return {};
-  }
-
-  bool Blockchain::remove(std::string hash) {
-
-    return m_db->Delete(m_write_options, hash.data()).IsNotFound();
-  }
-
-  std::vector<Block> Blockchain::remove_all_after(std::string hash) {
+  std::vector<Block> Blockchain::remove_all_after(BlockHeader header) {
 
     auto removed_blocks = std::vector<Block>{};
-    auto block_opt = get(std::move(hash));
-    if (!block_opt.has_value()) return {};
+    auto block_opt = get(header.timestamp(), header.hash());
+    if (!block_opt.has_value()) {
+      spdlog::warn(
+        "Tried to remove after {} which does not exist",
+        header.hash()
+      );
+      return {};
+    }
 
     const auto &remove_after = block_opt.value();
-    auto blocks = get_blocks();
+    auto blocks = get_all();
     for (const auto &block: blocks) {
 
-      if (block.header().timestamp() >= remove_after.header().timestamp()) {
+      if (block.timestamp() >= remove_after.timestamp()) {
 
         removed_blocks.push_back(block);
-        remove(block.hash());
+        remove(block);
       }
     }
     return removed_blocks;
   }
 
-  bool Blockchain::contains(std::string hash) const {
-
-    auto block_str = std::string{};
-    auto status = m_db->Get(m_read_options, hash.data(), &block_str);
-
-    return !status.IsNotFound();
-  }
-
-  bool Blockchain::put(Block block) {
-
-    if (contains(block.hash())) { return false; }
-    return m_db->Put(m_write_options, block.hash(), block.to_json().dump())
-      .ok();
-  }
-
-  Block Blockchain::last() const {
-
-    auto blocks = get_blocks();
-
-    return *blocks.rbegin();
-  }
-
-  std::set<Block> Blockchain::get_blocks() const {
-
-    std::set<Block> blocks;
-    auto itr =
-      std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(m_read_options));
-    itr->SeekToFirst();
-    for (; itr->Valid(); itr->Next()) {
-
-      blocks.insert(block_from_slice(itr->value()));
-    }
-    return blocks;
-  }
-
   std::vector<std::string> Blockchain::get_hashes() const {
 
-    auto blocks = get_blocks();
+    auto blocks = get_all();
     std::vector<std::string> hashes(blocks.size());
     for (const auto &block: blocks) { hashes.push_back(block.hash()); }
     return hashes;
@@ -150,7 +79,7 @@ namespace krapi {
 
   std::vector<BlockHeader> Blockchain::get_headers() const {
 
-    auto blocks = get_blocks();
+    auto blocks = get_all();
     std::vector<BlockHeader> headers(blocks.size());
     for (const auto &block: blocks) { headers.push_back(block.header()); }
     return headers;
@@ -159,7 +88,7 @@ namespace krapi {
   std::vector<BlockHeader> Blockchain::get_all_after(const BlockHeader &header
   ) const {
 
-    auto blocks = get_blocks();
+    auto blocks = get_all();
     auto headers = std::vector<BlockHeader>{};
     for (const auto &block: blocks) {
       if (block.hash().empty()) continue;
@@ -172,7 +101,7 @@ namespace krapi {
 
   bool Blockchain::contains_transaction(std::string hash) const {
 
-    auto blocks = get_blocks();
+    auto blocks = get_all();
     for (const auto &block: blocks) {
       for (const auto &transaction: block.transactions()) {
         if (transaction.hash() == hash) return true;
