@@ -39,6 +39,8 @@ namespace krapi {
 
     [[nodiscard]] uint64_t timestamp() const;
 
+    [[nodiscard]] std::string previous_hash() const;
+
     bool operator==(const Block &) const;
 
     bool operator<(const Block &) const;

@@ -1,6 +1,7 @@
 //
 // Created by mythi on 12/10/22.
 //
+#include "BlockHeader.h"
 #include "Blockchain/Blockchain.h"
 #include "Content/BlockHeadersResponseContent.h"
 #include "EventLoop.h"
@@ -14,17 +15,22 @@
 #include "TransactionPool.h"
 #include "eventpp/utilities/scopedremover.h"
 #include "fmt/format.h"
+#include "nlohmann/json_fwd.hpp"
 #include "spdlog/spdlog.h"
+#include <concurrencpp/executors/executor.h>
 #include <concurrencpp/executors/thread_executor.h>
+#include <concurrencpp/executors/worker_thread_executor.h>
 #include <concurrencpp/results/result.h>
 #include <concurrencpp/results/result_fwd_declarations.h>
 #include <concurrencpp/results/when_result.h>
+#include <concurrencpp/runtime/runtime.h>
 #include <memory>
 #include <string>
 #include <vector>
 
 using namespace krapi;
 using namespace std::chrono_literals;
+
 
 concurrencpp::result<std::pair<std::vector<BlockHeader>, std::string>>
 request_headers(
@@ -192,7 +198,8 @@ int main(int argc, char *argv[]) {
     runtime->thread_executor(),
     event_loop->event_queue(),
     transaction_pool,
-    blockchain
+    blockchain,
+    manager
   );
 
   event_loop->append_listener(
@@ -228,7 +235,7 @@ int main(int argc, char *argv[]) {
       peer_message->sender_identity(),
       block_header.contrived_hash()
     );
-    auto block = blockchain->get(block_header.timestamp(), block_header.hash());
+    auto block = blockchain->get(block_header.hash());
     if (block) {
 
       manager->send_and_forget(
@@ -291,6 +298,54 @@ int main(int argc, char *argv[]) {
       );
     }
   });
+
+  event_loop->append_listener(PeerMessageType::AddBlock, [=](Event e) {
+    auto message = e.get<PeerMessage>();
+    auto block = Block::from_json(message->content());
+    spdlog::info(
+      "Peer {} is trying to add block #{}",
+      message->sender_identity(),
+      block.contrived_hash()
+    );
+
+    blockchain->put(block);
+    spdlog::info(
+      "Removing transactions in Block#{} from pool",
+      block.contrived_hash()
+    );
+    for (const auto &transaction: block.transactions()) {
+
+      if (transaction_pool->remove(transaction)) {
+        spdlog::info("Removed Tx#{} from pool", transaction.contrived_hash());
+      }
+    }
+
+    manager->send_and_forget(
+      PeerMessageType::BlockAccepted,
+      manager->id(),
+      message->sender_identity(),
+      PeerMessage::create_tag(),
+      block.header().to_json()
+    );
+  });
+
+  event_loop->append_listener(
+    InternalNotificationType::BlockMined,
+    [=](Event e) {
+      auto block = e.get<InternalNotification<Block>>()->content();
+      spdlog::info(
+        "Adding Mined Block#{} to blockchain",
+        block.contrived_hash()
+      );
+      blockchain->put(block);
+      for (const auto &transaction: block.transactions()) {
+
+        if (transaction_pool->remove(transaction)) {
+          spdlog::info("Removed Tx#{} from pool", transaction.contrived_hash());
+        }
+      }
+    }
+  );
 
   spdlog::info("Starting initial block download");
   initial_block_download(

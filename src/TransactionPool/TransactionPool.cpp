@@ -62,12 +62,6 @@ namespace krapi {
     spdlog::info("Before {}", m_transaction_queue.size());
     auto transactions = std::make_shared<Transactions>(take_from_queue(n));
 
-    spdlog::info(
-      "After {} {}",
-      m_transaction_queue.size(),
-      transactions->size()
-    );
-
     if (std::ssize(*transactions) == n) {
       return concurrencpp::make_ready_result<Transactions>(*transactions);
     }
@@ -75,33 +69,22 @@ namespace krapi {
     *handle = m_event_queue->internal_queue().appendListener(
       InternalNotificationType::TransactionAddedToPool,
       [=, self = weak_from_this()](Event) {
-        spdlog::info("Here1");
+        
         auto promise_copy = promise;
         auto handle_copy = handle;
         auto transactions_copy = transactions;
         auto n_copy = n;
 
         auto instance = self.lock();
-        spdlog::info("Here2");
+        
         if (!instance) return;
-        spdlog::info("Here3");
-
-        spdlog::info(
-          "Before {} {}",
-          instance->m_transaction_queue.size(),
-          transactions_copy->size()
-        );
+                
         auto tx = instance->take_from_queue(1);
-        spdlog::info("Took {} from queue", tx[0].contrived_hash());
+        
         transactions_copy->push_back(tx[0]);
 
-        spdlog::info(
-          "After {} {}",
-          instance->m_transaction_queue.size(),
-          transactions_copy->size()
-        );
         if (std::ssize(*transactions_copy) >= n_copy) {
-          spdlog::info("Setting");
+          
           promise_copy->set_result(*transactions_copy);
           instance->m_event_queue->internal_queue().removeListener(
             InternalNotificationType::TransactionAddedToPool,
@@ -112,5 +95,23 @@ namespace krapi {
     );
 
     return promise->get_result();
+  }
+  Transactions TransactionPool::take_from_queue(int n) const {
+    std::vector<Transaction> taken;
+    if (std::ssize(m_transaction_queue) >= n) {
+      while (n--) {
+        auto front = m_transaction_queue.front();
+        m_transaction_queue.pop();
+        taken.push_back(front);
+      }
+    } else {
+      while (!m_transaction_queue.empty()) {
+        auto front = m_transaction_queue.front();
+        m_transaction_queue.pop();
+        taken.push_back(front);
+      }
+    }
+
+    return taken;
   }
 }// namespace krapi

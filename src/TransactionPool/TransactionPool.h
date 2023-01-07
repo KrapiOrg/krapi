@@ -39,24 +39,7 @@ namespace krapi {
     EventQueuePtr m_event_queue;
     mutable std::queue<Transaction> m_transaction_queue;
 
-    Transactions take_from_queue(int n) const {
-      std::vector<Transaction> taken;
-      if (std::ssize(m_transaction_queue) >= n) {
-        while (n--) {
-          auto front = m_transaction_queue.front();
-          m_transaction_queue.pop();
-          taken.push_back(front);
-        }
-      } else {
-        while (!m_transaction_queue.empty()) {
-          auto front = m_transaction_queue.front();
-          m_transaction_queue.pop();
-          taken.push_back(front);
-        }
-      }
-
-      return taken;
-    }
+    Transactions take_from_queue(int n) const;
     explicit TransactionPool(std::string, EventQueuePtr);
   };
 

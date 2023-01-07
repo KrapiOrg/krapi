@@ -43,6 +43,7 @@ concurrencpp::null_result initialize(
   spdlog::info("Connected to: [{}]", fmt::join(peer_ids, ", "));
 
   while (true) {
+    std::cin.get();
     auto light_peer_ids = co_await manager->peers_of_type(PeerType::Light);
     for (const auto &peer_id: light_peer_ids) {
       auto transaction = wallet->create_transaction(manager->id(), peer_id);
@@ -58,7 +59,6 @@ concurrencpp::null_result initialize(
         transaction.to_json()
       );
     }
-    std::cin.get();
   }
 }
 

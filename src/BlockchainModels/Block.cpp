@@ -54,4 +54,5 @@ namespace krapi {
     return m_header.m_hash.substr(0, 10);
   }
   uint64_t Block::timestamp() const { return m_header.m_timestamp; }
+  std::string Block::previous_hash() const { return m_header.m_previous_hash; }
 }// namespace krapi

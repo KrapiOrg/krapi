@@ -8,21 +8,24 @@
 #include "Blockchain.h"
 #include "EventQueue.h"
 #include "InternalNotification.h"
+#include "NodeManager.h"
+#include "PeerMessage.h"
 #include "TransactionPool.h"
 #include "fmt/core.h"
 #include "merklecpp.h"
 #include "sha.h"
 #include "spdlog/spdlog.h"
 #include <concurrencpp/executors/thread_executor.h>
-#include <concurrencpp/executors/thread_executor.h>
 #include <concurrencpp/results/make_result.h>
 #include <concurrencpp/results/result.h>
 #include <concurrencpp/results/result_fwd_declarations.h>
 #include <concurrencpp/results/shared_result.h>
+#include <concurrencpp/threads/async_lock.h>
 #include <eventpp/utilities/scopedremover.h>
 #include <memory>
 #include <optional>
 #include <unordered_set>
+#include <variant>
 
 using namespace std::chrono;
 
@@ -49,9 +52,10 @@ namespace krapi {
 
     std::atomic<bool> stop = false;
     CryptoPP::SHA256 sha_256;
-    auto remover = eventpp::ScopedRemover<EventQueueType>(event_queue->internal_queue());
+    auto remover =
+      eventpp::ScopedRemover<EventQueueType>(event_queue->internal_queue());
     remover.appendListener(
-      InternalNotificationType::BlockAccepted,
+      InternalNotificationType::MinerStop,
       [&](Event event) { stop = true; }
     );
     auto get_merkle_root = [&]() {
@@ -68,7 +72,7 @@ namespace krapi {
     auto timestamp = get_timestamp();
 
     uint64_t nonce = 0;
-    while (!stop) {
+    while (true) {
 
       auto block_hash = std::string{};
 
@@ -95,51 +99,93 @@ namespace krapi {
     EventQueuePtr m_event_queue;
     TransactionPoolPtr m_transaction_pool;
     BlockchainPtr m_blockchain;
+    NodeManagerPtr m_manager;
 
    public:
     Miner(
       std::shared_ptr<concurrencpp::thread_executor> executor,
       EventQueuePtr event_queue,
       TransactionPoolPtr transaction_pool,
-      BlockchainPtr blockchain
+      BlockchainPtr blockchain,
+      NodeManagerPtr manager
     )
         : m_event_queue(event_queue), m_executor(std::move(executor)),
           m_blockchain(std::move(blockchain)),
-          m_transaction_pool(std::move(transaction_pool)) {
+          m_transaction_pool(std::move(transaction_pool)),
+          m_manager(std::move(manager)) {
 
-      m_executor->enqueue([this]() -> concurrencpp::null_result {
-        
-        while (true) {
-          spdlog::info("Miner: Waiting for transactions...");
-          auto transactions = co_await m_transaction_pool->wait_for(5);
-          spdlog::info("Miner Acquired the following transaction...");
-          for (const auto &transaction: transactions) {
-            spdlog::info("  Transaction#{}", transaction.contrived_hash());
-          }
-          auto latest_hash = m_blockchain->last().hash();
-          spdlog::info("Mining with {} as previous hash", latest_hash);
-          
-          auto block = co_await mining_function(
-            {},
-            m_executor,
-            m_event_queue,
-            latest_hash,
-            transactions
+      m_executor->enqueue(std::bind_front(&Miner::task, this));
+    }
+
+    concurrencpp::null_result task() {
+
+      while (true) {
+        spdlog::info("Miner: Waiting for transactions...");
+        auto transactions = co_await m_transaction_pool->wait_for(5);
+        spdlog::info("Miner Acquired the following transaction...");
+        for (const auto &transaction: transactions) {
+          spdlog::info("  Transaction#{}", transaction.contrived_hash());
+        }
+        auto latest_hash = m_blockchain->last().hash();
+        spdlog::info("Mining with {} as previous hash", latest_hash);
+
+        auto block = co_await mining_function(
+          {},
+          m_executor,
+          m_event_queue,
+          latest_hash,
+          transactions
+        );
+
+        spdlog::info("Miner: MiningJob finished");
+        if (block) {
+
+          spdlog::info(
+            "Miner: Broadcasting Block #{}",
+            block->contrived_hash()
           );
 
-          spdlog::info("Miner: MiningJob finished");
-          if (block) {
-            spdlog::info("Miner: Mined Block#{}", block->contrived_hash());
-            
+          m_manager->broadcast_to_peers_of_type_and_forget(
+            m_executor,
+            PeerType::Full,
+            PeerMessageType::AddBlock,
+            block->to_json()
+          );
+
+          spdlog::info(
+            "Miner: Waiting for Block #{} to be accepted or rejected",
+            block->contrived_hash()
+          );
+
+          auto [status, message] =
+            co_await m_event_queue
+              ->any_event_of_type<PeerMessage, PeerMessageType>(
+                m_executor,
+                {PeerMessageType::BlockAccepted, PeerMessageType::BlockRejected}
+              );
+
+          if (status == PeerMessageType::BlockAccepted) {
+            spdlog::info(
+              "Block #{} was accepted by {}",
+              block->contrived_hash(),
+              message->sender_identity()
+            );
             m_event_queue->enqueue<InternalNotification<Block>>(
               InternalNotificationType::BlockMined,
               *block
             );
           } else {
-            spdlog::info("Miner: MiningJob was stopped");
+            spdlog::info(
+              "Block #{} was rejected",
+              block->contrived_hash(),
+              message->sender_identity()
+            );
           }
+
+        } else {
+          spdlog::info("Miner: MiningJob was stopped");
         }
-      });
+      }
     }
   };
 

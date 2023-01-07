@@ -19,7 +19,7 @@ namespace krapi {
     DataChannelOpened,
     DataChannelClosed,
     SignalingServerClosed,
-    BlockAccepted,
+    MinerStop,
     TransactionAddedToPool,
     BlockMined
   };
@@ -34,7 +34,7 @@ namespace krapi {
         return "data_channel_closed";
       case InternalNotificationType::SignalingServerClosed:
         return "signaling_server_closed";
-      case InternalNotificationType::BlockAccepted:
+      case InternalNotificationType::MinerStop:
         return "block_accepted";
       case InternalNotificationType::TransactionAddedToPool:
         return "transaction_added_to_pool";
@@ -47,7 +47,8 @@ namespace krapi {
 
   template<typename T>
   concept InternalNotificationContentConcept = requires(T) {
-    std::is_same_v<T, std::string> || std::is_same_v<T, Transaction> || std::is_same_v<T, Block>;
+    std::is_same_v<T, std::string> || std::is_same_v<T, Transaction> ||
+      std::is_same_v<T, Block>;
   };
 
 

@@ -47,7 +47,7 @@ namespace krapi {
   std::vector<Block> Blockchain::remove_all_after(BlockHeader header) {
 
     auto removed_blocks = std::vector<Block>{};
-    auto block_opt = get(header.timestamp(), header.hash());
+    auto block_opt = get(header.hash());
     if (!block_opt.has_value()) {
       spdlog::warn(
         "Tried to remove after {} which does not exist",
