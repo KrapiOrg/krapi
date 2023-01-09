@@ -4,130 +4,145 @@
 
 #pragma once
 
-#include <condition_variable>
+#include <concurrencpp/executors/thread_executor.h>
+#include <concurrencpp/results/result.h>
+#include <concurrencpp/results/result_fwd_declarations.h>
+#include <memory>
 #include <set>
-#include "ixwebsocket/IXWebSocket.h"
-#include "rtc/peerconnection.hpp"
+#include <utility>
+#include <vector>
+
+#include "concurrencpp/concurrencpp.h"
 #include "eventpp/eventdispatcher.h"
-#include "tl/expected.hpp"
+#include "nlohmann/json_fwd.hpp"
+#include "rtc/peerconnection.hpp"
+
+#include "PeerConnection.h"
 #include "PeerMessage.h"
-#include "PeerType.h"
-#include "SignalingMessage.h"
 #include "PeerState.h"
-#include "AsyncQueue.h"
+#include "PeerType.h"
 #include "SignalingClient.h"
-#include "ErrorOr.h"
+#include "SignalingMessage.h"
 
 namespace krapi {
 
-    class NodeManager : public std::enable_shared_from_this<NodeManager> {
-    protected:
+  class [[nodiscard]] NodeManager final {
 
-        using PeerMessageEventDispatcher = eventpp::EventDispatcher<PeerMessageType, void(PeerMessage)>;
+   public:
+    [[nodiscard]] static inline std::shared_ptr<NodeManager> create(
+      std::shared_ptr<concurrencpp::worker_thread_executor> worker,
+      EventQueuePtr event_queue,
+      SignalingClientPtr signaling_client,
+      PeerType pt,
+      PeerState ps = PeerState::Closed
+    ) {
 
-        PeerMessageEventDispatcher m_dispatcher;
+      return std::shared_ptr<NodeManager>(new NodeManager(
+        std::move(worker),
+        std::move(event_queue),
+        std::move(signaling_client),
+        pt,
+        ps
+      ));
+    }
 
-        std::mutex m_blocking_mutex;
-        std::condition_variable m_blocking_cv;
+    void set_state(PeerState state);
 
-        std::atomic<int> m_peer_count;
+    [[nodiscard]] PeerState get_state() const;
 
-        rtc::Configuration m_rtc_config;
-        SignalingClient m_signaling_client;
-        int my_id;
+    [[nodiscard]] std::string id() const;
 
-        std::recursive_mutex m_connection_map_mutex;
-        std::unordered_map<int, std::shared_ptr<rtc::PeerConnection>> m_connection_map;
-        std::recursive_mutex m_channel_map_mutex;
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> m_channel_map;
-        std::recursive_mutex m_peer_types_map_mutex;
-        std::unordered_map<int, PeerType> m_peer_types_map;
-        std::recursive_mutex m_peer_states_map_mutex;
-        std::unordered_map<int, PeerState> m_peer_states_map;
+    template<typename... Args>
+    concurrencpp::shared_result<Event> send(Args &&...args) {
 
-        mutable std::mutex m_peer_state_mutex;
-        PeerState m_peer_state;
+      return m_event_queue->submit<InternalMessage<PeerMessage>>(
+        InternalMessageType::SendPeerMessage,
+        PeerMessage::create(std::forward<Args>(args)...)
+      );
+    }
 
-        PeerType m_peer_type;
+    template<typename... Args>
+    void send_and_forget(Args &&...args) {
 
-        AsyncQueue m_send_queue;
-        AsyncQueue m_receive_queue;
-        AsyncQueue m_peer_handler_queue;
-        std::mutex m_promise_map_mutex;
+      m_event_queue->enqueue<InternalMessage<PeerMessage>>(
+        InternalMessageType::SendPeerMessage,
+        PeerMessage::create(std::forward<Args>(args)...)
+      );
+    }
 
-        using PromiseType = tl::expected<PeerMessage, KrapiErr>;
-        using Promise = std::promise<PromiseType>;
-        using PromisePtr = std::shared_ptr<Promise>;
-        using Future = std::shared_future<PromiseType>;
-        using PromiseMap = std::map<std::string, PromisePtr>;
-        using PromiseMapPtr = std::shared_ptr<PromiseMap>;
-        using PerPeerPromiseMap = std::map<int, PromiseMapPtr>;
-        std::shared_ptr<PerPeerPromiseMap> promise_map;
+    std::vector<concurrencpp::shared_result<Event>>
+      broadcast(PeerMessageType, nlohmann::json = {});
 
-        std::mutex m_future_map_mutex;
-        using FutureMap = std::map<std::string, Future>;
-        using FutureMapPtr = std::shared_ptr<FutureMap>;
-        using PerPeerFutureMap = std::map<int, FutureMapPtr>;
-        std::shared_ptr<PerPeerFutureMap> future_map;
+    void broadcast_and_forget(PeerMessageType, nlohmann::json = {});
+
+    void broadcast_to_peers_of_type_and_forget(
+      std::shared_ptr<concurrencpp::thread_executor> executor,
+      PeerType to_peer_type,
+      PeerMessageType message_type,
+      nlohmann::json content = {}
+    );
 
 
-        void on_channel_close(int id);
+    concurrencpp::result<std::vector<std::string>> wait_for_peers(
+      std::shared_ptr<concurrencpp::thread_executor> executor,
+      int count,
+      std::set<PeerType> types,
+      std::set<PeerState> states
+    );
 
-        std::shared_ptr<rtc::PeerConnection> create_connection(int);
+    concurrencpp::result<std::vector<std::string>> peers_of_type(PeerType type
+    ) {
+      auto ids = std::vector<std::string>{};
+      for (const auto &[peer_id, connection]: m_connection_map) {
+        if (co_await connection->type() == type) ids.push_back(peer_id);
+      }
+      co_return ids;
+    }
 
-        std::future<int> set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel);
+    concurrencpp::shared_result<PeerState> state_of(std::string);
 
-    public:
+    concurrencpp::shared_result<PeerType> type_of(std::string);
 
-        explicit NodeManager(
-                PeerType pt
-        );
+   private:
+    explicit NodeManager(
+      std::shared_ptr<concurrencpp::worker_thread_executor>,
+      EventQueuePtr,
+      SignalingClientPtr,
+      PeerType,
+      PeerState
+    );
 
-        [[nodiscard]]
-        MultiFuture<PromiseType> broadcast(
-                PeerMessage message,
-                const std::set<PeerType> &excluded_types = {PeerType::Light},
-                const std::set<PeerState> &excluded_states = {
-                        PeerState::Closed,
-                        PeerState::WaitingForPeers
-                }
-        );
+    EventQueuePtr m_event_queue;
+    SignalingClientPtr m_signaling_client;
+    concurrencpp::async_lock m_lock;
+    std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;
+    std::unordered_map<std::string, std::shared_ptr<PeerConnection>>
+      m_connection_map;
+    eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
 
-        [[nodiscard]]
-        ErrorOr<Future> send(
-                int id,
-                const PeerMessage &message
-        );
+    PeerState m_peer_state;
+    PeerType m_peer_type;
 
-        void wait();
+    void on_rtc_setup(Event);
 
-        MultiFuture<int> connect_to_peers();
+    void on_rtc_candidate(Event);
 
-        void append_listener(
-                PeerMessageType,
-                const std::function<void(PeerMessage)> &listener
-        );
+    void on_peer_state_request(Event);
 
-        [[nodiscard]]
-        ErrorOr<PeerState> request_peer_state(int id);
+    void on_peer_type_request(Event);
 
-        [[nodiscard]]
-        ErrorOr<PeerType> request_peer_type(int id);
+    void on_send_peer_message(Event);
 
-        void set_state(PeerState new_state);
+    void on_datachannel_opened(Event);
 
-        [[nodiscard]]
-        PeerState get_state() const;
+    void on_datachannel_closed(Event);
 
-        [[nodiscard]]
-        int id() const;
+    void on_peer_closed(Event);
 
-        [[nodiscard]]
-        ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> get_peers(
-                const std::set<PeerType>& types,
-                const std::set<PeerState>& states = {PeerState::Open}
-        );
+    void on_peer_available(Event);
 
-    };
+    concurrencpp::null_result connect_to_peer(Event);
+  };
 
-} // krapi
+  using NodeManagerPtr = std::shared_ptr<NodeManager>;
+}// namespace krapi

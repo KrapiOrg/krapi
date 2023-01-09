@@ -4,51 +4,37 @@
 
 #pragma once
 
+#include "Block.h"
 #include <list>
 #include <span>
-#include "Block.h"
 
 namespace krapi {
-    struct BlocksResponseContent {
-        std::list<Block> m_blocks;
-    public:
+  struct BlocksResponseContent {
+    std::list<Block> m_blocks;
 
-        explicit BlocksResponseContent(
-                std::list<Block> blocks
-        ) :
-                m_blocks(std::move(blocks)) {
+   public:
+    explicit BlocksResponseContent(std::list<Block> blocks)
+        : m_blocks(std::move(blocks)) {}
 
-        }
+    [[nodiscard]] std::list<Block> blocks() const { return m_blocks; }
 
-        [[nodiscard]]
-        std::list<Block> blocks() const {
+    static BlocksResponseContent from_json(nlohmann::json json) {
 
-            return m_blocks;
-        }
+      auto blocks = std::list<Block>{};
 
-        static BlocksResponseContent from_json(nlohmann::json json) {
+      for (const auto &json_block: json["blocks"]) {
+        blocks.push_back(Block::from_json(json_block));
+      }
 
-            auto blocks = std::list<Block>{};
+      return BlocksResponseContent{std::move(blocks)};
+    }
 
-            for (const auto &json_block: json["blocks"]) {
-                blocks.push_back(Block::from_json(json_block));
-            }
+    [[nodiscard]] nlohmann::json to_json() const {
 
-            return BlocksResponseContent{std::move(blocks)};
-        }
+      auto json = nlohmann::json::array();
+      for (const auto &block: m_blocks) { json.push_back(block.to_json()); }
 
-        [[nodiscard]]
-        nlohmann::json to_json() const {
-
-            auto json = nlohmann::json::array();
-            for (const auto &block: m_blocks) {
-                json.push_back(block.to_json());
-            }
-
-            return {
-                    {"blocks", json}
-            };
-        }
-
-    };
-} // krapi
+      return {{"blocks", json}};
+    }
+  };
+}// namespace krapi

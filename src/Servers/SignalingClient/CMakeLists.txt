@@ -1,17 +1,20 @@
-project(signaling_client)
 cmake_minimum_required(VERSION 3.23.2)
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 add_library(
         signaling_client
+        STATIC
         ${CMAKE_CURRENT_LIST_DIR}/SignalingClient.cpp
         ${CMAKE_CURRENT_LIST_DIR}/SignalingClient.h
 )
 target_link_libraries(
         signaling_client
         PRIVATE
-        ixwebsocket
+        datachannel
         nlohmann_json
         spdlog
         stduuid
+        concurrencpp
+        eventpp
+        krapi_event
         shared_models
 )

@@ -7,26 +7,23 @@
 #include "nlohmann/json.hpp"
 
 namespace krapi {
-    enum class PeerType {
-        Full,
-        Light,
-        Observer
-    };
+  enum class PeerType { Light, Full, Observer, Unknown };
 
-    NLOHMANN_JSON_SERIALIZE_ENUM(PeerType, {
-        { PeerType::Full, "peer_type_full" },
-        { PeerType::Light, "peer_type_light" },
-        { PeerType::Observer, "peer_type_observer" }
-    })
+  NLOHMANN_JSON_SERIALIZE_ENUM(
+    PeerType,
+    {{PeerType::Full, "full"},
+     {PeerType::Light, "light"},
+     {PeerType::Observer, "observer"},
+     {PeerType::Unknown, "unknown"}}
+  )
 
-    inline std::string to_string(PeerType type) {
+  inline std::string to_string(PeerType type) {
 
-        if (type == PeerType::Full)
-            return "Full";
-        if(type == PeerType::Light)
-            return "Light";
+    if (type == PeerType::Full) return "full";
+    if (type == PeerType::Light) return "light";
+    if (type == PeerType::Observer) return "observer";
 
-        return "Observer";
-    }
+    return "unknown";
+  }
 
-}// krapi
+}// namespace krapi

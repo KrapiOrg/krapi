@@ -3,482 +3,434 @@
 //
 
 #include "NodeManager.h"
+#include "EventQueue.h"
+#include "InternalMessage.h"
+#include "InternalNotification.h"
+#include "PeerMessage.h"
+#include "PeerState.h"
+#include "eventpp/utilities/scopedremover.h"
 #include "spdlog/spdlog.h"
-#include "ErrorOr.h"
+#include <functional>
+#include <memory>
+#include <tuple>
+#include <vector>
+
+#include "eventpp/utilities/conditionalremover.h"
 
 using namespace std::chrono_literals;
 
+
 namespace krapi {
 
-    std::future<int> NodeManager::set_up_datachannel(int id, std::shared_ptr<rtc::DataChannel> channel) {
+  NodeManager::NodeManager(
+    std::shared_ptr<concurrencpp::worker_thread_executor> worker,
+    EventQueuePtr event_queue,
+    SignalingClientPtr signaling_client,
+    PeerType pt,
+    PeerState ps
+  )
+      : m_worker(std::move(worker)), m_event_queue(event_queue),
+        m_subscription_remover(event_queue->internal_queue()),
+        m_signaling_client(std::move(signaling_client)), m_peer_state(ps),
+        m_peer_type(pt) {
 
-        auto open_promise = std::make_shared<std::promise<int>>();
-        channel->onOpen(
-                [=, this]() {
-                    m_peer_handler_queue.push_task(
-                            [=, this]() {
-                                {
-                                    std::lock_guard l(m_promise_map_mutex);
-                                    promise_map->emplace(id, std::make_shared<PromiseMap>());
-                                }
-                                {
-                                    std::lock_guard l(m_future_map_mutex);
-                                    future_map->emplace(id, std::make_shared<FutureMap>());
-                                }
-                                open_promise->set_value(id);
-                            }
-                    );
-                }
+    m_subscription_remover.appendListener(
+      SignalingMessageType::RTCSetup,
+      std::bind_front(&NodeManager::on_rtc_setup, this)
+    );
+
+    m_subscription_remover.appendListener(
+      PeerMessageType::PeerTypeRequest,
+      std::bind_front(&NodeManager::on_peer_type_request, this)
+    );
+
+    m_subscription_remover.appendListener(
+      PeerMessageType::PeerStateRequest,
+      std::bind_front(&NodeManager::on_peer_state_request, this)
+    );
+
+    m_subscription_remover.appendListener(
+      InternalMessageType::SendPeerMessage,
+      std::bind_front(&NodeManager::on_send_peer_message, this)
+    );
+
+    m_subscription_remover.appendListener(
+      InternalNotificationType::DataChannelOpened,
+      std::bind_front(&NodeManager::on_datachannel_opened, this)
+    );
+
+    m_subscription_remover.appendListener(
+      InternalNotificationType::DataChannelClosed,
+      std::bind_front(&NodeManager::on_datachannel_closed, this)
+    );
+
+    m_subscription_remover.appendListener(
+      SignalingMessageType::PeerClosed,
+      std::bind_front(&NodeManager::on_peer_closed, this)
+    );
+
+    m_subscription_remover.appendListener(
+      SignalingMessageType::PeerAvailable,
+      std::bind_front(&NodeManager::connect_to_peer, this)
+    );
+  }
+
+  std::string NodeManager::id() const { return m_signaling_client->identity(); }
+
+
+  concurrencpp::null_result NodeManager::connect_to_peer(Event event) {
+
+    auto peer = event.get<SignalingMessage>()->content().get<std::string>();
+    spdlog::info("{} is available", peer);
+
+    if (m_connection_map.contains(peer)) co_return;
+
+    auto awaitable = m_event_queue->create_awaitable(peer);
+
+    auto peer_connection = PeerConnection::create(
+      make_not_null(m_event_queue.get()),
+      make_not_null(m_signaling_client.get()),
+      peer
+    );
+
+    co_await m_lock.lock(m_worker);
+    m_connection_map.emplace(peer, std::move(peer_connection));
+
+    co_await awaitable;
+  }
+
+  PeerState NodeManager::get_state() const { return m_peer_state; }
+
+  void NodeManager::on_rtc_setup(Event event) {
+
+    auto message = event.get<SignalingMessage>();
+
+    if (m_connection_map.contains(message->sender_identity())) {
+
+      auto description = message->content().get<std::string>();
+      m_connection_map[message->sender_identity()]->set_remote_description(
+        description
+      );
+    } else {
+
+      m_connection_map.emplace(
+        message->sender_identity(),
+        PeerConnection::create(
+          make_not_null(m_event_queue.get()),
+          make_not_null(m_signaling_client.get()),
+          message->sender_identity(),
+          message->content().get<std::string>()
+        )
+      );
+    }
+  }
+
+  void NodeManager::on_peer_state_request(Event event) {
+
+    auto message = event.get<PeerMessage>();
+
+    m_event_queue->enqueue<InternalMessage<PeerMessage>>(
+      InternalMessageType::SendPeerMessage,
+      PeerMessage::create(
+        PeerMessageType::PeerStateResponse,
+        m_signaling_client->identity(),
+        message->sender_identity(),
+        message->tag(),
+        m_peer_state
+      )
+    );
+  }
+
+  void NodeManager::on_peer_type_request(Event event) {
+
+    auto message = event.get<PeerMessage>();
+    m_event_queue->enqueue<InternalMessage<PeerMessage>>(
+      InternalMessageType::SendPeerMessage,
+      PeerMessage::create(
+        PeerMessageType::PeerTypeResponse,
+        m_signaling_client->identity(),
+        message->sender_identity(),
+        message->tag(),
+        m_peer_type
+      )
+    );
+  }
+
+  void NodeManager::on_send_peer_message(Event event) {
+
+    auto internal_message = event.get<InternalMessage<PeerMessage>>();
+    auto message = internal_message->content();
+    auto resend = [this, message]() {
+      spdlog::error(
+        "{} to {} was not sent, re-enqueing",
+        to_string(message->type()),
+        message->receiver_identity()
+      );
+      m_event_queue->enqueue<InternalMessage<PeerMessage>>(
+        InternalMessageType::SendPeerMessage,
+        std::move(message)
+      );
+    };
+
+    {
+      m_lock.lock(m_worker).run().wait();
+      if (!m_connection_map.contains(message->receiver_identity())) resend();
+    }
+
+    if (!m_connection_map[message->receiver_identity()]->send_and_forget(message
+        ))
+      resend();
+  }
+
+  std::vector<concurrencpp::shared_result<Event>>
+  NodeManager::broadcast(PeerMessageType type, nlohmann::json content) {
+
+    std::vector<concurrencpp::shared_result<Event>> results;
+
+    for (const auto &[peer, ignore]: m_connection_map) {
+
+      results.push_back(send(
+        type,
+        m_signaling_client->identity(),
+        peer,
+        PeerMessage::create_tag(),
+        content
+      ));
+    }
+
+    return results;
+  }
+
+  void NodeManager::broadcast_and_forget(
+    PeerMessageType type,
+    nlohmann::json content
+  ) {
+
+    for (const auto &[peer, _]: m_connection_map) {
+      send_and_forget(
+        type,
+        m_signaling_client->identity(),
+        peer,
+        PeerMessage::create_tag(),
+        content
+      );
+    }
+  }
+
+  void NodeManager::on_datachannel_opened(Event event) {
+
+    auto id = event.get<InternalNotification<std::string>>()->content();
+    auto connection = m_connection_map[id];
+    spdlog::info("Peer {} connected", id);
+  }
+
+  void NodeManager::on_datachannel_closed(Event event) {
+
+    auto id = event.get<InternalNotification<std::string>>()->content();
+    spdlog::warn("DataChannel with {} closed", id);
+  }
+
+  void NodeManager::on_peer_closed(Event event) {
+
+    auto id = event.get<SignalingMessage>()->content().get<std::string>();
+    spdlog::info("PeerConnection with {} closed", id);
+    m_connection_map.erase(id);
+  }
+
+  void NodeManager::set_state(PeerState state) {
+
+    m_peer_state = state;
+    broadcast_and_forget(PeerMessageType::PeerStateUpdate, state);
+  }
+
+  concurrencpp::shared_result<PeerState>
+  NodeManager::state_of(std::string peer_id) {
+
+    if (m_connection_map.contains(peer_id))
+      return m_connection_map.find(peer_id)->second->state();
+
+    return concurrencpp::make_ready_result<PeerState>(PeerState::Unknown);
+  }
+
+  concurrencpp::shared_result<PeerType> NodeManager::type_of(std::string peer_id
+  ) {
+
+    if (m_connection_map.contains(peer_id))
+      return m_connection_map.find(peer_id)->second->type();
+    return concurrencpp::make_ready_result<PeerType>(PeerType::Unknown);
+  }
+  concurrencpp::result<std::vector<std::string>> NodeManager::wait_for_peers(
+    std::shared_ptr<concurrencpp::thread_executor> executor,
+    int count,
+    std::set<PeerType> types,
+    std::set<PeerState> states
+  ) {
+    using Promise = concurrencpp::result_promise<std::vector<std::string>>;
+    using Identities = std::vector<std::string>;
+    using Types = std::set<PeerType>;
+    using States = std::set<PeerState>;
+
+    using PromisePtr = std::shared_ptr<Promise>;
+    using IdentitiesPtr = std::shared_ptr<Identities>;
+    using Handle = EventQueueType::Handle;
+    using HandlePtr = std::shared_ptr<Handle>;
+    using Null = concurrencpp::null_result;
+    using GetterResult = concurrencpp::result<std::pair<PeerType, PeerState>>;
+
+    auto promise = std::make_shared<Promise>();
+    auto identities = std::make_shared<Identities>();
+
+    auto details_getter = [this](std::string peer) -> GetterResult {
+      co_return std::make_pair(co_await type_of(peer), co_await state_of(peer));
+    };
+    for (const auto &[peer_id, ignore]: m_connection_map) {
+      auto [type, state] = co_await details_getter(peer_id);
+
+      if (types.contains(type) && states.contains(state)) {
+
+        identities->push_back(peer_id);
+      }
+    }
+
+    if (identities->size() >= count) co_return *identities;
+
+
+    HandlePtr handle1 = std::make_shared<Handle>();
+    HandlePtr handle2 = std::make_shared<Handle>();
+
+    auto on_datachannel_task = [=, this](
+                                 Event e,
+                                 PromisePtr promise,
+                                 int count,
+                                 IdentitiesPtr identities,
+                                 Types types,
+                                 States states
+                               ) -> Null {
+      auto h1 = handle1;
+      auto h2 = handle2;
+      auto peer_id = e.get<InternalNotification<std::string>>()->content();
+      auto [type, state] = co_await details_getter(peer_id);
+
+      if (types.contains(type) && states.contains(state)) {
+
+        identities->push_back(peer_id);
+      }
+      if (identities->size() >= count) {
+        promise->set_result(*identities);
+        m_event_queue->internal_queue().removeListener(
+          InternalNotificationType::DataChannelOpened,
+          *h1
         );
-        channel->onMessage(
-                [id, this](rtc::message_variant rtc_message) {
-                    m_receive_queue.push_task(
-                            [=, this]() {
-                                auto msg_str = std::get<std::string>(rtc_message);
-                                auto msg_json = nlohmann::json::parse(msg_str);
-                                auto peer_message = PeerMessage::from_json(msg_json);
-
-                                {
-                                    std::lock_guard l(m_promise_map_mutex);
-                                    if (promise_map->at(id)->contains(peer_message.tag()))
-                                        promise_map->at(id)->at(peer_message.tag())->set_value(peer_message);
-                                }
-
-                                m_dispatcher.dispatch(peer_message.type(), peer_message);
-                            }
-                    );
-                }
+        m_event_queue->internal_queue().removeListener(
+          PeerMessageType::PeerStateUpdate,
+          *h2
         );
+      }
+    };
 
-        channel->onClosed(
-                [id, this]() {
-                    m_peer_handler_queue.push_task(
-                            [=, this]() {
-                                on_channel_close(id);
-                            }
-                    );
-                }
+
+    auto on_peer_state_update_task = [=, this](
+                                       Event e,
+                                       PromisePtr promise,
+                                       int count,
+                                       IdentitiesPtr identities,
+                                       Types types,
+                                       States states
+                                     ) -> Null {
+      auto h1 = handle1;
+      auto h2 = handle2;
+      auto peer_message = e.get<PeerMessage>();
+      auto peer_id = peer_message->sender_identity();
+      auto [type, state] = co_await details_getter(peer_id);
+
+      if (types.contains(type) && states.contains(state)) {
+        identities->push_back(peer_id);
+      }
+      if (identities->size() >= count) {
+        promise->set_result(*identities);
+        m_event_queue->internal_queue().removeListener(
+          InternalNotificationType::DataChannelOpened,
+          *h1
         );
-        std::lock_guard l(m_channel_map_mutex);
-        m_channel_map.emplace(id, channel);
-        return open_promise->get_future();
-    }
-
-    std::shared_ptr<rtc::PeerConnection> NodeManager::create_connection(int id) {
-
-        auto pc = std::make_shared<rtc::PeerConnection>(m_rtc_config);
-
-        pc->onStateChange(
-                [=, self = weak_from_this()](rtc::PeerConnection::State state) {
-                    switch (state) {
-                        case rtc::PeerConnection::State::Closed:
-                        case rtc::PeerConnection::State::Disconnected: {
-                            if (auto ptr = self.lock()) {
-
-                                std::lock_guard l(ptr->m_connection_map_mutex);
-                                ptr->m_connection_map.erase(id);
-                            }
-                        }
-                            break;
-                        default:
-                            break;
-                    }
-                }
+        m_event_queue->internal_queue().removeListener(
+          PeerMessageType::PeerStateUpdate,
+          *h2
         );
+      }
+    };
 
-        pc->onLocalDescription([=, this](const rtc::Description &description) {
-            auto desc = nlohmann::json{
-                    {"id",          id},
-                    {"type",        description.typeString()},
-                    {"description", std::string(description)}
-            };
-            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, desc});
-        });
-
-        pc->onLocalCandidate([=, this](const rtc::Candidate &candidate) {
-            auto cand = nlohmann::json{
-                    {"id",        id},
-                    {"type",      "candidate"},
-                    {"candidate", std::string(candidate)},
-                    {"mid",       candidate.mid()}
-            };
-            (void) m_signaling_client.send(SignalingMessage{SignalingMessageType::RTCSetup, cand});
-        });
-
-        pc->onDataChannel(
-                [=, this](auto &&channel) {
-                    (void) set_up_datachannel(id, std::forward<decltype(channel)>(channel));
-                }
+    *handle1 = m_event_queue->internal_queue().appendListener(
+      InternalNotificationType::DataChannelOpened,
+      [=](Event e) {
+        auto fn = std::bind(
+          on_datachannel_task,
+          e,
+          promise,
+          count,
+          identities,
+          types,
+          states
         );
-
-        std::lock_guard l(m_connection_map_mutex);
-        m_connection_map.emplace(id, pc);
-        return pc;
-    }
-
-    NodeManager::NodeManager(
-            PeerType pt
-    ) : m_peer_state(PeerState::Closed),
-        my_id(-1),
-        m_peer_type(pt),
-        m_peer_count(0),
-        promise_map(std::make_shared<PerPeerPromiseMap>()),
-        future_map(std::make_shared<PerPeerFutureMap>()) {
-
-        spdlog::info("NodeManager: Acquiring identity...");
-        my_id = m_signaling_client.get_identity();
-        spdlog::info("NodeManager: Acquired identity {}", my_id);
-
-        m_signaling_client.on_rtc_setup(
-                [this](SignalingMessage msg) {
-
-                    auto peer_id = msg.content["id"].get<int>();
-                    auto type = msg.content["type"].get<std::string>();
-
-                    std::shared_ptr<rtc::PeerConnection> pc;
-
-                    auto safe_connection_map_access = [&pc, &peer_id, this]() {
-
-                        std::lock_guard l(m_connection_map_mutex);
-                        if (m_connection_map.contains(peer_id)) {
-
-                            pc = m_connection_map[peer_id];
-                            return true;
-                        }
-                        return false;
-                    };
-
-                    if (safe_connection_map_access());
-                    else if (type == "offer") {
-
-                        pc = create_connection(peer_id);
-                    } else {
-
-                        return;
-                    }
-
-                    if (type == "offer" || type == "answer") {
-
-                        auto sdp = msg.content["description"].get<std::string>();
-                        pc->setRemoteDescription(rtc::Description(sdp, type));
-                    } else if (type == "candidate") {
-
-                        auto sdp = msg.content["candidate"].get<std::string>();
-                        auto mid = msg.content["mid"].get<std::string>();
-                        pc->addRemoteCandidate(rtc::Candidate(sdp, mid));
-                    }
-                }
+        executor->post(std::move(fn));
+      }
+    );
+    *handle2 = m_event_queue->internal_queue().appendListener(
+      PeerMessageType::PeerStateUpdate,
+      [=](Event e) {
+        auto fn = std::bind(
+          on_datachannel_task,
+          e,
+          promise,
+          count,
+          identities,
+          types,
+          states
         );
+        executor->post(std::move(fn));
+      }
+    );
 
-        m_dispatcher.appendListener(
-                PeerMessageType::PeerTypeRequest,
-                [this](const PeerMessage &message) {
+    co_return co_await promise->get_result();
+  }
+  void NodeManager::broadcast_to_peers_of_type_and_forget(
+    std::shared_ptr<concurrencpp::thread_executor> executor,
+    PeerType to_peer_type,
+    PeerMessageType message_type,
+    nlohmann::json content
+  ) {
+    auto my_id = m_signaling_client->identity();
 
-                    (void) send(
-                            message.peer_id(),
-                            PeerMessage{
-                                    PeerMessageType::PeerTypeResponse,
-                                    my_id,
-                                    message.tag(),
-                                    m_peer_type
-                            }
-                    );
-                }
-        );
-        m_dispatcher.appendListener(
-                PeerMessageType::PeerStateRequest,
-                [this](const PeerMessage &message) {
+    for (auto [peer_id, connection]: m_connection_map) {
 
-                    PeerState my_state;
-                    {
-                        std::lock_guard l(m_peer_state_mutex);
-                        my_state = m_peer_state;
-                    }
-
-                    (void) send(
-                            message.peer_id(),
-                            PeerMessage{
-                                    PeerMessageType::PeerStateResponse,
-                                    my_id,
-                                    message.tag(),
-                                    my_state
-                            }
-                    );
-                }
-        );
-        m_dispatcher.appendListener(
-                PeerMessageType::PeerStateUpdate,
-                [this](const PeerMessage &message) {
-                    auto state = message.content().get<PeerState>();
-                    spdlog::info("Updating State of {} to {}", message.peer_id(), to_string(state));
-                    std::lock_guard l(m_peer_states_map_mutex);
-                    m_peer_states_map[message.peer_id()] = state;
-                }
-        );
-    }
-
-    void NodeManager::wait() {
-
-        std::unique_lock l(m_blocking_mutex);
-        m_blocking_cv.wait(l);
-    }
-
-    void NodeManager::append_listener(
-            PeerMessageType type,
-            const std::function<void(PeerMessage)> &listener
-    ) {
-
-        m_dispatcher.appendListener(type, listener);
-    }
-
-    int NodeManager::id() const {
-
-        return my_id;
-    }
-
-    ErrorOr<NodeManager::Future> NodeManager::send(
-            int id,
-            const PeerMessage &message
-    ) {
-
-
-        return m_send_queue.submit(
-                [=, this]() -> ErrorOr<NodeManager::Future> {
-
-                    {
-                        std::lock_guard l(m_channel_map_mutex);
-                        if (!m_channel_map.contains(id))
-                            return tl::make_unexpected(
-                                    KrapiErr{
-                                            fmt::format("Channel {} was closed", id)
-                                    }
-                            );
-
-                        m_channel_map.find(id)->second->send(message.to_json().dump());
-                    }
-                    auto promise = std::make_shared<Promise>();
-                    auto future = promise->get_future().share();
-                    {
-                        std::lock_guard l(m_promise_map_mutex);
-                        if (!promise_map->contains(id))
-                            return tl::make_unexpected(
-                                    KrapiErr{
-                                            fmt::format("PromiseMap does not have an entry for {}", id)
-                                    }
-                            );
-                        promise_map->find(id)->second->emplace(message.tag(), std::move(promise));
-                    }
-                    {
-                        std::lock_guard l(m_future_map_mutex);
-                        if (!future_map->contains(id))
-                            return tl::make_unexpected(
-                                    KrapiErr{
-                                            fmt::format("PromiseMap does not have an entry for {}", id)
-                                    }
-                            );
-                        future_map->find(id)->second->emplace(message.tag(), future);
-                    }
-                    return future;
-                }
-        ).get();
-    }
-
-
-    MultiFuture<int> NodeManager::connect_to_peers() {
-
-        auto avail_resp = m_signaling_client.send(SignalingMessageType::AvailablePeersRequest).get();
-        auto avail_peers = avail_resp.content.get<std::vector<int>>();
-
-        MultiFuture<int> futures;
-        for (auto id: avail_peers) {
-
-            auto connection = create_connection(id);
-            auto channel = connection->createDataChannel("krapi");
-            futures.push_back(set_up_datachannel(id, std::move(channel)));
+      auto sender = [](
+                      std::string sender_identity,
+                      PeerType to_peer_type,
+                      std::string receiver_identity,
+                      PeerConnectionPtr connection,
+                      PeerMessageType message_type,
+                      nlohmann::json content
+                    ) -> concurrencpp::null_result {
+        auto type = co_await connection->type();
+        if (type == to_peer_type) {
+          (void) connection->send_and_forget(PeerMessage::create(
+            message_type,
+            sender_identity,
+            receiver_identity,
+            PeerMessage::create_tag(),
+            content
+          ));
         }
-
-        return futures;
+      };
+      auto fn = std::bind(
+        sender,
+        my_id,
+        to_peer_type,
+        peer_id,
+        connection,
+        message_type,
+        content
+      );
+      executor->post(std::move(fn));
     }
-
-    ErrorOr<PeerState> NodeManager::request_peer_state(int id) {
-
-        {
-            std::lock_guard l(m_peer_states_map_mutex);
-            if (m_peer_states_map.contains(id)) [[likely]] {
-
-                return m_peer_states_map[id];
-            }
-        }
-
-        auto resp =
-                TRY(
-                        send(
-                                id,
-                                PeerMessage{
-                                        PeerMessageType::PeerStateRequest,
-                                        my_id,
-                                        PeerMessage::create_tag()
-                                }
-                        )
-                ).get();
-
-        if (!resp.has_value())
-            return tl::unexpected(resp.error());
-
-        std::lock_guard l(m_peer_states_map_mutex);
-        m_peer_states_map[id] = resp.value().content().get<PeerState>();
-        return m_peer_states_map[id];
-    }
-
-    PeerState NodeManager::get_state() const {
-
-        std::lock_guard l(m_peer_state_mutex);
-        return m_peer_state;
-    }
-
-    MultiFuture<NodeManager::PromiseType> NodeManager::broadcast(
-            PeerMessage message,
-            const std::set<PeerType> &excluded_types,
-            const std::set<PeerState> &excluded_states
-    ) {
-
-        MultiFuture<NodeManager::PromiseType> futures;
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channels;
-        {
-            std::lock_guard l(m_channel_map_mutex);
-            channels = m_channel_map;
-        }
-        for (auto [id, channel]: channels) {
-
-            if(!channel)
-                continue;
-            auto type = request_peer_type(id);
-            auto state = request_peer_state(id);
-            if (!type.has_value() || !state.has_value())
-                continue;
-
-            if (excluded_types.contains(type.value()))
-                continue;
-            if (excluded_states.contains(state.value()))
-                continue;
-
-            message.randomize_tag();
-            auto send_future = send(id, message);
-            if (!send_future.has_value())
-                continue;
-
-            futures.push_back(send_future.value());
-        }
-        return futures;
-    }
-
-    void NodeManager::on_channel_close(int id) {
-
-        spdlog::warn("DataChannel with {} has closed", id);
-        {
-            std::lock_guard l(m_peer_states_map_mutex);
-            m_peer_states_map.erase(id);
-        }
-        {
-            std::lock_guard l(m_peer_types_map_mutex);
-            m_peer_types_map.erase(id);
-        }
-        auto is_ready = [](const std::shared_future<PromiseType> &f) {
-
-            return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-        };
-        {
-            std::lock_guard l(m_promise_map_mutex);
-            if(!promise_map->contains(id))
-                return;
-            for (auto [message_id, promise]: *promise_map->operator[](id)) {
-                if (!promise)
-                    continue;
-                {
-                    std::lock_guard l2(m_future_map_mutex);
-                    auto future = future_map->at(id)->at(message_id);
-                    if (!is_ready(future)) {
-                        promise->set_value(tl::make_unexpected(KrapiErr{"Channel Closed"}));
-
-                    }
-                }
-            }
-        }
-
-        m_peer_count--;
-        std::lock_guard l(m_channel_map_mutex);
-        m_channel_map.erase(id);
-    }
-
-    ErrorOr<PeerType> NodeManager::request_peer_type(int id) {
-
-        {
-            std::lock_guard l(m_peer_types_map_mutex);
-            if (m_peer_types_map.contains(id)) [[likely]] {
-
-                return m_peer_types_map[id];
-            }
-        }
-
-        auto resp = TRY(
-                send(
-                        id,
-                        PeerMessage{
-                                PeerMessageType::PeerTypeRequest,
-                                my_id,
-                                PeerMessage::create_tag()
-                        }
-                )
-        ).get();
-
-        if (!resp.has_value())
-            return tl::unexpected(resp.error());
-
-        std::lock_guard l(m_peer_types_map_mutex);
-        m_peer_types_map[id] = resp.value().content().get<PeerType>();
-        return m_peer_types_map[id];
-
-    }
-
-    void NodeManager::set_state(PeerState new_state) {
-
-        {
-            std::lock_guard l(m_peer_state_mutex);
-            m_peer_state = new_state;
-        }
-        (void) broadcast(
-                PeerMessage{
-                        PeerMessageType::PeerStateUpdate,
-                        my_id,
-                        m_peer_state
-                }
-        );
-    }
-
-    ErrorOr<std::vector<std::tuple<int, PeerType, PeerState>>> NodeManager::
-    get_peers(
-            const std::set<PeerType> &types,
-            const std::set<PeerState> &states
-    ) {
-
-        auto ans = std::vector<std::tuple<int, PeerType, PeerState>>{};
-        std::unordered_map<int, std::shared_ptr<rtc::DataChannel>> channels;
-        {
-            std::lock_guard l(m_channel_map_mutex);
-            channels = m_channel_map;
-        }
-        for (auto [id, channel]: channels) {
-            if(!channel)
-                continue;
-            auto pt = TRY(request_peer_type(id));
-            auto state = TRY(request_peer_state(id));
-
-            if (types.contains(pt) && states.contains(state)) {
-                ans.emplace_back(id, pt, state);
-            }
-        }
-        return ans;
-
-    }
-
-} // krapi
+  }
+}// namespace krapi

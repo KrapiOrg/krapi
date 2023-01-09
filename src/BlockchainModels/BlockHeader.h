@@ -5,103 +5,82 @@
 #ifndef NODE_BLOCKCHAIN_BLOCKHEADER_H
 #define NODE_BLOCKCHAIN_BLOCKHEADER_H
 
-#include <string>
 #include "cryptopp/config_int.h"
+#include <string>
 
-#include "nlohmann/json.hpp"
 #include "filters.h"
 #include "hex.h"
+#include "nlohmann/json.hpp"
 
 using namespace CryptoPP;
 
 namespace krapi {
-    class BlockHeader {
-        friend class Block;
+  class BlockHeader {
+    friend class Block;
 
-    public:
-        explicit BlockHeader(
-                std::string hash = {},
-                std::string previous_hash = {},
-                std::string merkle_root = {},
-                uint64_t timestamp = {},
-                uint64_t nonce = {}
-        ) : m_hash(std::move(hash)),
-            m_previous_hash(std::move(previous_hash)),
-            m_merkle_root(std::move(merkle_root)),
-            m_timestamp(timestamp),
-            m_nonce(nonce) {
+   public:
+    explicit BlockHeader(
+      std::string hash = {},
+      std::string previous_hash = {},
+      std::string merkle_root = {},
+      uint64_t timestamp = {},
+      uint64_t nonce = {}
+    )
+        : m_hash(std::move(hash)), m_previous_hash(std::move(previous_hash)),
+          m_merkle_root(std::move(merkle_root)), m_timestamp(timestamp),
+          m_nonce(nonce) {
 
-            StringSource s(m_hash, true, new HexDecoder(new ArraySink(m_hash_bytes.data(), 32)));
-        }
+      StringSource s(
+        m_hash,
+        true,
+        new HexDecoder(new ArraySink(m_hash_bytes.data(), 32))
+      );
+    }
 
-        static BlockHeader from_json(nlohmann::json json) {
+    static BlockHeader from_json(nlohmann::json json) {
 
-            return BlockHeader{
-                    json["hash"].get<std::string>(),
-                    json["previous_hash"].get<std::string>(),
-                    json["merkle_root"].get<std::string>(),
-                    json["timestamp"].get<uint64_t>(),
-                    json["nonce"].get<uint64_t>()
-            };
-        }
+      return BlockHeader{
+        json["hash"].get<std::string>(),
+        json["previous_hash"].get<std::string>(),
+        json["merkle_root"].get<std::string>(),
+        json["timestamp"].get<uint64_t>(),
+        json["nonce"].get<uint64_t>()};
+    }
 
-        [[nodiscard]]
-        nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
 
-            return {
-                    {"hash",          m_hash},
-                    {"previous_hash", m_previous_hash},
-                    {"merkle_root",   m_merkle_root},
-                    {"timestamp",     m_timestamp},
-                    {"nonce",         m_nonce}
-            };
-        }
+      return {
+        {"hash", m_hash},
+        {"previous_hash", m_previous_hash},
+        {"merkle_root", m_merkle_root},
+        {"timestamp", m_timestamp},
+        {"nonce", m_nonce}};
+    }
 
-        [[nodiscard]]
-        std::string hash() const {
+    [[nodiscard]] std::string hash() const { return m_hash; }
 
-            return m_hash;
-        }
+    [[nodiscard]] std::string previous_hash() const { return m_previous_hash; }
 
-        [[nodiscard]]
-        std::string previous_hash() const {
+    [[nodiscard]] std::string merkle_root() const { return m_merkle_root; }
 
-            return m_previous_hash;
-        }
+    [[nodiscard]] uint64_t timestamp() const { return m_timestamp; }
 
-        [[nodiscard]]
-        std::string merkle_root() const {
+    [[nodiscard]] uint64_t nonce() const { return m_nonce; }
 
-            return m_merkle_root;
-        }
+    [[nodiscard]] std::string contrived_hash() const {
 
-        [[nodiscard]]
-        uint64_t timestamp() const {
+      return m_hash.substr(0, 10);
+    }
 
-            return m_timestamp;
-        }
+   private:
+    std::string m_hash;
+    std::string m_previous_hash;
+    std::string m_merkle_root;
+    uint64_t m_timestamp;
+    uint64_t m_nonce;
 
-        [[nodiscard]]
-        uint64_t nonce() const {
+    std::array<CryptoPP::byte, 32> m_hash_bytes{};
+  };
+}// namespace krapi
 
-            return m_nonce;
-        }
-
-        [[nodiscard]]
-        std::string contrived_hash() const {
-
-            return m_hash.substr(0, 10);
-        }
-
-    private:
-        std::string m_hash;
-        std::string m_previous_hash;
-        std::string m_merkle_root;
-        uint64_t m_timestamp;
-        uint64_t m_nonce;
-
-        std::array<CryptoPP::byte, 32> m_hash_bytes{};
-    };
-} // krapi
-
-#endif //NODE_BLOCKCHAIN_BLOCKHEADER_H
+#endif//NODE_BLOCKCHAIN_BLOCKHEADER_H

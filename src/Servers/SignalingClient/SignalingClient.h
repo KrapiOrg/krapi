@@ -4,41 +4,79 @@
 
 #pragma once
 
-#include <future>
-#include <variant>
-#include "SignalingMessage.h"
-#include "ixwebsocket/IXWebSocket.h"
+#include "EventQueue.h"
+#include "eventpp/utilities/scopedremover.h"
+#include "rtc/websocket.hpp"
 #include "spdlog/spdlog.h"
 
 namespace krapi {
 
-    class SignalingClient {
+  using RTCMessageCallback = std::function<void(Box<SignalingMessage>)>;
 
-        std::mutex m_mutex;
+  class SignalingClient {
 
-        using PromiseMap = std::map<std::string, std::promise<SignalingMessage>>;
-        using RTCSetupCallback = std::function<void(SignalingMessage)>;
+   public:
+    /*!
+         * Constructor for a signaling client
+         */
+    explicit SignalingClient(EventQueuePtr event_queue);
 
-    public:
+    /*!
+         * Getter for identity
+         * @return identity for the current connection to the SignalingSever
+         */
 
-        SignalingClient();
+    [[nodiscard]] std::string identity() const noexcept;
 
-        int get_identity();
+    /*!
+         * Sends a message to the SignalingServer.
+         * @param message Message to be sent
+         * @return result containing the response for the message request
+         */
+    [[nodiscard]] concurrencpp::shared_result<Event>
+    send(Box<SignalingMessage> message) const;
 
-        std::future<SignalingMessage> send(SignalingMessage message);
+    /*!
+         * Sends a message to the SignalingServer without the ability to block
+         * @param message Message to be sent
+         */
+    void send_and_forget(Box<SignalingMessage> message) const;
 
-        std::future<SignalingMessage> send(SignalingMessageType message_type);
 
-        void on_rtc_setup(RTCSetupCallback callback) {
+    [[nodiscard]] concurrencpp::result<void> initialize();
 
-            m_rtc_setup_callback = std::move(callback);
-        }
+    /*!
+         * Sends an AvailablePeersRequest to the signaling server
+         * @return A results that completes when the signaling server replies with
+         * the appropriate response
+         */
+    [[nodiscard]] concurrencpp::shared_result<Event> available_peers() const;
 
-    private:
+    template<typename... UU>
+    [[nodiscard]] static inline std::shared_ptr<SignalingClient>
+    create(UU &&...uu) {
 
-        RTCSetupCallback m_rtc_setup_callback;
-        PromiseMap m_promises;
-        ix::WebSocket m_ws;
-    };
+      return std::make_shared<SignalingClient>(std::forward<UU>(uu)...);
+    }
 
-} // krapi
+   private:
+    /*!
+         * A helper to wait for the connection to the signaling server to open.
+         * @return a result that completes when the underlying rtc::WebSocket's connection is open.
+         */
+    [[nodiscard]] concurrencpp::result<void> for_open() const;
+
+    /*!
+         * A helper that sends the identity acquired during construction to the signaling server
+         */
+    [[nodiscard]] concurrencpp::shared_result<std::string>
+    request_identity() const;
+
+    EventQueuePtr m_event_queue;
+    std::unique_ptr<rtc::WebSocket> m_ws;
+    std::string m_identity;
+    eventpp::ScopedRemover<EventQueueType> m_subscription_remover;
+  };
+
+  using SignalingClientPtr = std::shared_ptr<SignalingClient>;
+}// namespace krapi

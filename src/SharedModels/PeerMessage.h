@@ -4,163 +4,179 @@
 
 #pragma once
 
-#include <unordered_set>
-#include <utility>
 #include "nlohmann/json.hpp"
 #include "uuid.h"
+#include <unordered_set>
+#include <utility>
+
+#include "Box.h"
 
 namespace krapi {
-    enum class PeerMessageType {
-        DEFAULT,
-        PeerTypeRequest,
-        PeerTypeResponse,
-        AddTransaction,
-        RemoveTransactions,
-        SetTransactionStatus,
-        BlockHeadersRequest,
-        BlockHeadersResponse,
-        BlockRequest,
-        BlockResponse,
-        BlockNotFoundResponse,
-        PeerStateRequest,
-        PeerStateResponse,
-        PeerStateUpdate,
-        AddBlock,
-        BlockRejected,
-        BlockAccepted,
-        GetLastBlockRequest,
-        GetLastBlockResponse
-    };
+  enum class PeerMessageType {
+    DEFAULT,
+    PeerTypeRequest,
+    PeerTypeResponse,
+    AddTransaction,
+    RemoveTransactions,
+    SetTransactionStatus,
+    BlockHeadersRequest,
+    BlockHeadersResponse,
+    BlockRequest,
+    BlockResponse,
+    BlockNotFoundResponse,
+    PeerStateRequest,
+    PeerStateResponse,
+    PeerStateUpdate,
+    AddBlock,
+    BlockRejected,
+    BlockAccepted,
+    GetLastBlockRequest,
+    GetLastBlockResponse,
+    SyncPoolRequest
+  };
 
-    NLOHMANN_JSON_SERIALIZE_ENUM(PeerMessageType, {
-        { PeerMessageType::PeerTypeRequest, "peer_type_request" },
-        { PeerMessageType::PeerTypeResponse, "peer_type_response" },
-        { PeerMessageType::AddTransaction, "add_transaction" },
-        { PeerMessageType::RemoveTransactions, "remove_transactions" },
-        { PeerMessageType::SetTransactionStatus, "set_transaction_status" },
-        { PeerMessageType::BlockHeadersRequest, "block_headers_request" },
-        { PeerMessageType::BlockHeadersResponse, "block_headers_response" },
-        { PeerMessageType::BlockRequest, "block_request" },
-        { PeerMessageType::BlockResponse, "block_response" },
-        { PeerMessageType::BlockNotFoundResponse, "block_not_found_response" },
-        { PeerMessageType::PeerStateRequest, "peer_state_request" },
-        { PeerMessageType::PeerStateResponse, "peer_state_response" },
-        { PeerMessageType::PeerStateUpdate, "peer_state_update" },
-        { PeerMessageType::AddBlock, "add_block" },
-        { PeerMessageType::BlockRejected, "block_rejected" },
-        { PeerMessageType::BlockAccepted, "block_accepted" },
-        { PeerMessageType::GetLastBlockRequest, "get_last_block_request" },
-        { PeerMessageType::GetLastBlockResponse, "get_last_block_response" }
-    })
+  NLOHMANN_JSON_SERIALIZE_ENUM(
+    PeerMessageType,
+    {{PeerMessageType::PeerTypeRequest, "peer_type_request"},
+     {PeerMessageType::PeerTypeResponse, "peer_type_response"},
+     {PeerMessageType::AddTransaction, "add_transaction"},
+     {PeerMessageType::RemoveTransactions, "remove_transactions"},
+     {PeerMessageType::SetTransactionStatus, "set_transaction_status"},
+     {PeerMessageType::BlockHeadersRequest, "block_headers_request"},
+     {PeerMessageType::BlockHeadersResponse, "block_headers_response"},
+     {PeerMessageType::BlockRequest, "block_request"},
+     {PeerMessageType::BlockResponse, "block_response"},
+     {PeerMessageType::BlockNotFoundResponse, "block_not_found_response"},
+     {PeerMessageType::PeerStateRequest, "peer_state_request"},
+     {PeerMessageType::PeerStateResponse, "peer_state_response"},
+     {PeerMessageType::PeerStateUpdate, "peer_state_update"},
+     {PeerMessageType::AddBlock, "add_block"},
+     {PeerMessageType::BlockRejected, "block_rejected"},
+     {PeerMessageType::BlockAccepted, "block_accepted"},
+     {PeerMessageType::GetLastBlockRequest, "get_last_block_request"},
+     {PeerMessageType::GetLastBlockResponse, "get_last_block_response"},
+     {PeerMessageType::SyncPoolRequest, "sync_pool_request"}}
+  )
 
-    class PeerMessage {
+  inline std::string to_string(PeerMessageType type) {
 
-        PeerMessageType m_type;
-        int m_peer_id;
-        std::string m_tag;
-        nlohmann::json m_content;
+    switch (type) {
+      case PeerMessageType::PeerTypeRequest:
+        return "peer_type_request";
+      case PeerMessageType::PeerTypeResponse:
+        return "peer_type_response";
+      case PeerMessageType::AddTransaction:
+        return "add_transaction";
+      case PeerMessageType::RemoveTransactions:
+        return "remove_transactions";
+      case PeerMessageType::SetTransactionStatus:
+        return "set_transaction_status";
+      case PeerMessageType::BlockHeadersRequest:
+        return "block_headers_request";
+      case PeerMessageType::BlockHeadersResponse:
+        return "block_headers_response";
+      case PeerMessageType::BlockRequest:
+        return "block_request";
+      case PeerMessageType::BlockResponse:
+        return "block_response";
+      case PeerMessageType::BlockNotFoundResponse:
+        return "block_not_found_response";
+      case PeerMessageType::PeerStateRequest:
+        return "peer_state_request";
+      case PeerMessageType::PeerStateResponse:
+        return "peer_state_response";
+      case PeerMessageType::PeerStateUpdate:
+        return "peer_state_update";
+      case PeerMessageType::AddBlock:
+        return "add_block";
+      case PeerMessageType::BlockRejected:
+        return "block_rejected";
+      case PeerMessageType::BlockAccepted:
+        return "block_accepted";
+      case PeerMessageType::GetLastBlockRequest:
+        return "get_last_block_request";
+      case PeerMessageType::GetLastBlockResponse:
+        return "get_last_block_response";
+      case PeerMessageType::SyncPoolRequest:
+        return "sync_pool_request";
+      case PeerMessageType::DEFAULT:
+        return "default";
+    }
+  }
 
-    public:
-        explicit PeerMessage() :
-                m_type(PeerMessageType::DEFAULT),
-                m_peer_id(0) {
+  class PeerMessage {
 
-        }
+    PeerMessageType m_type;
+    std::string m_sender_identity;
+    std::string m_receiver_identity;
+    std::string m_tag;
+    nlohmann::json m_content;
 
-        explicit PeerMessage(
-                PeerMessageType type,
-                int peer_id,
-                std::string tag,
-                nlohmann::json content = {}
-        ) : m_type(type),
-            m_peer_id(peer_id),
-            m_tag(std::move(tag)),
-            m_content(std::move(content)) {
+   public:
+    explicit PeerMessage(
+      PeerMessageType type,
+      std::string sender_identity,
+      std::string receiver_identity,
+      std::string tag,
+      nlohmann::json content = {}
+    )
+        : m_type(type), m_sender_identity(std::move(sender_identity)),
+          m_receiver_identity(std::move(receiver_identity)),
+          m_tag(std::move(tag)), m_content(std::move(content)) {}
 
-        }
+    template<typename... UU>
+    static Box<PeerMessage> create(UU &&...params) {
 
-        explicit PeerMessage(
-                PeerMessageType type,
-                int peer_id,
-                nlohmann::json content = {}
-        ) : m_type(type),
-            m_peer_id(peer_id),
-            m_content(std::move(content)) {
+      return make_box<PeerMessage>(std::forward<UU>(params)...);
+    }
 
-        }
+    [[nodiscard]] PeerMessageType type() const { return m_type; }
 
-        void randomize_tag() {
+    [[nodiscard]] std::string sender_identity() const {
 
-            m_tag = create_tag();
-        }
+      return m_sender_identity;
+    }
 
-        [[nodiscard]]
-        PeerMessageType type() const {
+    [[nodiscard]] std::string receiver_identity() const {
 
-            return m_type;
-        }
+      return m_receiver_identity;
+    }
 
-        [[nodiscard]]
-        int peer_id() const {
+    [[nodiscard]] std::string tag() const { return m_tag; }
 
-            return m_peer_id;
-        }
+    [[nodiscard]] nlohmann::json content() const { return m_content; }
 
-        [[nodiscard]]
-        std::string tag() const {
+    [[nodiscard]] nlohmann::json to_json() const {
 
-            return m_tag;
-        }
+      return {
+        {"type", m_type},
+        {"sender_identity", m_sender_identity},
+        {"receiver_identity", m_receiver_identity},
+        {"tag", m_tag},
+        {"content", m_content}};
+    }
 
-        [[nodiscard]]
-        nlohmann::json content() const {
+    [[nodiscard]] inline std::string to_string() const {
 
-            return m_content;
-        }
+      return to_json().dump();
+    }
 
-        [[nodiscard]]
-        nlohmann::json to_json() const {
+    static std::string create_tag() {
 
-            return {
-                    {"type",    m_type},
-                    {"peer_id", m_peer_id},
-                    {"tag",     m_tag},
-                    {"content", m_content}
-            };
-        }
+      return uuids::to_string(uuids::uuid_system_generator{}());
+    }
 
-        inline operator std::string() {
+    static inline Box<PeerMessage> from_json(nlohmann::json json) {
 
-            return to_string();
-        }
-
-        [[nodiscard]]
-        inline std::string to_string() const {
-
-            return to_json().dump();
-        }
-
-        static std::string create_tag() {
-
-            return uuids::to_string(uuids::uuid_system_generator{}());
-        }
-
-        static inline PeerMessage from_json(nlohmann::json json) {
-
-            return PeerMessage{
-                    json["type"].get<PeerMessageType>(),
-                    json["peer_id"].get<int>(),
-                    json["tag"].get<std::string>(),
-                    json["content"].get<nlohmann::json>()
-            };
-        }
-
-        static inline PeerMessage from_json(const std::string &str) {
-
-            auto json = nlohmann::json::parse(str);
-            return from_json(json);
-        }
-    };
+      return make_box<PeerMessage>(
+        json["type"].get<PeerMessageType>(),
+        json["sender_identity"].get<std::string>(),
+        json["receiver_identity"].get<std::string>(),
+        json["tag"].get<std::string>(),
+        json["content"].get<nlohmann::json>()
+      );
+    }
+  };
 
 
-}
+}// namespace krapi

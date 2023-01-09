@@ -3,118 +3,56 @@
 //
 
 #include "Block.h"
-#include "spdlog/spdlog.h"
 
 namespace krapi {
-    Block::Block(BlockHeader header, std::set<Transaction> transactions) :
-            m_header(std::move(header)),
-            m_transactions(std::move(transactions)) {
+  Block::Block(BlockHeader header, Transactions transactions)
+      : m_header(std::move(header)), m_transactions(std::move(transactions)) {}
+
+  Block Block::from_json(const nlohmann::json &json) {
+
+    Transactions transactions;
+    for (const auto &tx: json["transactions"]) {
+      transactions.push_back(Transaction::from_json(tx));
     }
 
-    Block Block::from_json(const nlohmann::json &json) {
+    return Block{BlockHeader::from_json(json["header"]), transactions};
+  }
 
-        std::set<Transaction> transactions;
-        for (const auto &tx: json["transactions"]) {
-            transactions.insert(Transaction::from_json(tx));
-        }
+  std::string Block::hash() const { return m_header.m_hash; }
 
-        return Block{
-                BlockHeader::from_json(json["header"]),
-                transactions
-        };
+  std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
+
+    return m_header.m_hash_bytes;
+  }
+
+  nlohmann::json Block::to_json() const {
+
+    auto transactions = nlohmann::json::array();
+    for (const auto &tx: m_transactions) {
+      transactions.push_back(tx.to_json());
     }
 
-    std::optional<Block> Block::from_disk(const std::filesystem::path &path) {
+    return {{"header", m_header.to_json()}, {"transactions", transactions}};
+  }
 
-        if (path.has_filename()
-            && path.has_extension()
-            && !path.empty()
-            && path.extension().string().ends_with(".json")) {
+  BlockHeader Block::header() const { return m_header; }
 
-            std::fstream file(path);
+  Transactions Block::transactions() const { return m_transactions; }
 
-            if (file.is_open() && file.good()) {
-                spdlog::info("Block: loaded from disk {}", path.string());
+  bool Block::operator==(const Block &other) const {
 
-                auto json = nlohmann::json::parse(file);
-                return Block::from_json(json);
-            }
+    return m_header.m_hash == other.m_header.m_hash;
+  }
 
-        }
-        return {};
-    }
+  bool Block::operator<(const Block &other) const {
 
-    std::string Block::hash() const {
+    return m_header.m_timestamp < other.m_header.m_timestamp;
+  }
 
-        return m_header.m_hash;
-    }
+  std::string Block::contrived_hash() const {
 
-    std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
-
-        return m_header.m_hash_bytes;
-    }
-
-    void Block::to_disk(const std::filesystem::path &path) const {
-
-        namespace fs = std::filesystem;
-
-        std::ofstream file(path / (m_header.m_hash + ".json"));
-        if (file.is_open() && file.good()) {
-
-            file << to_json().dump(4);
-        } else {
-
-            spdlog::error("Failed to save block to {}", path.string());
-            exit(1);
-        }
-    }
-
-    void Block::remove_from_disk(const std::filesystem::path &path, std::string hash) {
-
-        namespace fs = std::filesystem;
-
-        auto block_path = path / (hash + ".json");
-        if (fs::exists(path)) {
-
-            fs::remove(block_path);
-        }
-    }
-
-    nlohmann::json Block::to_json() const {
-
-        auto transactions = nlohmann::json::array();
-        for (const auto &tx: m_transactions) {
-            transactions.push_back(tx.to_json());
-        }
-
-        return {
-                {"header",       m_header.to_json()},
-                {"transactions", transactions}
-        };
-    }
-
-    BlockHeader Block::header() const {
-
-        return m_header;
-    }
-
-    std::set<Transaction> Block::transactions() const {
-
-        return m_transactions;
-    }
-
-    bool Block::operator==(const Block &other) const {
-
-        return m_header.m_hash == other.m_header.m_hash;
-    }
-
-    bool Block::operator<(const Block &other) const {
-
-        return m_header.m_timestamp < other.m_header.m_timestamp;
-    }
-
-    std::string Block::contrived_hash() const {
-
-        return m_header.m_hash.substr(0, 10);
-    }
-} // krapi
+    return m_header.m_hash.substr(0, 10);
+  }
+  uint64_t Block::timestamp() const { return m_header.m_timestamp; }
+  std::string Block::previous_hash() const { return m_header.m_previous_hash; }
+}// namespace krapi

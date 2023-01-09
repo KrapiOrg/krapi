@@ -4,15 +4,6 @@
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = https://github.com/fmtlib/fmt
-[submodule "libs/cxxopts"]
-	path = libs/cxxopts
-	url = https://github.com/jarro2783/cxxopts
-[submodule "test/gtest/lib"]
-	path = test/gtest/lib
-	url = https://github.com/google/googletest
-[submodule "test/lib"]
-	path = test/lib
-	url = https://github.com/google/googletest
 [submodule "libs/eventpp"]
 	path = libs/eventpp
 	url = https://github.com/wqking/eventpp
@@ -28,18 +19,15 @@
 [submodule "libs/merklecpp"]
 	path = libs/merklecpp
 	url = https://github.com/KrapiOrg/merklecpp
-[submodule "libs/IXWebSocket"]
-	path = libs/IXWebSocket
-	url = https://github.com/KrapiOrg/IXWebSocket
-[submodule "libs/random"]
-	path = libs/random
-	url = https://github.com/effolkronium/random
 [submodule "libs/stduuid"]
 	path = libs/stduuid
 	url = https://github.com/mariusbancila/stduuid
 [submodule "libs/leveldb"]
 	path = libs/leveldb
 	url = https://github.com/google/leveldb
-[submodule "libs/expected"]
-	path = libs/expected
-	url = https://github.com/TartanLlama/expected
+[submodule "libs/concurrencpp"]
+	path = libs/concurrencpp
+	url = https://github.com/David-Haim/concurrencpp
+[submodule "libs/readerwriterqueue"]
+	path = libs/readerwriterqueue
+	url = https://github.com/cameron314/readerwriterqueue

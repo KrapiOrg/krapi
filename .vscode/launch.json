@@ -1,0 +1,65 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "launch-node1",
+            "type": "lldb",
+            "request": "launch",
+            "program": "cmake-build-debug/node",
+            "preLaunchTask": "build-node",
+            "args": [
+                "blockchain1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "launch-node2",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "build-node",
+            "program": "cmake-build-debug/node",
+            "args": [
+                "blockchain2"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "launch-signaling",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "build-signaling",
+            "program": "cmake-build-debug/signaling",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "launch-light",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "build-light",
+            "program": "cmake-build-debug/lightnode",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+        },
+    ],
+    "compounds": [
+        {
+            "name": "Signaling + Nodes",
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            },
+            "configurations": [
+                "launch-signaling",
+                "launch-node1",
+                "launch-light"
+            ]
+        }
+    ]
+}
