@@ -4,7 +4,10 @@
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
 #include "nlohmann/json.hpp"
+#include <concurrencpp/errors.h>
+#include <concurrencpp/results/generator.h>
 #include <cstdint>
+#include <optional>
 
 template<typename Type>
 concept ConvertableToJson = requires(Type t, nlohmann::json j) {
@@ -25,64 +28,92 @@ class DBInternface {
  public:
   size_t size() const {
     size_t counter = 0;
-
-    auto itr_begin =
-      std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(m_read_options));
+    leveldb::ReadOptions options;
+    options.snapshot = m_db->GetSnapshot();
+    auto itr_begin = std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(options));
 
     for (itr_begin->SeekToFirst(); itr_begin->Valid(); itr_begin->Next()) {
       counter++;
     }
+    m_db->ReleaseSnapshot(options.snapshot);
 
     return counter;
   }
 
-  std::vector<DataType> get_all() const {
-    std::vector<DataType> data;
-    auto itr =
-      std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(m_read_options));
+  concurrencpp::generator<DataType> data() const {
+    leveldb::ReadOptions options;
+    options.snapshot = m_db->GetSnapshot();
+    auto itr = std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(options));
 
     for (itr->SeekToFirst(); itr->Valid(); itr->Next()) {
 
-      data.push_back(from_slice(itr->value()));
+      co_yield from_slice(itr->value());
     }
-    return data;
+    m_db->ReleaseSnapshot(options.snapshot);
   }
 
   std::optional<DataType> get(std::string hash) const {
-
+    leveldb::ReadOptions options;
+    options.snapshot = m_db->GetSnapshot();
     auto value_str = std::string{};
-    auto status = m_db->Get(m_read_options, hash, &value_str);
+    auto status = m_db->Get(options, hash, &value_str);
 
     if (status.ok() && !status.IsNotFound()) {
       auto vlaue_json = nlohmann::json::parse(value_str);
       return DataType::from_json(vlaue_json);
     }
+    m_db->ReleaseSnapshot(options.snapshot);
     return {};
+  }
+
+  bool contains(DataType value) {
+
+    return get(value.hash()) != std::nullopt;
+  }
+
+  bool contains(std::string hash) {
+
+    return get(hash) != std::nullopt;
   }
 
   bool put(DataType value) {
 
-    auto string_representation = value.to_json().dump();
-    return m_db->Put(m_write_options, value.hash(), string_representation).ok();
+    if (!contains(value)) {
+      auto string_representation = value.to_json().dump();
+      return m_db->Put(m_write_options, value.hash(), string_representation).ok();
+    }
+    return false;
   }
 
   bool remove(DataType value) {
+    if (contains(value)) {
 
-    return !m_db->Delete(m_write_options, value.hash()).IsNotFound();
+      return m_db->Delete(m_write_options, value.hash()).ok();
+    }
+    return false;
   }
 
   bool remove(std::string hash) {
 
-    return !m_db->Delete(m_write_options, hash).IsNotFound();
+    if(contains(hash)){
+
+      return m_db->Delete(m_write_options, hash).ok();
+    }
+    return false;
   }
 
   DataType last() {
-    auto it = m_db->NewIterator(m_read_options);
+    leveldb::ReadOptions options;
+    options.snapshot = m_db->GetSnapshot();
+    auto it = m_db->NewIterator(options);
     DataType last_value;
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
       auto value = from_slice(it->value());
-      if (value.timestamp() > last_value.timestamp()) { last_value = value; }
+      if (value.timestamp() > last_value.timestamp()) {
+        last_value = value;
+      }
     }
+    m_db->ReleaseSnapshot(options.snapshot);
     return last_value;
   }
 
@@ -112,6 +143,5 @@ class DBInternface {
   }
   std::unique_ptr<leveldb::DB> m_db;
   leveldb::Options m_db_options;
-  leveldb::ReadOptions m_read_options;
   leveldb::WriteOptions m_write_options;
 };

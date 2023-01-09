@@ -6,7 +6,9 @@ set(
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
-        ${CMAKE_CURRENT_LIST_DIR}/Miner/Miner.h
+        ${CMAKE_CURRENT_LIST_DIR}/Miner.h
+        ${CMAKE_CURRENT_LIST_DIR}/SpentTransactionsStore.h
+        ${CMAKE_CURRENT_LIST_DIR}/Validator.h
 )
 include_directories(
         ${CMAKE_CURRENT_LIST_DIR}/Miner 
@@ -30,6 +32,7 @@ target_link_libraries(
         merklecpp
         leveldb
         concurrencpp
+        readerwriterqueue
         krapi_event
         shared_models
         blockchain_models

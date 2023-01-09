@@ -5,42 +5,41 @@
 #pragma once
 
 #include "DBInterface.h"
-#include "EventQueue.h"
 #include "Transaction.h"
-#include <concurrencpp/results/result.h>
+#include "readerwriterqueue.h"
+#include "spdlog/spdlog.h"
+#include <concurrencpp/executors/thread_executor.h>
 #include <concurrencpp/results/shared_result.h>
 #include <memory>
-#include <queue>
-#include <valarray>
 
 namespace krapi {
 
-  using TransactionsPromise = concurrencpp::result_promise<Transactions>;
-  using TransactionsResult = concurrencpp::shared_result<Transactions>;
+  enum class PoolEndReason {
+    SignalingClosed
+  };
 
   class TransactionPool : public DBInternface<Transaction>,
                           public std::enable_shared_from_this<TransactionPool> {
 
    public:
-    static inline std::shared_ptr<TransactionPool>
-    create(std::string path, EventQueuePtr event_queue) {
-
-      return std::shared_ptr<TransactionPool>(
-        new TransactionPool(std::move(path), std::move(event_queue))
-      );
+    static inline std::shared_ptr<TransactionPool> create(std::string path) {
+      return std::shared_ptr<TransactionPool>(new TransactionPool(std::move(path)));
     }
 
-    bool add(Transaction);
+    bool add(Transaction transaction);
+    
+    void end(PoolEndReason end_reason) {
+      m_queue->enqueue(end_reason);
+    }
 
-    concurrencpp::shared_result<Transactions> wait_for(int) const;
+    concurrencpp::result<Transactions>
+    wait(std::shared_ptr<concurrencpp::thread_executor>, int);
 
    private:
-    Transactions m_pool;
-    EventQueuePtr m_event_queue;
-    mutable std::queue<Transaction> m_transaction_queue;
-
-    Transactions take_from_queue(int n) const;
-    explicit TransactionPool(std::string, EventQueuePtr);
+    explicit TransactionPool(std::string path);
+    using Queue = moodycamel::BlockingReaderWriterQueue<std::variant<Transaction, PoolEndReason>>;
+    using QueuePtr = std::shared_ptr<Queue>;
+    QueuePtr m_queue;
   };
 
   using TransactionPoolPtr = std::shared_ptr<TransactionPool>;

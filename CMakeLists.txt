@@ -31,6 +31,7 @@ set(LEVELDB_BUILD_TESTS OFF)
 set(LEVELDB_BUILD_BENCHMARKS OFF)
 add_subdirectory(libs/leveldb)
 add_subdirectory(libs/concurrencpp)
+add_subdirectory(libs/readerwriterqueue)
 
 # General Includes
 include_directories(src/Utils)

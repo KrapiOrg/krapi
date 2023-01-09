@@ -57,8 +57,8 @@ namespace krapi {
     }
 
     const auto &remove_after = block_opt.value();
-    auto blocks = get_all();
-    for (const auto &block: blocks) {
+
+    for (auto block: data()) {
 
       if (block.timestamp() >= remove_after.timestamp()) {
 
@@ -71,42 +71,28 @@ namespace krapi {
 
   std::vector<std::string> Blockchain::get_hashes() const {
 
-    auto blocks = get_all();
-    std::vector<std::string> hashes(blocks.size());
-    for (const auto &block: blocks) { hashes.push_back(block.hash()); }
+    std::vector<std::string> hashes;
+    for (auto block: data()) { hashes.push_back(block.hash()); }
     return hashes;
   }
 
   std::vector<BlockHeader> Blockchain::get_headers() const {
 
-    auto blocks = get_all();
-    std::vector<BlockHeader> headers(blocks.size());
-    for (const auto &block: blocks) { headers.push_back(block.header()); }
+    std::vector<BlockHeader> headers;
+    for (auto block: data()) { headers.push_back(block.header()); }
     return headers;
   }
 
   std::vector<BlockHeader> Blockchain::get_all_after(const BlockHeader &header
   ) const {
 
-    auto blocks = get_all();
-    auto headers = std::vector<BlockHeader>{};
-    for (const auto &block: blocks) {
+    std::vector<BlockHeader> headers;
+    for (auto block: data()) {
       if (block.hash().empty()) continue;
       if (block.header().timestamp() > header.timestamp()) {
         headers.push_back(block.header());
       }
     }
     return headers;
-  }
-
-  bool Blockchain::contains_transaction(std::string hash) const {
-
-    auto blocks = get_all();
-    for (const auto &block: blocks) {
-      for (const auto &transaction: block.transactions()) {
-        if (transaction.hash() == hash) return true;
-      }
-    }
-    return false;
   }
 }// namespace krapi

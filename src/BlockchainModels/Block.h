@@ -41,6 +41,14 @@ namespace krapi {
 
     [[nodiscard]] std::string previous_hash() const;
 
+    [[nodiscard]] bool contains_transaction(Transaction transaction) const {
+      return std::find(
+               m_transactions.begin(),
+               m_transactions.end(),
+               transaction
+             ) != m_transactions.end();
+    }
+
     bool operator==(const Block &) const;
 
     bool operator<(const Block &) const;

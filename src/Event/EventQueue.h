@@ -16,6 +16,7 @@
 #include "Overload.h"
 #include "Transaction.h"
 #include <concurrencpp/executors/executor.h>
+#include <concurrencpp/results/result.h>
 #include <concurrencpp/results/shared_result.h>
 #include <concurrencpp/results/when_result.h>
 #include <functional>
@@ -25,6 +26,8 @@ namespace krapi {
   using EventPromise = concurrencpp::result_promise<Event>;
   using EventQueueType = eventpp::EventQueue<EventType, void(Event)>;
 
+  template<typename Message, typename MessageType>
+  using AnyEventResult = std::pair<MessageType, Box<Message>>;
 
   template<typename T>
   concept has_create = requires(T) { T::create(); };
@@ -122,62 +125,64 @@ namespace krapi {
       auto predicate_ptr =
         std::make_shared<std::optional<std::function<bool(Event)>>>(predicate);
 
-      *handle = m_event_queue.appendListener(
-        type,
-        [=, self = weak_from_this()](Event e) {
-          auto type_copy = type;
-          auto promise_copy = promise;
-          auto handle_copy = handle;
-          auto count_copy = count_ptr;
-          auto predicate_copy = predicate_ptr;
+      *handle = m_event_queue.appendListener(type, [=, self = weak_from_this()](Event e) {
+        auto type_copy = type;
+        auto promise_copy = promise;
+        auto handle_copy = handle;
+        auto count_copy = count_ptr;
+        auto predicate_copy = predicate_ptr;
 
-          if (*predicate_copy) {
-            if (std::invoke(predicate_copy->value(), e)) {
-              *count_copy = *count_copy - 1;
-            }
-          } else {
+        if (*predicate_copy) {
+          if (std::invoke(predicate_copy->value(), e)) {
             *count_copy = *count_copy - 1;
           }
+        } else {
+          *count_copy = *count_copy - 1;
+        }
 
-          if (*count_copy <= 0) {
-            promise_copy->set_result(e);
-            if (auto instance = self.lock()) {
-              instance->m_event_queue.removeListener(type_copy, *handle_copy);
-            }
+        if (*count_copy <= 0) {
+          promise_copy->set_result(e);
+          if (auto instance = self.lock()) {
+            instance->m_event_queue.removeListener(type_copy, *handle_copy);
           }
         }
-      );
+      });
 
       return promise->get_result();
     }
 
+
     template<typename Message, typename MessageType>
-    concurrencpp::result<std::pair<MessageType, Box<Message>>>
-    any_event_of_type(
+    concurrencpp::result<AnyEventResult<Message, MessageType>> any_event_of_type(
       std::shared_ptr<concurrencpp::executor> executor,
       std::vector<MessageType> types
     ) {
 
       auto promises = std::vector<concurrencpp::result<Event>>();
 
-      for (auto type: types) { promises.push_back(event_of_type(type)); }
+      for (auto type: types) {
+        promises.push_back(event_of_type(type));
+      }
 
-      auto [index, events] = co_await concurrencpp::when_any(
-        executor,
-        promises.begin(),
-        promises.end()
-      );
+      auto [index, events] =
+        co_await concurrencpp::when_any(executor, promises.begin(), promises.end());
       auto event = co_await events[index];
       auto message = event.template get<Message>();
       auto type = message->type();
       co_return std::pair<MessageType, Box<Message>>{type, std::move(message)};
     }
 
-    void close() { m_event_queue.clearEvents(); }
+    void close() {
+      m_event_queue.clearEvents();
+    }
 
-    void wait() { m_event_queue.wait(); }
+    void wait() {
+      m_event_queue.wait();
+    }
 
-    EventQueueType &internal_queue() { return m_event_queue; }
+    EventQueueType &internal_queue() {
+      return m_event_queue;
+    }
   };
 
   using EventQueuePtr = std::shared_ptr<EventQueue>;

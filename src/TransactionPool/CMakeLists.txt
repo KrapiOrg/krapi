@@ -13,6 +13,7 @@ target_link_libraries(
         cryptopp
         spdlog
         leveldb
+        readerwriterqueue
         blockchain_models
         shared_models
 )

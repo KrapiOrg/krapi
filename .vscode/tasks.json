@@ -4,12 +4,13 @@
         {
             "label": "delay",
             "type": "shell",
-            "command": "sleep 3",
+            "command": "sleep 0",
             "group": "none",
             "presentation": {
                 "reveal": "never",
                 "panel": "shared",
-                "showReuseMessage": false
+                "showReuseMessage": false,
+                "clear": true
             }
         },
         {
@@ -22,7 +23,8 @@
             "presentation": {
                 "reveal": "never",
                 "panel": "shared",
-                "showReuseMessage": false
+                "showReuseMessage": false,
+                "clear": true
             },
             "group": "build",
             "problemMatcher": [],
@@ -70,7 +72,8 @@
             "presentation": {
                 "reveal": "never",
                 "panel": "shared",
-                "showReuseMessage": false
+                "showReuseMessage": false,
+                "clear": true
             },
             "dependsOn": [
                 "delay",
@@ -88,7 +91,8 @@
             "presentation": {
                 "reveal": "never",
                 "panel": "shared",
-                "showReuseMessage": false
+                "showReuseMessage": false,
+                "clear": true
             },
             "dependsOn": [
                 "delay",

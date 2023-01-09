@@ -44,8 +44,6 @@ namespace krapi {
     get_all_after(const BlockHeader &header) const;
 
     std::vector<Block> remove_all_after(BlockHeader);
-
-    bool contains_transaction(std::string transaction_hash) const;
   };
   using BlockchainPtr = std::shared_ptr<Blockchain>;
 }// namespace krapi
