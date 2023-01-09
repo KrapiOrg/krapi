@@ -8,6 +8,7 @@
 #include <concurrencpp/results/generator.h>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 
 template<typename Type>
@@ -106,7 +107,7 @@ class DBInternface {
   DataType last() {
     leveldb::ReadOptions options;
     options.snapshot = m_db->GetSnapshot();
-    auto it = m_db->NewIterator(options);
+    auto it = std::unique_ptr<leveldb::Iterator>(m_db->NewIterator(options));
     DataType last_value;
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
       auto value = from_slice(it->value());
