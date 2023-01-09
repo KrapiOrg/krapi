@@ -18,6 +18,5 @@ target_link_libraries(
         concurrencpp
         krapi_event
         blockchain_models
-        transaction_pool
         node_manager
 )

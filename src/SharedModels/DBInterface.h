@@ -7,6 +7,7 @@
 #include <concurrencpp/errors.h>
 #include <concurrencpp/results/generator.h>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 
 template<typename Type>
@@ -95,7 +96,7 @@ class DBInternface {
 
   bool remove(std::string hash) {
 
-    if(contains(hash)){
+    if (contains(hash)) {
 
       return m_db->Delete(m_write_options, hash).ok();
     }
@@ -126,6 +127,11 @@ class DBInternface {
  protected:
   bool initialize(std::string path) {
     leveldb::DB *db;
+    if (!std::filesystem::exists(path)) {
+
+      if (!std::filesystem::create_directories(path))
+        return false;
+    }
     auto status = leveldb::DB::Open(m_db_options, path, &db);
 
     if (status.ok()) {

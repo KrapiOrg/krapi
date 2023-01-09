@@ -27,11 +27,24 @@ namespace krapi {
     }
 
     bool add(Transaction transaction);
-    
+
     void end(PoolEndReason end_reason) {
       m_queue->enqueue(end_reason);
     }
 
+    void enqueue_stored() {
+
+      spdlog::info("TransactionPool: Enqueuing all stored transactions");
+      for (auto transaction: data()) {
+
+        m_queue->enqueue(transaction);
+
+        spdlog::info(
+          "Enqueued transaction #{}",
+          transaction.contrived_hash()
+        );
+      }
+    }
     concurrencpp::result<Transactions>
     wait(std::shared_ptr<concurrencpp::thread_executor>, int);
 

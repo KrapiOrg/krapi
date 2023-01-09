@@ -48,10 +48,17 @@ namespace krapi {
       m_end->notify_all();
     }
 
-    EventQueuePtr event_queue() { return m_event_queue; }
+    EventQueuePtr event_queue() {
+      return m_event_queue;
+    }
 
-    void wait() { m_end->wait(false); }
+    void wait() {
+      m_end->wait(false);
+    }
 
-    ~EventLoop() { wait(); }
+    ~EventLoop() {
+      wait();
+    }
   };
+  using EventLoopPtr = std::shared_ptr<EventLoop>;
 }// namespace krapi

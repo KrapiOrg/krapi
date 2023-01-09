@@ -19,7 +19,6 @@ target_link_libraries(
         stduuid
         concurrencpp
         signaling_client
-        transaction_pool
         krapi_event
         shared_models
 )

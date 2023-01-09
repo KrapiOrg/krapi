@@ -11,6 +11,7 @@
 #include "NodeManager.h"
 #include "PeerMessage.h"
 #include "TransactionPool.h"
+#include "ValidationState.h"
 #include "fmt/core.h"
 #include "merklecpp.h"
 #include "sha.h"
@@ -43,20 +44,16 @@ namespace krapi {
     sha_256.Update(r.bytes, 32);
     sha_256.Final(out.bytes);
   }
-  inline concurrencpp::result<std::optional<Block>> mining_function(
+
+  inline concurrencpp::result<Block> mining_function(
     concurrencpp::executor_tag,
     std::shared_ptr<concurrencpp::thread_executor>,
-    EventQueuePtr event_queue,
     std::string previous_hash,
     Transactions transactions
   ) {
 
-    std::atomic<bool> stop = false;
     CryptoPP::SHA256 sha_256;
-    auto remover = eventpp::ScopedRemover<EventQueueType>(event_queue->internal_queue());
-    remover.appendListener(InternalNotificationType::MinerStop, [&](Event event) {
-      stop = true;
-    });
+
     auto get_merkle_root = [&]() {
       merkle::TreeT<32, hash_function> tree;
       for (const auto &tx: transactions) {
@@ -84,14 +81,13 @@ namespace krapi {
 
       if (block_hash.starts_with("00000")) {
 
-        co_return std::make_optional<Block>(
+        co_return Block(
           BlockHeader{block_hash, previous_hash, merkle_root, timestamp, nonce},
           transactions
         );
       }
       nonce++;
     }
-    co_return std::make_optional<Block>();
   }
   class Miner {
     std::shared_ptr<concurrencpp::thread_executor> m_executor;
@@ -120,7 +116,7 @@ namespace krapi {
 
       while (true) {
         spdlog::info("Miner: Waiting for transactions...");
-        
+
         auto transactions = co_await m_transaction_pool->wait(m_executor, 5);
 
         spdlog::info("Miner Acquired the following transaction...");
@@ -133,84 +129,85 @@ namespace krapi {
         auto block = co_await mining_function(
           {},
           m_executor,
-          m_event_queue,
           latest_hash,
           transactions
         );
 
-        spdlog::info("Miner: MiningJob finished");
-        if (block) {
+        spdlog::info("Miner: Mined Block #{}, broadcasting to other miners", block.contrived_hash());
 
-          spdlog::info("Miner: Broadcasting Block #{}", block->contrived_hash());
+        m_manager->broadcast_to_peers_of_type_and_forget(
+          m_executor,
+          PeerType::Full,
+          PeerMessageType::AddBlock,
+          block.to_json()
+        );
 
-          m_manager->broadcast_to_peers_of_type_and_forget(
+        spdlog::info(
+          "Miner: Waiting for Block #{} to be accepted or rejected",
+          block.contrived_hash()
+        );
+
+        auto opt = co_await m_executor->submit([this, block]() {
+          auto block_copy = block;
+
+          auto result = m_event_queue->any_event_of_type<PeerMessage, PeerMessageType>(
             m_executor,
-            PeerType::Full,
-            PeerMessageType::AddBlock,
-            block->to_json()
+            {PeerMessageType::BlockAccepted, PeerMessageType::BlockRejected}
           );
 
-          spdlog::info(
-            "Miner: Waiting for Block #{} to be accepted or rejected",
-            block->contrived_hash()
-          );
+          auto now = std::chrono::high_resolution_clock::now();
+          auto result_status = result.wait_until(now + 2s);
 
-          auto opt = co_await m_executor->submit([this, block]() {
-            auto block_copy = block;
+          if (result_status == concurrencpp::result_status::value) {
+            return std::make_optional<AnyEventResult<PeerMessage, PeerMessageType>>(
+              result.get()
+            );
+          } else {
+            return std::optional<AnyEventResult<PeerMessage, PeerMessageType>>(std::nullopt);
+          }
+        });
 
-            auto result = m_event_queue->any_event_of_type<PeerMessage, PeerMessageType>(
-              m_executor,
-              {PeerMessageType::BlockAccepted, PeerMessageType::BlockRejected}
+        if (opt) {
+
+          auto [status, message] = opt.value();
+          if (status == PeerMessageType::BlockAccepted) {
+            spdlog::info(
+              "Block #{} was accepted by {}",
+              block.contrived_hash(),
+              message->sender_identity()
             );
 
-            auto now = std::chrono::high_resolution_clock::now();
-            auto result_status = result.wait_until(now + 2s);
+            m_event_queue->enqueue<InternalNotification<Block>>(
+              InternalNotificationType::BlockMined,
+              block
+            );
 
-            if (result_status == concurrencpp::result_status::value) {
-              return std::make_optional<AnyEventResult<PeerMessage, PeerMessageType>>(
-                result.get()
-              );
-            } else {
-              return std::optional<AnyEventResult<PeerMessage, PeerMessageType>>(std::nullopt);
-            }
-          });
-
-          if (opt) {
-
-            auto [status, message] = opt.value();
-            if (status == PeerMessageType::BlockAccepted) {
-              spdlog::info(
-                "Block #{} was accepted by {}",
-                block->contrived_hash(),
-                message->sender_identity()
-              );
-              
-              m_event_queue->enqueue<InternalNotification<Block>>(
-                InternalNotificationType::BlockMined,
-                *block
-              );
-            } else {
-              spdlog::info(
-                "Block #{} was rejected",
-                block->contrived_hash(),
-                message->sender_identity()
-              );
-            }
+            co_await m_event_queue->event_of_type(
+              InternalNotificationType::MinedBlockValidated
+            );
+            spdlog::info("Miner: Ran Validator on #{}", block.contrived_hash());
           } else {
 
             spdlog::info(
-              "Miner: Network timedout when trying to verify Block #{}",
-              block->contrived_hash()
-            );
-            m_event_queue->enqueue<InternalNotification<Block>>(
-              InternalNotificationType::BlockMined,
-              *block
+              "Block #{} was rejected",
+              block.contrived_hash(),
+              message->sender_identity()
             );
           }
-
-
         } else {
-          spdlog::info("Miner: MiningJob was stopped");
+
+          spdlog::info(
+            "Miner: Network timedout when trying to verify Block #{}",
+            block.contrived_hash()
+          );
+          m_event_queue->enqueue<InternalNotification<Block>>(
+            InternalNotificationType::BlockMined,
+            block
+          );
+          co_await m_event_queue->event_of_type(
+            InternalNotificationType::MinedBlockValidated
+          );
+          spdlog::info("Miner: Ran Validator on #{}", block.contrived_hash());
         }
       }
     }

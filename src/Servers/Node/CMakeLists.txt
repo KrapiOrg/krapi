@@ -6,14 +6,23 @@ set(
         ${CMAKE_CURRENT_LIST_DIR}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain/Blockchain.h
+        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/BlockchainManager.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/Blockchain/BlockchainManager.h
         ${CMAKE_CURRENT_LIST_DIR}/Miner.h
         ${CMAKE_CURRENT_LIST_DIR}/SpentTransactionsStore.h
         ${CMAKE_CURRENT_LIST_DIR}/Validator.h
+        ${CMAKE_CURRENT_LIST_DIR}/TransactionPool/TransactionPool.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/TransactionPool/TransactionPool.h
+        ${CMAKE_CURRENT_LIST_DIR}/TransactionPool/TransactionPoolManager.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/TransactionPool/TransactionPoolManager.h
 )
 include_directories(
+        ${CMAKE_CURRENT_LIST_DIR}/
         ${CMAKE_CURRENT_LIST_DIR}/Miner 
         ${CMAKE_CURRENT_LIST_DIR}/Blockchain
+        ${CMAKE_CURRENT_LIST_DIR}/TransactionPool
 )
+
 add_executable(node ${NODESOURCES})
 target_include_directories(
         node
@@ -36,7 +45,6 @@ target_link_libraries(
         krapi_event
         shared_models
         blockchain_models
-        transaction_pool
         node_manager
         utils
 )

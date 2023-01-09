@@ -2,6 +2,7 @@
 
 #include "Block.h"
 #include "Blockchain.h"
+#include "SpentTransactionsStore.h"
 #include "Transaction.h"
 #include "ValidationState.h"
 
@@ -36,17 +37,24 @@ namespace krapi {
       return ValidationState::Success;
     }
 
-    static ValidationState validate_transaction(BlockchainPtr blockchain, Transaction transaction) {
-      for (Block block: blockchain->data()) {
+    static ValidationState validate_transaction(
+      SpentTransactionsStorePtr transaction_store,
+      Transaction transaction
+    ) {
 
-        if (block.contains_transaction(transaction)) {
-          return ValidationState::TransactionAlreadySpent;
-        }
+
+      if (transaction_store->contains(transaction)) {
+
+        return ValidationState::TransactionAlreadySpent;
       }
       return ValidationState::Success;
     }
 
-    static ValidationState validate_block(BlockchainPtr blockchain, Block block) {
+    static ValidationState validate_block(
+      BlockchainPtr blockchain,
+      SpentTransactionsStorePtr transactions_store,
+      Block block
+    ) {
 
       auto header_state = validate_header(blockchain->last().header(), block);
 
@@ -56,7 +64,7 @@ namespace krapi {
 
       for (auto transaction: block.transactions()) {
 
-        auto transaction_state = validate_transaction(blockchain, transaction);
+        auto transaction_state = validate_transaction(transactions_store, transaction);
 
         if (transaction_state != ValidationState::Success) {
           return transaction_state;
