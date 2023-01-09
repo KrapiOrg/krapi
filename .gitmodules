@@ -28,3 +28,6 @@
 [submodule "libs/concurrencpp"]
 	path = libs/concurrencpp
 	url = https://github.com/David-Haim/concurrencpp
+[submodule "libs/readerwriterqueue"]
+	path = libs/readerwriterqueue
+	url = https://github.com/cameron314/readerwriterqueue
