@@ -26,10 +26,10 @@
 
 namespace krapi {
 
-  class [[nodiscard]] NodeManager final {
+  class [[nodiscard]] PeerManager final {
 
    public:
-    [[nodiscard]] static inline std::shared_ptr<NodeManager> create(
+    [[nodiscard]] static inline std::shared_ptr<PeerManager> create(
       std::shared_ptr<concurrencpp::worker_thread_executor> worker,
       EventQueuePtr event_queue,
       SignalingClientPtr signaling_client,
@@ -37,7 +37,7 @@ namespace krapi {
       PeerState ps = PeerState::Closed
     ) {
 
-      return std::shared_ptr<NodeManager>(new NodeManager(
+      return std::shared_ptr<PeerManager>(new PeerManager(
         std::move(worker),
         std::move(event_queue),
         std::move(signaling_client),
@@ -104,7 +104,7 @@ namespace krapi {
     concurrencpp::shared_result<PeerType> type_of(std::string);
 
    private:
-    explicit NodeManager(
+    explicit PeerManager(
       std::shared_ptr<concurrencpp::worker_thread_executor>,
       EventQueuePtr,
       SignalingClientPtr,
@@ -144,5 +144,5 @@ namespace krapi {
     concurrencpp::null_result connect_to_peer(Event);
   };
 
-  using NodeManagerPtr = std::shared_ptr<NodeManager>;
+  using PeerManagerPtr = std::shared_ptr<PeerManager>;
 }// namespace krapi

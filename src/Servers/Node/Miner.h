@@ -8,7 +8,7 @@
 #include "Blockchain.h"
 #include "EventQueue.h"
 #include "InternalNotification.h"
-#include "NodeManager.h"
+#include "PeerManager.h"
 #include "PeerMessage.h"
 #include "TransactionPool.h"
 #include "ValidationState.h"
@@ -95,7 +95,7 @@ namespace krapi {
     EventQueuePtr m_event_queue;
     TransactionPoolPtr m_transaction_pool;
     BlockchainPtr m_blockchain;
-    NodeManagerPtr m_manager;
+    PeerManagerPtr m_manager;
 
    public:
     Miner(
@@ -103,7 +103,7 @@ namespace krapi {
       EventQueuePtr event_queue,
       TransactionPoolPtr transaction_pool,
       BlockchainPtr blockchain,
-      NodeManagerPtr manager
+      PeerManagerPtr manager
     )
         : m_event_queue(event_queue), m_executor(std::move(executor)),
           m_blockchain(std::move(blockchain)),

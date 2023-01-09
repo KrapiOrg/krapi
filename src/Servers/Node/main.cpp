@@ -5,7 +5,7 @@
 #include "EventLoop.h"
 #include "InternalNotification.h"
 #include "Miner.h"
-#include "NodeManager.h"
+#include "PeerManager.h"
 #include "SignalingClient.h"
 #include "SpentTransactionsStore.h"
 #include "TransactionPoolManager.h"
@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 
 
 concurrencpp::result<std::pair<std::vector<BlockHeader>, std::string>> request_headers(
-  NodeManagerPtr manager,
+  PeerManagerPtr manager,
   std::vector<std::string> identities,
   BlockHeader last_known_header
 ) {
@@ -54,7 +54,7 @@ concurrencpp::result<std::pair<std::vector<BlockHeader>, std::string>> request_h
 }
 
 concurrencpp::result<std::vector<Block>> download_blocks(
-  NodeManagerPtr manager,
+  PeerManagerPtr manager,
   std::string peer_id,
   std::vector<BlockHeader> block_headers
 ) {
@@ -102,7 +102,7 @@ concurrencpp::null_result initial_block_download(
   std::shared_ptr<concurrencpp::thread_executor> executor,
   SignalingClientPtr signaling_client,
   EventQueuePtr event_queue,
-  NodeManagerPtr manager,
+  PeerManagerPtr manager,
   BlockchainPtr blockchain,
   TransactionPoolPtr transaction_pool
 ) {
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
 
   auto signaling_client = SignalingClient::create(event_loop->event_queue());
 
-  auto manager = NodeManager::create(
+  auto manager = PeerManager::create(
     runtime->make_worker_thread_executor(),
     event_loop->event_queue(),
     signaling_client,

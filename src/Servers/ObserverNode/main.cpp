@@ -3,7 +3,7 @@
 
 #include "Block.h"
 #include "Content/BlockHeadersResponseContent.h"
-#include "NodeManager.h"
+#include "PeerManager.h"
 
 using namespace krapi;
 
@@ -26,7 +26,7 @@ int main() {
     "3. Get tip from specific node",
     "4. Get tips from all nodes"};
 
-  auto manager = NodeManager{PeerType::Observer};
+  auto manager = PeerManager{PeerType::Observer};
   auto connected_to = manager.connect_to_peers().get();
   manager.set_state(PeerState::Open);
   fmt::print("Connected to [{}]\n", fmt::join(connected_to, ","));
@@ -44,7 +44,9 @@ int main() {
     block_map[genesis_hash] = Block{genesis_header, {}};
     std::unordered_set<std::string> visited_blocks;
 
-    for (const auto &block: blocks) { block_map[block.hash()] = block; }
+    for (const auto &block: blocks) {
+      block_map[block.hash()] = block;
+    }
     if (!block_map.contains(start_from.value())) {
       return tl::make_unexpected(KrapiErr{fmt::format(
         "Blockchain does not have the block {}",
@@ -204,7 +206,9 @@ int main() {
         .get();
     for (const auto &resp: responses) {
 
-      if (!resp.has_value()) { continue; }
+      if (!resp.has_value()) {
+        continue;
+      }
       auto block = Block::from_json(resp.value().content());
       fmt::print("{:*^50}\n", fmt::format("Peer #{}", resp.value().peer_id()));
       fmt::print("{}\n", block.to_json().dump(4));

@@ -18,5 +18,5 @@ target_link_libraries(
         concurrencpp
         krapi_event
         blockchain_models
-        node_manager
+        peer_manager
 )

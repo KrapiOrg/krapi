@@ -2,10 +2,10 @@
 // Created by mythi on 24/11/22.
 //
 
-#include "NodeManager.h"
 #include "EventQueue.h"
 #include "InternalMessage.h"
 #include "InternalNotification.h"
+#include "PeerManager.h"
 #include "PeerMessage.h"
 #include "PeerState.h"
 #include "eventpp/utilities/scopedremover.h"
@@ -22,7 +22,7 @@ using namespace std::chrono_literals;
 
 namespace krapi {
 
-  NodeManager::NodeManager(
+  PeerManager::PeerManager(
     std::shared_ptr<concurrencpp::worker_thread_executor> worker,
     EventQueuePtr event_queue,
     SignalingClientPtr signaling_client,
@@ -36,49 +36,51 @@ namespace krapi {
 
     m_subscription_remover.appendListener(
       SignalingMessageType::RTCSetup,
-      std::bind_front(&NodeManager::on_rtc_setup, this)
+      std::bind_front(&PeerManager::on_rtc_setup, this)
     );
 
     m_subscription_remover.appendListener(
       PeerMessageType::PeerTypeRequest,
-      std::bind_front(&NodeManager::on_peer_type_request, this)
+      std::bind_front(&PeerManager::on_peer_type_request, this)
     );
 
     m_subscription_remover.appendListener(
       PeerMessageType::PeerStateRequest,
-      std::bind_front(&NodeManager::on_peer_state_request, this)
+      std::bind_front(&PeerManager::on_peer_state_request, this)
     );
 
     m_subscription_remover.appendListener(
       InternalMessageType::SendPeerMessage,
-      std::bind_front(&NodeManager::on_send_peer_message, this)
+      std::bind_front(&PeerManager::on_send_peer_message, this)
     );
 
     m_subscription_remover.appendListener(
       InternalNotificationType::DataChannelOpened,
-      std::bind_front(&NodeManager::on_datachannel_opened, this)
+      std::bind_front(&PeerManager::on_datachannel_opened, this)
     );
 
     m_subscription_remover.appendListener(
       InternalNotificationType::DataChannelClosed,
-      std::bind_front(&NodeManager::on_datachannel_closed, this)
+      std::bind_front(&PeerManager::on_datachannel_closed, this)
     );
 
     m_subscription_remover.appendListener(
       SignalingMessageType::PeerClosed,
-      std::bind_front(&NodeManager::on_peer_closed, this)
+      std::bind_front(&PeerManager::on_peer_closed, this)
     );
 
     m_subscription_remover.appendListener(
       SignalingMessageType::PeerAvailable,
-      std::bind_front(&NodeManager::connect_to_peer, this)
+      std::bind_front(&PeerManager::connect_to_peer, this)
     );
   }
 
-  std::string NodeManager::id() const { return m_signaling_client->identity(); }
+  std::string PeerManager::id() const {
+    return m_signaling_client->identity();
+  }
 
 
-  concurrencpp::null_result NodeManager::connect_to_peer(Event event) {
+  concurrencpp::null_result PeerManager::connect_to_peer(Event event) {
 
     auto peer = event.get<SignalingMessage>()->content().get<std::string>();
     spdlog::info("{} is available", peer);
@@ -99,9 +101,11 @@ namespace krapi {
     co_await awaitable;
   }
 
-  PeerState NodeManager::get_state() const { return m_peer_state; }
+  PeerState PeerManager::get_state() const {
+    return m_peer_state;
+  }
 
-  void NodeManager::on_rtc_setup(Event event) {
+  void PeerManager::on_rtc_setup(Event event) {
 
     auto message = event.get<SignalingMessage>();
 
@@ -125,7 +129,7 @@ namespace krapi {
     }
   }
 
-  void NodeManager::on_peer_state_request(Event event) {
+  void PeerManager::on_peer_state_request(Event event) {
 
     auto message = event.get<PeerMessage>();
 
@@ -141,7 +145,7 @@ namespace krapi {
     );
   }
 
-  void NodeManager::on_peer_type_request(Event event) {
+  void PeerManager::on_peer_type_request(Event event) {
 
     auto message = event.get<PeerMessage>();
     m_event_queue->enqueue<InternalMessage<PeerMessage>>(
@@ -156,7 +160,7 @@ namespace krapi {
     );
   }
 
-  void NodeManager::on_send_peer_message(Event event) {
+  void PeerManager::on_send_peer_message(Event event) {
 
     auto internal_message = event.get<InternalMessage<PeerMessage>>();
     auto message = internal_message->content();
@@ -183,7 +187,7 @@ namespace krapi {
   }
 
   std::vector<concurrencpp::shared_result<Event>>
-  NodeManager::broadcast(PeerMessageType type, nlohmann::json content) {
+  PeerManager::broadcast(PeerMessageType type, nlohmann::json content) {
 
     std::vector<concurrencpp::shared_result<Event>> results;
 
@@ -201,7 +205,7 @@ namespace krapi {
     return results;
   }
 
-  void NodeManager::broadcast_and_forget(
+  void PeerManager::broadcast_and_forget(
     PeerMessageType type,
     nlohmann::json content
   ) {
@@ -217,34 +221,34 @@ namespace krapi {
     }
   }
 
-  void NodeManager::on_datachannel_opened(Event event) {
+  void PeerManager::on_datachannel_opened(Event event) {
 
     auto id = event.get<InternalNotification<std::string>>()->content();
     auto connection = m_connection_map[id];
     spdlog::info("Peer {} connected", id);
   }
 
-  void NodeManager::on_datachannel_closed(Event event) {
+  void PeerManager::on_datachannel_closed(Event event) {
 
     auto id = event.get<InternalNotification<std::string>>()->content();
     spdlog::warn("DataChannel with {} closed", id);
   }
 
-  void NodeManager::on_peer_closed(Event event) {
+  void PeerManager::on_peer_closed(Event event) {
 
     auto id = event.get<SignalingMessage>()->content().get<std::string>();
     spdlog::info("PeerConnection with {} closed", id);
     m_connection_map.erase(id);
   }
 
-  void NodeManager::set_state(PeerState state) {
+  void PeerManager::set_state(PeerState state) {
 
     m_peer_state = state;
     broadcast_and_forget(PeerMessageType::PeerStateUpdate, state);
   }
 
   concurrencpp::shared_result<PeerState>
-  NodeManager::state_of(std::string peer_id) {
+  PeerManager::state_of(std::string peer_id) {
 
     if (m_connection_map.contains(peer_id))
       return m_connection_map.find(peer_id)->second->state();
@@ -252,14 +256,14 @@ namespace krapi {
     return concurrencpp::make_ready_result<PeerState>(PeerState::Unknown);
   }
 
-  concurrencpp::shared_result<PeerType> NodeManager::type_of(std::string peer_id
+  concurrencpp::shared_result<PeerType> PeerManager::type_of(std::string peer_id
   ) {
 
     if (m_connection_map.contains(peer_id))
       return m_connection_map.find(peer_id)->second->type();
     return concurrencpp::make_ready_result<PeerType>(PeerType::Unknown);
   }
-  concurrencpp::result<std::vector<std::string>> NodeManager::wait_for_peers(
+  concurrencpp::result<std::vector<std::string>> PeerManager::wait_for_peers(
     std::shared_ptr<concurrencpp::thread_executor> executor,
     int count,
     std::set<PeerType> types,
@@ -392,7 +396,7 @@ namespace krapi {
 
     co_return co_await promise->get_result();
   }
-  void NodeManager::broadcast_to_peers_of_type_and_forget(
+  void PeerManager::broadcast_to_peers_of_type_and_forget(
     std::shared_ptr<concurrencpp::thread_executor> executor,
     PeerType to_peer_type,
     PeerMessageType message_type,

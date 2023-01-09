@@ -45,6 +45,6 @@ target_link_libraries(
         krapi_event
         shared_models
         blockchain_models
-        node_manager
+        peer_manager
         utils
 )

@@ -61,9 +61,9 @@ namespace krapi {
         peer_message->sender_identity()
       );
 
-      m_node_manager->send_and_forget(
+      m_peer_manager->send_and_forget(
         PeerMessageType::AddTransaction,
-        m_node_manager->id(),
+        m_peer_manager->id(),
         peer_message->sender_identity(),
         peer_message->tag(),
         transaction.to_json()
@@ -72,12 +72,12 @@ namespace krapi {
   }
   TransactionPoolManager::TransactionPoolManager(
     EventLoopPtr event_loop,
-    NodeManagerPtr node_manager,
+    PeerManagerPtr peer_manager,
     TransactionPoolPtr transaction_pool,
     SpentTransactionsStorePtr spent_transactions_store
   )
       : m_event_loop(std::move(event_loop)),
-        m_node_manager(std::move(node_manager)),
+        m_peer_manager(std::move(peer_manager)),
         m_transaction_pool(std::move(transaction_pool)),
         m_spent_transactions_store(std::move(spent_transactions_store)) {
 

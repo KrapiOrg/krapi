@@ -6,7 +6,7 @@ namespace krapi {
     auto peer_message = e.get<PeerMessage>();
     auto last_header = BlockHeader::from_json(peer_message->content());
 
-    m_node_manager->send_and_forget(
+    m_peer_manager->send_and_forget(
       PeerMessageType::BlockHeadersResponse,
       peer_message->receiver_identity(),
       peer_message->sender_identity(),
@@ -28,18 +28,18 @@ namespace krapi {
     auto block = m_blockchain->get(block_header.hash());
     if (block) {
 
-      m_node_manager->send_and_forget(
+      m_peer_manager->send_and_forget(
         PeerMessageType::BlockResponse,
-        m_node_manager->id(),
+        m_peer_manager->id(),
         peer_message->sender_identity(),
         peer_message->tag(),
         block->to_json()
       );
     } else {
 
-      m_node_manager->send_and_forget(
+      m_peer_manager->send_and_forget(
         PeerMessageType::BlockNotFoundResponse,
-        m_node_manager->id(),
+        m_peer_manager->id(),
         peer_message->sender_identity(),
         peer_message->tag()
       );
@@ -70,9 +70,9 @@ namespace krapi {
         to_string(validation_state)
       );
 
-      m_node_manager->send_and_forget(
+      m_peer_manager->send_and_forget(
         PeerMessageType::BlockRejected,
-        m_node_manager->id(),
+        m_peer_manager->id(),
         message->sender_identity(),
         PeerMessage::create_tag(),
         nlohmann::json(validation_state)
@@ -101,9 +101,9 @@ namespace krapi {
       }
     }
 
-    m_node_manager->send_and_forget(
+    m_peer_manager->send_and_forget(
       PeerMessageType::BlockAccepted,
-      m_node_manager->id(),
+      m_peer_manager->id(),
       message->sender_identity(),
       PeerMessage::create_tag(),
       block.header().to_json()
@@ -157,13 +157,13 @@ namespace krapi {
   }
   BlockchainManager::BlockchainManager(
     EventLoopPtr event_loop,
-    NodeManagerPtr node_manager,
+    PeerManagerPtr peer_manager,
     TransactionPoolPtr transaction_pool,
     BlockchainPtr blockchain,
     SpentTransactionsStorePtr spent_transactions_store
   )
       : m_event_loop(std::move(event_loop)),
-        m_node_manager(std::move(node_manager)),
+        m_peer_manager(std::move(peer_manager)),
         m_transaction_pool(std::move(transaction_pool)),
         m_blockchain(std::move(blockchain)),
         m_spent_transactions_store(std::move(spent_transactions_store)) {

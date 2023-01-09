@@ -1,5 +1,5 @@
 #include "EventLoop.h"
-#include "NodeManager.h"
+#include "PeerManager.h"
 #include "PeerMessage.h"
 #include "PeerType.h"
 #include "SignalingClient.h"
@@ -25,7 +25,7 @@ concurrencpp::null_result initialize(
   ThreadExecutor executor,
   TimerQueue timer_queue,
   SignalingClientPtr signaling_client,
-  NodeManagerPtr manager,
+  PeerManagerPtr manager,
   WalletPtr wallet
 ) {
   co_await signaling_client->initialize();
@@ -75,7 +75,7 @@ int main() {
       event_loop->end();
     }
   );
-  auto manager = NodeManager::create(
+  auto manager = PeerManager::create(
     worker,
     event_loop->event_queue(),
     signaling_client,

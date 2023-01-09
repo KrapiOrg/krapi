@@ -1,7 +1,7 @@
 #pragma once
 #include "Event.h"
 #include "EventLoop.h"
-#include "NodeManager.h"
+#include "PeerManager.h"
 #include "PeerMessage.h"
 #include "SpentTransactionsStore.h"
 #include "TransactionPool.h"
@@ -16,7 +16,7 @@ namespace krapi {
    public:
     static std::shared_ptr<TransactionPoolManager> create(
       EventLoopPtr event_loop,
-      NodeManagerPtr node_manager,
+      PeerManagerPtr peer_manager,
       TransactionPoolPtr transaction_pool,
       SpentTransactionsStorePtr spent_transactions_store
     ) {
@@ -24,7 +24,7 @@ namespace krapi {
       return std::shared_ptr<TransactionPoolManager>(
         new TransactionPoolManager(
           std::move(event_loop),
-          std::move(node_manager),
+          std::move(peer_manager),
           std::move(transaction_pool),
           std::move(spent_transactions_store)
         )
@@ -37,13 +37,13 @@ namespace krapi {
 
     TransactionPoolManager(
       EventLoopPtr event_loop,
-      NodeManagerPtr node_manager,
+      PeerManagerPtr peer_manager,
       TransactionPoolPtr transaction_pool,
       SpentTransactionsStorePtr spent_transactions_store
     );
 
     EventLoopPtr m_event_loop;
-    NodeManagerPtr m_node_manager;
+    PeerManagerPtr m_peer_manager;
     TransactionPoolPtr m_transaction_pool;
     SpentTransactionsStorePtr m_spent_transactions_store;
   };

@@ -15,6 +15,6 @@ target_link_libraries(
         eventpp
         stduuid
         cryptopp
-        node_manager
+        peer_manager
         shared_models
 )
