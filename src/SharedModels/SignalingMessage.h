@@ -66,6 +66,16 @@ namespace krapi {
    public:
     explicit SignalingMessage(
       SignalingMessageType type,
+      std::string receiver_identity,
+      std::string tag,
+      nlohmann::json content = {}
+    )
+        : m_type(type),
+          m_receiver_identity(std::move(receiver_identity)),
+          m_tag(std::move(tag)), m_content(std::move(content)) {
+    }
+    explicit SignalingMessage(
+      SignalingMessageType type,
       std::string sender_identity,
       std::string receiver_identity,
       std::string tag,
@@ -73,7 +83,8 @@ namespace krapi {
     )
         : m_type(type), m_sender_identity(std::move(sender_identity)),
           m_receiver_identity(std::move(receiver_identity)),
-          m_tag(std::move(tag)), m_content(std::move(content)) {}
+          m_tag(std::move(tag)), m_content(std::move(content)) {
+    }
 
     template<typename... UU>
     static Box<SignalingMessage> create(UU &&...params) {
@@ -81,7 +92,9 @@ namespace krapi {
       return make_box<SignalingMessage>(std::forward<UU>(params)...);
     }
 
-    [[nodiscard]] SignalingMessageType type() const { return m_type; }
+    [[nodiscard]] SignalingMessageType type() const {
+      return m_type;
+    }
 
     [[nodiscard]] std::string sender_identity() const {
 
@@ -123,6 +136,10 @@ namespace krapi {
         json["tag"].get<std::string>(),
         json["content"].get<nlohmann::json>()
       );
+    }
+
+    void set_sender_identity(std::string identity) {
+      m_sender_identity = identity;
     }
 
    private:

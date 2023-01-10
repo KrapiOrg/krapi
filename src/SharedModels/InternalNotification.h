@@ -18,6 +18,7 @@ namespace krapi {
   enum class InternalNotificationType {
     DataChannelOpened,
     DataChannelClosed,
+    SignalingServerOpened,
     SignalingServerClosed,
     TransactionAddedToPool,
     BlockMined,
@@ -32,6 +33,8 @@ namespace krapi {
         return "data_channel_opened";
       case InternalNotificationType::DataChannelClosed:
         return "data_channel_closed";
+      case InternalNotificationType::SignalingServerOpened:
+        return "signaling_server_opened";
       case InternalNotificationType::SignalingServerClosed:
         return "signaling_server_closed";
       case InternalNotificationType::TransactionAddedToPool:
@@ -46,9 +49,13 @@ namespace krapi {
   struct Empty {};
 
   template<typename T>
-  concept InternalNotificationContentConcept = requires(T) {
-    std::is_same_v<T, std::string> || std::is_same_v<T, Transaction> ||
-      std::is_same_v<T, Block>;
+  concept ContentHasCreate = requires(T) {
+    std::is_same_v<T, Transaction> || std::is_same_v<T, Block>;
+  };
+
+  template<typename T>
+  concept ContentHasNoCreate = requires(T) {
+    std::is_same_v<T, std::string>;
   };
 
 
@@ -70,18 +77,60 @@ namespace krapi {
         : m_type(type), m_tag(std::move(tag)) {
     }
 
+
     InternalNotification(
       InternalNotificationType type,
       T content,
       std::string tag
     )
-      requires(InternalNotificationContentConcept<T>)
-        : m_type(type), m_content(std::move(content)), m_tag(std::move(tag)) {
+      requires(ContentHasNoCreate<T>)
+        : m_type(type),
+          m_content(std::move(content)),
+          m_tag(std::move(tag)) {
     }
 
-    InternalNotification(InternalNotificationType type, T content)
-      requires(InternalNotificationContentConcept<T>)
-        : m_type(type), m_content(std::move(content)), m_tag(create_tag()) {
+    InternalNotification(
+      InternalNotificationType type,
+      T content,
+      std::string tag
+    )
+      requires(ContentHasCreate<T>)
+        : m_type(type),
+          m_content(std::move(content)),
+          m_tag(std::move(tag)) {
+    }
+
+    InternalNotification(
+      InternalNotificationType type,
+      T content
+    )
+      requires(ContentHasCreate<T>)
+        : m_type(type),
+          m_content(std::move(content)),
+          m_tag(create_tag()) {
+    }
+
+    template<typename... ContentArgs>
+    InternalNotification(
+      InternalNotificationType type,
+      std::string tag,
+      ContentArgs &&...content_args
+    )
+      requires(ContentHasCreate<T>)
+        : m_type(type),
+          m_tag(std::move(tag)),
+          m_content(T::create(std::forward<ContentArgs>(content_args)...)) {
+    }
+
+    template<typename... ContentArgs>
+    InternalNotification(
+      InternalNotificationType type,
+      ContentArgs &&...content_args
+    )
+      requires(ContentHasCreate<T>)
+        : m_type(type),
+          m_tag(create_tag()),
+          m_content(T::create(std::forward<ContentArgs>(content_args)...)) {
     }
 
     static std::string create_tag() {

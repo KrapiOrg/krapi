@@ -10,6 +10,7 @@
 #include "Box.h"
 #include "PeerMessage.h"
 #include "SignalingMessage.h"
+#include <utility>
 
 namespace krapi {
   enum class InternalMessageType {
@@ -45,22 +46,45 @@ namespace krapi {
   class InternalMessage {
 
    public:
-    explicit InternalMessage(InternalMessageType type, Box<T> content)
-        : m_type(type), m_content(std::move(content)) {}
-
-    explicit InternalMessage(InternalMessageType type) : m_type(type) {}
-
-    template<typename... UU>
-    static Box<InternalMessage> create(UU &&...params) {
-
-      return make_box<InternalMessage>(std::forward<UU>(params)...);
+    template<typename... ContentArgs>
+    explicit InternalMessage(
+      InternalMessageType type,
+      ContentArgs &&...content_args
+    )
+        : m_type(type),
+          m_content(T::create(std::forward<ContentArgs>(content_args)...)) {
     }
 
-    std::string tag() { return m_content->tag(); }
+    explicit InternalMessage(
+      InternalMessageType type,
+      Box<T> content
+    )
+        : m_type(type),
+          m_content(std::move(content)) {
+    }
 
-    [[nodiscard]] InternalMessageType type() const { return m_type; }
 
-    [[nodiscard]] Box<T> content() const { return m_content; }
+    explicit InternalMessage(InternalMessageType type)
+        : m_type(type) {
+    }
+
+    template<typename... Args>
+    static Box<InternalMessage> create(Args &&...content_args) {
+
+      return make_box<InternalMessage>(std::forward<Args>(content_args)...);
+    }
+
+    std::string tag() {
+      return m_content->tag();
+    }
+
+    [[nodiscard]] InternalMessageType type() const {
+      return m_type;
+    }
+
+    [[nodiscard]] Box<T> content() const {
+      return m_content;
+    }
 
     nlohmann::json content_as_json() const {
 

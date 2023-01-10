@@ -4,7 +4,11 @@
 
 #include "SignalingClient.h"
 #include "InternalMessage.h"
+#include "InternalNotification.h"
+#include "SignalingMessage.h"
+#include "spdlog/spdlog.h"
 
+#include <thread>
 #include <utility>
 
 using namespace std::chrono_literals;
@@ -15,51 +19,16 @@ namespace krapi {
   SignalingClient::SignalingClient(EventQueuePtr event_queue)
       : m_event_queue(event_queue),
         m_subscription_remover(event_queue->internal_queue()),
-        m_ws(std::make_unique<rtc::WebSocket>()) {}
-
-  concurrencpp::result<void> SignalingClient::for_open() const {
-
-    auto promise = std::make_shared<concurrencpp::result_promise<void>>();
-    m_ws->onOpen([promise]() { promise->set_result(); });
-    m_ws->open("ws://127.0.0.1:8080");
-
-    return promise->get_result();
+        m_ws(std::make_unique<rtc::WebSocket>()) {
   }
-
-  concurrencpp::shared_result<std::string>
-  SignalingClient::request_identity() const {
-
-    auto promise =
-      std::make_shared<concurrencpp::result_promise<std::string>>();
-    m_ws->onMessage([promise](rtc::message_variant message) {
-      auto message_str = std::get<std::string>(message);
-      auto message_json = nlohmann::json::parse(message_str);
-      auto signaling_message = SignalingMessage::from_json(message_json);
-      if (signaling_message->type() == SignalingMessageType::IdentityResponse)
-        promise->set_result(signaling_message->content().get<std::string>());
-    });
-
-    m_ws->send(SignalingMessage(
-                 SignalingMessageType::IdentityRequest,
-                 "unknown_identity",
-                 "signaling_server",
-                 SignalingMessage::create_tag()
-    )
-                 .to_string());
-
-    return promise->get_result();
-  }
-
 
   concurrencpp::result<void> SignalingClient::initialize() {
 
-    co_await for_open();
-    spdlog::info(
-      "SignalingClient: connected to signaling server {}",
-      *m_ws->remoteAddress()
-    );
-    m_identity = co_await request_identity();
-    spdlog::info("SignalingClient: identity {}", m_identity);
+    m_ws->onOpen([this]() {
+      m_event_queue->enqueue<InternalNotification<void>>(
+        InternalNotificationType::SignalingServerOpened
+      );
+    });
 
     m_ws->onMessage([this](rtc::message_variant message) {
       auto message_str = std::get<std::string>(message);
@@ -72,7 +41,9 @@ namespace krapi {
       InternalMessageType::SendSignalingMessage,
       [this](Event event) {
         auto internal_message = event.get<InternalMessage<SignalingMessage>>();
-        m_ws->send(internal_message->content()->to_string());
+        auto content = internal_message->content();
+        content->set_sender_identity(m_identity);
+        m_ws->send(content->to_string());
       }
     );
 
@@ -81,34 +52,30 @@ namespace krapi {
         InternalNotificationType::SignalingServerClosed
       );
     });
-  }
 
-  std::string SignalingClient::identity() const noexcept { return m_identity; }
+    m_ws->open("ws://127.0.0.1:8080");
 
-  concurrencpp::shared_result<Event> SignalingClient::available_peers() const {
+    co_await m_event_queue->event_of_type(InternalNotificationType::SignalingServerOpened);
 
-    return send(SignalingMessage::create(
-      SignalingMessageType::AvailablePeersRequest,
-      m_identity,
+    spdlog::info(
+      "SignalingClient: connected to signaling server {}",
+      *m_ws->remoteAddress()
+    );
+
+    auto event = co_await m_event_queue->submit<InternalMessage<SignalingMessage>>(
+      InternalMessageType::SendSignalingMessage,
+      SignalingMessageType::IdentityRequest,
+      "unknown_identity",
       "signaling_server",
       SignalingMessage::create_tag()
-    ));
+    );
+
+    m_identity = event.get<SignalingMessage>()->content().get<std::string>();
+
+    spdlog::info("SignalingClient: identity {}", m_identity);
   }
 
-  concurrencpp::shared_result<Event>
-  SignalingClient::send(Box<SignalingMessage> message) const {
-
-    return m_event_queue->submit<InternalMessage<SignalingMessage>>(
-      InternalMessageType::SendSignalingMessage,
-      std::move(message)
-    );
-  }
-
-  void SignalingClient::send_and_forget(Box<SignalingMessage> message) const {
-
-    m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
-      InternalMessageType::SendSignalingMessage,
-      std::move(message)
-    );
+  std::string SignalingClient::identity() const noexcept {
+    return m_identity;
   }
 }// namespace krapi
