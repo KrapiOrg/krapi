@@ -1,4 +1,8 @@
 #include "BlockchainManager.h"
+#include "Content/SetTransactionStatusContent.h"
+#include "PeerMessage.h"
+#include "Transaction.h"
+#include "spdlog/spdlog.h"
 
 namespace krapi {
 
@@ -93,7 +97,8 @@ namespace krapi {
       block.contrived_hash()
     );
 
-    for (const auto &transaction: block.transactions()) {
+    auto transactions = block.transactions();
+    for (const auto &transaction: transactions) {
 
       if (m_transaction_pool->remove(transaction)) {
         spdlog::info("  Removed Tx#{} from pool", transaction.contrived_hash());
@@ -154,6 +159,45 @@ namespace krapi {
     m_event_loop->event_queue()->enqueue<InternalNotification<void>>(
       InternalNotificationType::MinedBlockValidated
     );
+
+    auto transactions = block.transactions();
+
+    for (const auto &transaction: transactions) {
+
+      spdlog::info(
+        "Setting status of transaction #{} to {} on peer {}",
+        transaction.contrived_hash(),
+        to_string(TransactionStatus::Verified),
+        transaction.from()
+      );
+
+      m_peer_manager->send_and_forget(
+        PeerMessageType::SetTransactionStatus,
+        m_peer_manager->id(),
+        transaction.from(),
+        PeerMessage::create_tag(),
+        SetTransactionStatusContent(
+          TransactionStatus::Verified,
+          transaction.hash()
+        )
+          .to_json()
+      );
+
+      spdlog::info(
+        "Forwarding Transaction #{} sent by {} to {}",
+        transaction.contrived_hash(),
+        transaction.from(),
+        transaction.to()
+      );
+
+      m_peer_manager->send_and_forget(
+        PeerMessageType::AddTransaction,
+        m_peer_manager->id(),
+        transaction.to(),
+        PeerMessage::create_tag(),
+        transaction.to_json()
+      );
+    }
   }
   BlockchainManager::BlockchainManager(
     EventLoopPtr event_loop,

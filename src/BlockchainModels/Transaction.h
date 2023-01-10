@@ -72,8 +72,6 @@ namespace krapi {
 
     [[nodiscard]] std::string contrived_hash() const;
 
-    bool set_status(TransactionStatus) const;
-
     [[nodiscard]] std::array<CryptoPP::byte, 32> byte_hash() const;
 
     bool operator<(const Transaction &other) const;

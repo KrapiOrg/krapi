@@ -65,14 +65,6 @@ namespace krapi {
 
   uint64_t Transaction::timestamp() const { return m_timestamp; }
 
-  bool Transaction::set_status(TransactionStatus status) const {
-
-    if (m_status == TransactionStatus::Verified) { return false; }
-
-    m_status = status;
-    return true;
-  }
-
   bool Transaction::operator<(const Transaction &other) const {
 
     return m_timestamp < other.m_timestamp;

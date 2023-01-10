@@ -42,8 +42,8 @@ concurrencpp::null_result initialize(
 
   spdlog::info("Connected to: [{}]", fmt::join(peer_ids, ", "));
 
-  while (true) {
-    std::cin.get();
+  for (int i = 0; i < 5; i++) {
+
     auto light_peer_ids = co_await manager->peers_of_type(PeerType::Light);
     for (const auto &peer_id: light_peer_ids) {
       auto transaction = wallet->create_transaction(manager->id(), peer_id);
@@ -82,7 +82,9 @@ int main() {
     PeerType::Light,
     PeerState::Open
   );
-  auto wallet = Wallet::create();
+  auto wallet = Wallet::create(
+    event_loop->event_queue()
+  );
 
   initialize(
     {},

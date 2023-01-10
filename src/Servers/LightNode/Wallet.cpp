@@ -13,9 +13,6 @@ using namespace std::chrono;
 
 namespace krapi {
 
-  void
-  Wallet::set_transaction_status(TransactionStatus status, std::string hash) {}
-
   Transaction
   Wallet::create_transaction(std::string my_id, std::string receiver_id) {
     CryptoPP::SHA256 sha_256;
@@ -37,13 +34,8 @@ namespace krapi {
       my_id,
       receiver_id};
 
-    m_transactions.emplace(tx_hash, tx);
+    put(tx);
 
     return tx;
-  }
-
-  bool Wallet::add_transaction(Transaction transaction) {
-
-    return m_transactions.emplace(transaction.hash(), transaction).second;
   }
 }// namespace krapi
