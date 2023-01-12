@@ -133,7 +133,7 @@ concurrencpp::null_result initial_block_download(
   spdlog::info("Broadcasting SyncPoolRequest");
   manager->broadcast_to_peers_of_type_and_forget(
     executor,
-    PeerType::Full,
+    {PeerType::Full},
     PeerMessageType::SyncPoolRequest
   );
   spdlog::info("Broadcasted SyncPoolRequest");
@@ -173,6 +173,7 @@ int main(int argc, char *argv[]) {
   );
 
   auto blockchain_manager = BlockchainManager::create(
+    runtime->thread_executor(),
     event_loop,
     manager,
     transaction_pool,

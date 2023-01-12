@@ -48,22 +48,34 @@ namespace krapi {
 
   bool Transaction::operator==(const Transaction &) const = default;
 
-  TransactionType Transaction::type() const { return m_type; }
+  TransactionType Transaction::type() const {
+    return m_type;
+  }
 
-  std::string Transaction::from() const { return m_from; }
+  std::string Transaction::from() const {
+    return m_from;
+  }
 
-  std::string Transaction::to() const { return m_to; }
+  std::string Transaction::to() const {
+    return m_to;
+  }
 
-  std::string Transaction::hash() const { return m_hash; }
+  std::string Transaction::hash() const {
+    return m_hash;
+  }
 
   std::array<CryptoPP::byte, 32> Transaction::byte_hash() const {
 
     return m_byte_hash;
   }
 
-  TransactionStatus Transaction::status() const { return m_status; }
+  TransactionStatus Transaction::status() const {
+    return m_status;
+  }
 
-  uint64_t Transaction::timestamp() const { return m_timestamp; }
+  uint64_t Transaction::timestamp() const {
+    return m_timestamp;
+  }
 
   bool Transaction::operator<(const Transaction &other) const {
 
@@ -73,5 +85,9 @@ namespace krapi {
   std::string Transaction::contrived_hash() const {
 
     return m_hash.substr(0, 10);
+  }
+  void Transaction::set_status(TransactionStatus status) const {
+
+    m_status = status;
   }
 }// namespace krapi

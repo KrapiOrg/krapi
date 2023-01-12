@@ -4,6 +4,10 @@
 
 #include "PeerConnection.h"
 #include "PeerMessage.h"
+#include "nlohmann/json_fwd.hpp"
+#include "rtc/candidate.hpp"
+#include "rtc/description.hpp"
+#include "spdlog/spdlog.h"
 
 #include <chrono>
 
@@ -48,7 +52,8 @@ namespace krapi {
     NotNull<EventQueue *> event_queue,
     NotNull<SignalingClient *> signaling_client,
     std::string identity,
-    std::string description
+    std::string sdp,
+    std::string type
   )
       : m_signaling_client(signaling_client), m_event_queue(event_queue),
         m_subscription_remover(event_queue->internal_queue()),
@@ -67,7 +72,9 @@ namespace krapi {
     m_peer_connection->onDataChannel(
       std::bind_front(&PeerConnection::initialize_channel, this)
     );
-    m_peer_connection->setRemoteDescription(description);
+    m_peer_connection->setRemoteDescription(
+      rtc::Description(sdp, type)
+    );
 
     m_subscription_remover.appendListener(
       PeerMessageType::PeerStateUpdate,
@@ -82,13 +89,15 @@ namespace krapi {
 
   void PeerConnection::initialize_channel(RTCDataChannel datachannel) {
 
-    if (m_datachannel == nullptr) { m_datachannel = datachannel; }
+    if (m_datachannel == nullptr) {
+      m_datachannel = datachannel;
+    }
 
     m_datachannel->onMessage([this](rtc::message_variant rtc_message) {
       auto message_str = std::get<std::string>(std::move(rtc_message));
+
       auto message_json = nlohmann::json::parse(message_str);
       auto peer_message = PeerMessage::from_json(message_json);
-
       m_event_queue->enqueue(peer_message);
     });
 
@@ -118,12 +127,21 @@ namespace krapi {
     return false;
   }
 
-  void PeerConnection::set_remote_description(std::string description) {
+  void PeerConnection::set_remote_description(std::string sdp, std::string type_string) {
 
-    m_peer_connection->setRemoteDescription(description);
+    m_peer_connection->setRemoteDescription(
+      rtc::Description(
+        sdp,
+        type_string
+      )
+    );
   }
 
   void PeerConnection::on_local_candidate(rtc::Candidate candidate) {
+
+    auto candidate_json = nlohmann::json();
+    candidate_json["candidate"] = candidate.candidate();
+    candidate_json["mid"] = candidate.mid();
 
     m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
       InternalMessageType::SendSignalingMessage,
@@ -132,13 +150,17 @@ namespace krapi {
         m_signaling_client->identity(),
         m_identity,
         SignalingMessage::create_tag(),
-        std::string(std::move(candidate))
+        candidate_json
       )
 
     );
   }
 
   void PeerConnection::on_local_description(rtc::Description description) {
+
+    auto description_json = nlohmann::json();
+    description_json["sdp"] = description.generateSdp();
+    description_json["type"] = description.typeString();
 
     m_event_queue->enqueue<InternalMessage<SignalingMessage>>(
       InternalMessageType::SendSignalingMessage,
@@ -147,7 +169,7 @@ namespace krapi {
         m_signaling_client->identity(),
         m_identity,
         SignalingMessage::create_tag(),
-        std::string(std::move(description))
+        description_json
       )
     );
   }
@@ -217,10 +239,14 @@ namespace krapi {
     auto message = event.get<SignalingMessage>();
     if (m_identity == message->sender_identity()) {
 
-      auto spd = message->content().get<std::string>();
-      m_peer_connection->addRemoteCandidate(spd);
+      auto candidate_sdp = message->content();
+      auto candidate = candidate_sdp["candidate"].get<std::string>();
+      auto mid = candidate_sdp["mid"].get<std::string>();
+      m_peer_connection->addRemoteCandidate(rtc::Candidate(candidate, mid));
     }
   }
 
-  PeerConnection::~PeerConnection() { m_datachannel->close(); }
+  PeerConnection::~PeerConnection() {
+    m_datachannel->close();
+  }
 }// namespace krapi

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include "EventQueue.h"
 #include "eventpp/utilities/scopedremover.h"
@@ -55,7 +56,8 @@ namespace krapi {
       NotNull<EventQueue *> event_queue,
       NotNull<SignalingClient *> signaling_client,
       std::string identity,
-      std::string description
+      std::string sdp,
+      std::string type
     );
 
     template<typename... UU>
@@ -67,7 +69,7 @@ namespace krapi {
 
     [[nodiscard]] bool send_and_forget(Box<PeerMessage>) const;
 
-    void set_remote_description(std::string);
+    void set_remote_description(std::string, std::string);
 
     concurrencpp::result<PeerState> state();
 

@@ -17,6 +17,7 @@ namespace krapi {
     spdlog::info("Blockchain: Creating genesis block");
     auto previous_hash = std::string{"0"};
     auto merkle_root = std::string{"0"};
+    auto mined_by = std::string{"0"};
     auto timestamp = static_cast<uint64_t>(1668542625);
     auto nonce = (uint64_t) 0;
     auto block_hash = std::string{};
@@ -28,7 +29,13 @@ namespace krapi {
     );
 
     return Block{
-      BlockHeader{block_hash, previous_hash, merkle_root, timestamp, nonce},
+      BlockHeader{
+        block_hash,
+        previous_hash,
+        merkle_root,
+        mined_by,
+        timestamp,
+        nonce},
       {}};
   }
 
@@ -72,14 +79,18 @@ namespace krapi {
   std::vector<std::string> Blockchain::get_hashes() const {
 
     std::vector<std::string> hashes;
-    for (auto block: data()) { hashes.push_back(block.hash()); }
+    for (auto block: data()) {
+      hashes.push_back(block.hash());
+    }
     return hashes;
   }
 
   std::vector<BlockHeader> Blockchain::get_headers() const {
 
     std::vector<BlockHeader> headers;
-    for (auto block: data()) { headers.push_back(block.header()); }
+    for (auto block: data()) {
+      headers.push_back(block.header());
+    }
     return headers;
   }
 

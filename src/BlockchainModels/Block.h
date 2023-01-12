@@ -53,6 +53,13 @@ namespace krapi {
 
     bool operator<(const Block &) const;
 
+    void set_transactions_status(TransactionStatus status) {
+
+      for (auto &transaction: m_transactions) {
+        transaction.set_status(status);
+      }
+    }
+
    private:
     BlockHeader m_header;
     Transactions m_transactions;

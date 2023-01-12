@@ -17,7 +17,9 @@ namespace krapi {
     {{TransactionType::Send, "send"}}
   )
 
-  enum class TransactionStatus { Pending, Verified, Rejected };
+  enum class TransactionStatus { Pending,
+                                 Verified,
+                                 Rejected };
 
   inline std::string to_string(TransactionStatus status) {
 
@@ -75,6 +77,8 @@ namespace krapi {
     [[nodiscard]] std::array<CryptoPP::byte, 32> byte_hash() const;
 
     bool operator<(const Transaction &other) const;
+
+    void set_status(TransactionStatus) const;
 
    private:
     TransactionType m_type;

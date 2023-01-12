@@ -77,9 +77,10 @@ namespace krapi {
 
     void broadcast_to_peers_of_type_and_forget(
       std::shared_ptr<concurrencpp::thread_executor> executor,
-      PeerType to_peer_type,
+      std::set<PeerType> to_peer_type,
       PeerMessageType message_type,
-      nlohmann::json content = {}
+      nlohmann::json content = {},
+      std::set<std::string> except = {}
     );
 
 

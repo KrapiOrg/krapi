@@ -10,6 +10,7 @@
 #include "InternalNotification.h"
 #include "PeerManager.h"
 #include "PeerMessage.h"
+#include "PeerType.h"
 #include "TransactionPool.h"
 #include "ValidationState.h"
 #include "fmt/core.h"
@@ -49,6 +50,7 @@ namespace krapi {
     concurrencpp::executor_tag,
     std::shared_ptr<concurrencpp::thread_executor>,
     std::string previous_hash,
+    std::string identity,
     Transactions transactions
   ) {
 
@@ -82,7 +84,13 @@ namespace krapi {
       if (block_hash.starts_with("00000")) {
 
         co_return Block(
-          BlockHeader{block_hash, previous_hash, merkle_root, timestamp, nonce},
+          BlockHeader{
+            block_hash,
+            previous_hash,
+            merkle_root,
+            identity,
+            timestamp,
+            nonce},
           transactions
         );
       }
@@ -130,6 +138,7 @@ namespace krapi {
           {},
           m_executor,
           latest_hash,
+          m_manager->id(),
           transactions
         );
 
@@ -137,7 +146,7 @@ namespace krapi {
 
         m_manager->broadcast_to_peers_of_type_and_forget(
           m_executor,
-          PeerType::Full,
+          {PeerType::Full},
           PeerMessageType::AddBlock,
           block.to_json()
         );

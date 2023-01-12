@@ -2,6 +2,7 @@
 // Created by mythi on 17/12/22.
 //
 
+#include "nlohmann/json_fwd.hpp"
 #include "spdlog/spdlog.h"
 
 #include "SignalingMessage.h"
@@ -17,25 +18,46 @@ namespace krapi {
     return {};
   }
 
-  std::vector<std::string>
-  SignalingServer::get_identities(std::string_view identity_to_filter_for
-  ) const {
+  std::unordered_set<std::string>
+  SignalingServer::get_identities(std::string identity_to_filter_for) const {
 
     std::lock_guard l(m_mutex);
 
-    auto identities = std::vector<std::string>();
-
-    for (const auto &[identity, _]: m_sockets) {
-      if (identity != identity_to_filter_for) identities.push_back(identity);
-    }
+    auto identities = m_identities;
+    identities.erase(identity_to_filter_for);
 
     return identities;
+  }
+
+  void SignalingServer::broadcast(
+    std::string identity_to_filter_for,
+    SignalingMessageType type,
+    nlohmann::json content
+  ) {
+
+    auto identities = get_identities(identity_to_filter_for);
+
+    for (const auto &iden: identities) {
+      auto wws = get_socket(iden);
+      if (auto ws = wws.lock()) {
+        ws->send(
+          SignalingMessage(
+            SignalingMessageType::PeerAvailable,
+            "signaling_server",
+            iden,
+            SignalingMessage::create_tag(),
+            content
+          )
+            .to_string()
+        );
+      }
+    }
   }
 
   void SignalingServer::on_client_message(
     std::string sender_identity,
     rtc::message_variant rtc_message
-  ) const {
+  ) {
 
     auto message_str = std::get<std::string>(rtc_message);
     auto message =
@@ -45,14 +67,27 @@ namespace krapi {
       auto wsocket = get_socket(sender_identity);
       if (auto socket = wsocket.lock()) {
 
-        socket->send(SignalingMessage(
-                       SignalingMessageType::IdentityResponse,
-                       "signaling_server",
-                       "",
-                       message->tag(),
-                       sender_identity
-        )
-                       .to_string());
+        socket->send(
+          SignalingMessage(
+            SignalingMessageType::IdentityResponse,
+            "signaling_server",
+            "",
+            message->tag(),
+            sender_identity
+          )
+            .to_string()
+        );
+
+        auto has_requested_identity_before = m_identities.contains(sender_identity);
+        if (has_requested_identity_before)
+          return;
+        m_identities.insert(sender_identity);
+
+        broadcast(
+          sender_identity,
+          SignalingMessageType::PeerAvailable,
+          nlohmann::json(sender_identity)
+        );
       }
     } else if (message->type() == SignalingMessageType::AvailablePeersRequest) {
 
@@ -82,44 +117,33 @@ namespace krapi {
 
     {
       std::lock_guard l(m_mutex);
-      erased = m_sockets.erase(identity);
+      erased = m_sockets.erase(identity) && m_identities.erase(identity);
     }
 
     if (!erased) return;
 
     spdlog::info("connection with {} closed", identity);
     for (auto &[receiver, socket]: m_sockets) {
-      socket->send(SignalingMessage(
-                     SignalingMessageType::PeerClosed,
-                     "signaling_server",
-                     receiver,
-                     SignalingMessage::create_tag(),
-                     identity
-      )
-                     .to_string());
+      socket->send(
+        SignalingMessage(
+          SignalingMessageType::PeerClosed,
+          "signaling_server",
+          receiver,
+          SignalingMessage::create_tag(),
+          identity
+        )
+          .to_string()
+      );
     }
   }
 
   void SignalingServer::on_client_open(std::string identity) const {
 
     spdlog::info("{} Connected", identity);
-
-    auto identities = get_identities(identity);
-    for (const auto &iden: identities) {
-      auto wws = get_socket(iden);
-      if (auto ws = wws.lock())
-        ws->send(SignalingMessage(
-                   SignalingMessageType::PeerAvailable,
-                   "signaling_server",
-                   iden,
-                   SignalingMessage::create_tag(),
-                   nlohmann::json(identity)
-        )
-                   .to_string());
-    }
   }
 
-  SignalingServer::SignalingServer() : m_blocking_bool(false) {
+  SignalingServer::SignalingServer()
+      : m_blocking_bool(false) {
 
     m_server.onClient([this](std::shared_ptr<rtc::WebSocket> ws) {
       auto identity = uuids::to_string(uuids::uuid_system_generator{}());
@@ -137,7 +161,9 @@ namespace krapi {
     });
   }
 
-  int SignalingServer::port() const { return m_server.port(); }
+  int SignalingServer::port() const {
+    return m_server.port();
+  }
 
   SignalingServer::~SignalingServer() {
 

@@ -1,6 +1,8 @@
 #include "BlockchainManager.h"
 #include "Content/SetTransactionStatusContent.h"
+#include "InternalNotification.h"
 #include "PeerMessage.h"
+#include "PeerType.h"
 #include "Transaction.h"
 #include "spdlog/spdlog.h"
 
@@ -90,6 +92,7 @@ namespace krapi {
       message->sender_identity()
     );
 
+    block.set_transactions_status(TransactionStatus::Verified);
     m_blockchain->put(block);
 
     spdlog::info(
@@ -102,6 +105,7 @@ namespace krapi {
 
       if (m_transaction_pool->remove(transaction)) {
         spdlog::info("  Removed Tx#{} from pool", transaction.contrived_hash());
+
         m_spent_transactions_store->put(transaction);
       }
     }
@@ -112,6 +116,17 @@ namespace krapi {
       message->sender_identity(),
       PeerMessage::create_tag(),
       block.header().to_json()
+    );
+
+    m_peer_manager->broadcast_to_peers_of_type_and_forget(
+      m_executor,
+      {PeerType::Observer},
+      PeerMessageType::AddBlock,
+      block.to_json()
+    );
+    spdlog::info(
+      "BlockchainManager: Broadcasted validated block #{} to observers",
+      block.contrived_hash()
     );
   }
   void BlockchainManager::on_block_mined(Event e) {
@@ -141,6 +156,8 @@ namespace krapi {
       block.contrived_hash()
     );
 
+    block.set_transactions_status(TransactionStatus::Verified);
+
     m_blockchain->put(block);
 
     spdlog::info(
@@ -160,9 +177,23 @@ namespace krapi {
       InternalNotificationType::MinedBlockValidated
     );
 
+    m_peer_manager->broadcast_to_peers_of_type_and_forget(
+      m_executor,
+      {PeerType::Observer},
+      PeerMessageType::AddBlock,
+      block.to_json()
+    );
+    spdlog::info("BlockchainManager: Broadcasted mined block #{} to observers", block.contrived_hash());
+
     auto transactions = block.transactions();
 
     for (const auto &transaction: transactions) {
+
+      spdlog::info(
+        "Broadcasting status change of #{} to {} to observer nodes",
+        transaction.contrived_hash(),
+        to_string(transaction.status())
+      );
 
       spdlog::info(
         "Setting status of transaction #{} to {} on peer {}",
@@ -176,11 +207,7 @@ namespace krapi {
         m_peer_manager->id(),
         transaction.from(),
         PeerMessage::create_tag(),
-        SetTransactionStatusContent(
-          TransactionStatus::Verified,
-          transaction.hash()
-        )
-          .to_json()
+        SetTransactionStatusContent(TransactionStatus::Verified, transaction.hash()).to_json()
       );
 
       spdlog::info(
@@ -200,13 +227,15 @@ namespace krapi {
     }
   }
   BlockchainManager::BlockchainManager(
+    std::shared_ptr<concurrencpp::thread_executor> executor,
     EventLoopPtr event_loop,
     PeerManagerPtr peer_manager,
     TransactionPoolPtr transaction_pool,
     BlockchainPtr blockchain,
     SpentTransactionsStorePtr spent_transactions_store
   )
-      : m_event_loop(std::move(event_loop)),
+      : m_executor(std::move(executor)),
+        m_event_loop(std::move(event_loop)),
         m_peer_manager(std::move(peer_manager)),
         m_transaction_pool(std::move(transaction_pool)),
         m_blockchain(std::move(blockchain)),

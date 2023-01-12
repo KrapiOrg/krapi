@@ -96,11 +96,15 @@ namespace krapi {
 
     Wallet(EventQueuePtr event_queue)
         : m_remover(event_queue->internal_queue()) {
-      auto path = PeerMessage::create_tag();
+      auto wallet_name = PeerMessage::create_tag();
 
-      std::filesystem::create_directory(path);
+      if(!std::filesystem::exists("wallets"))
+        std::filesystem::create_directory("wallets");
 
-      if (!initialize(path)) {
+      auto wallet_path = fmt::format("wallets/{}", wallet_name);
+      std::filesystem::create_directory(wallet_path);
+
+      if (!initialize(wallet_path)) {
         spdlog::error("Faield to open wallet database!");
         exit(1);
       }

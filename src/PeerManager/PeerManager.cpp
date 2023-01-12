@@ -2,16 +2,19 @@
 // Created by mythi on 24/11/22.
 //
 
+#include "PeerManager.h"
 #include "EventQueue.h"
 #include "InternalMessage.h"
 #include "InternalNotification.h"
-#include "PeerManager.h"
 #include "PeerMessage.h"
 #include "PeerState.h"
 #include "eventpp/utilities/scopedremover.h"
+#include "nlohmann/json_fwd.hpp"
+#include "rtc/description.hpp"
 #include "spdlog/spdlog.h"
 #include <functional>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -108,12 +111,17 @@ namespace krapi {
   void PeerManager::on_rtc_setup(Event event) {
 
     auto message = event.get<SignalingMessage>();
+    auto description = message->content();
+
+    auto sdp = description["sdp"].get<std::string>();
+    auto type = description["type"].get<std::string>();
 
     if (m_connection_map.contains(message->sender_identity())) {
 
-      auto description = message->content().get<std::string>();
+
       m_connection_map[message->sender_identity()]->set_remote_description(
-        description
+        sdp,
+        type
       );
     } else {
 
@@ -123,7 +131,8 @@ namespace krapi {
           make_not_null(m_event_queue.get()),
           make_not_null(m_signaling_client.get()),
           message->sender_identity(),
-          message->content().get<std::string>()
+          sdp,
+          type
         )
       );
     }
@@ -176,14 +185,18 @@ namespace krapi {
       );
     };
 
+
     {
       m_lock.lock(m_worker).run().wait();
-      if (!m_connection_map.contains(message->receiver_identity())) resend();
-    }
+      if (!m_connection_map.contains(message->receiver_identity())) {
+        resend();
+        return;
+      }
+      if (!m_connection_map[message->receiver_identity()]->send_and_forget(message)) {
 
-    if (!m_connection_map[message->receiver_identity()]->send_and_forget(message
-        ))
-      resend();
+        resend();
+      }
+    }
   }
 
   std::vector<concurrencpp::shared_result<Event>>
@@ -398,37 +411,42 @@ namespace krapi {
   }
   void PeerManager::broadcast_to_peers_of_type_and_forget(
     std::shared_ptr<concurrencpp::thread_executor> executor,
-    PeerType to_peer_type,
+    std::set<PeerType> peer_types,
     PeerMessageType message_type,
-    nlohmann::json content
+    nlohmann::json content,
+    std::set<std::string> except
   ) {
     auto my_id = m_signaling_client->identity();
 
     for (auto [peer_id, connection]: m_connection_map) {
+      if (except.contains(peer_id))
+        continue;
 
       auto sender = [](
                       std::string sender_identity,
-                      PeerType to_peer_type,
+                      std::set<PeerType> peer_types,
                       std::string receiver_identity,
                       PeerConnectionPtr connection,
                       PeerMessageType message_type,
                       nlohmann::json content
                     ) -> concurrencpp::null_result {
         auto type = co_await connection->type();
-        if (type == to_peer_type) {
-          (void) connection->send_and_forget(PeerMessage::create(
-            message_type,
-            sender_identity,
-            receiver_identity,
-            PeerMessage::create_tag(),
-            content
-          ));
+        if (peer_types.contains(type)) {
+          (void) connection->send_and_forget(
+            PeerMessage::create(
+              message_type,
+              sender_identity,
+              receiver_identity,
+              PeerMessage::create_tag(),
+              content
+            )
+          );
         }
       };
       auto fn = std::bind(
         sender,
         my_id,
-        to_peer_type,
+        peer_types,
         peer_id,
         connection,
         message_type,

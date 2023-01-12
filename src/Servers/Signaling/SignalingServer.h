@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include "SignalingMessage.h"
 #include "rtc/websocketserver.hpp"
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace krapi {
 
@@ -20,6 +22,7 @@ namespace krapi {
   class SignalingServer {
 
     std::unordered_map<std::string, RTCWebSocket> m_sockets;
+    std::unordered_set<std::string> m_identities;
     mutable std::recursive_mutex m_mutex;
     std::atomic<bool> m_blocking_bool;
     rtc::WebSocketServer m_server;
@@ -36,8 +39,8 @@ namespace krapi {
          * @param identity_to_filter_for
          * @return A vector containing all identities for the currently connected clients except for identity_to_filter_for
          */
-    std::vector<std::string>
-    get_identities(std::string_view identity_to_filter_for) const;
+    std::unordered_set<std::string>
+    get_identities(std::string identity_to_filter_for) const;
 
 
     /*!
@@ -47,7 +50,7 @@ namespace krapi {
     void on_client_message(
       std::string sender_identity,
       rtc::message_variant message
-    ) const;
+    );
 
     void on_client_open(std::string identity) const;
 
@@ -56,6 +59,13 @@ namespace krapi {
          * @param identity
          */
     void on_client_closed(std::string identity);
+
+
+    void broadcast(
+      std::string identity_to_filter_for,
+      SignalingMessageType type,
+      nlohmann::json content
+    );
 
    public:
     /*!
