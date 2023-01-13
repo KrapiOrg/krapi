@@ -1,7 +1,3 @@
-//
-// Created by mythi on 24/11/22.
-//
-
 #pragma once
 
 #include <concurrencpp/executors/thread_executor.h>

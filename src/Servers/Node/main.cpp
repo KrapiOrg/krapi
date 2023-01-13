@@ -1,6 +1,3 @@
-//
-// Created by mythi on 12/10/22.
-//
 #include "BlockchainManager.h"
 #include "EventLoop.h"
 #include "InternalNotification.h"

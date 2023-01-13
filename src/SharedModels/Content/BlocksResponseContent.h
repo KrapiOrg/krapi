@@ -1,7 +1,3 @@
-//
-// Created by mythi on 19/11/22.
-//
-
 #pragma once
 
 #include "Block.h"
@@ -14,9 +10,12 @@ namespace krapi {
 
    public:
     explicit BlocksResponseContent(std::list<Block> blocks)
-        : m_blocks(std::move(blocks)) {}
+        : m_blocks(std::move(blocks)) {
+    }
 
-    [[nodiscard]] std::list<Block> blocks() const { return m_blocks; }
+    [[nodiscard]] std::list<Block> blocks() const {
+      return m_blocks;
+    }
 
     static BlocksResponseContent from_json(nlohmann::json json) {
 
@@ -32,7 +31,9 @@ namespace krapi {
     [[nodiscard]] nlohmann::json to_json() const {
 
       auto json = nlohmann::json::array();
-      for (const auto &block: m_blocks) { json.push_back(block.to_json()); }
+      for (const auto &block: m_blocks) {
+        json.push_back(block.to_json());
+      }
 
       return {{"blocks", json}};
     }

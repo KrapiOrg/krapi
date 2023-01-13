@@ -1,12 +1,10 @@
-//
-// Created by mythi on 12/11/22.
-//
-
 #include "Block.h"
 
 namespace krapi {
   Block::Block(BlockHeader header, Transactions transactions)
-      : m_header(std::move(header)), m_transactions(std::move(transactions)) {}
+      : m_header(std::move(header)),
+        m_transactions(std::move(transactions)) {
+  }
 
   Block Block::from_json(const nlohmann::json &json) {
 
@@ -18,7 +16,9 @@ namespace krapi {
     return Block{BlockHeader::from_json(json["header"]), transactions};
   }
 
-  std::string Block::hash() const { return m_header.m_hash; }
+  std::string Block::hash() const {
+    return m_header.m_hash;
+  }
 
   std::array<CryptoPP::byte, 32> Block::hash_bytes() const {
 
@@ -35,9 +35,13 @@ namespace krapi {
     return {{"header", m_header.to_json()}, {"transactions", transactions}};
   }
 
-  BlockHeader Block::header() const { return m_header; }
+  BlockHeader Block::header() const {
+    return m_header;
+  }
 
-  Transactions Block::transactions() const { return m_transactions; }
+  Transactions Block::transactions() const {
+    return m_transactions;
+  }
 
   bool Block::operator==(const Block &other) const {
 
@@ -53,6 +57,10 @@ namespace krapi {
 
     return m_header.m_hash.substr(0, 10);
   }
-  uint64_t Block::timestamp() const { return m_header.m_timestamp; }
-  std::string Block::previous_hash() const { return m_header.m_previous_hash; }
+  uint64_t Block::timestamp() const {
+    return m_header.m_timestamp;
+  }
+  std::string Block::previous_hash() const {
+    return m_header.m_previous_hash;
+  }
 }// namespace krapi

@@ -1,7 +1,3 @@
-//
-// Created by mythi on 25/11/22.
-//
-
 #pragma once
 
 #include "nlohmann/json.hpp"

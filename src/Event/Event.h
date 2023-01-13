@@ -27,7 +27,9 @@ namespace krapi {
 
     bool listenable;
 
-    explicit Event(bool listenable = false) : listenable(listenable) {}
+    explicit Event(bool listenable = false)
+        : listenable(listenable) {
+    }
 
     template<typename T>
     Box<T> get() const {

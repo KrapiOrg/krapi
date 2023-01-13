@@ -1,7 +1,3 @@
-//
-// Created by mythi on 20/10/22.
-//
-
 #pragma once
 
 #include "Box.h"
@@ -106,9 +102,13 @@ namespace krapi {
       return m_receiver_identity;
     }
 
-    [[nodiscard]] std::string tag() const { return m_tag; }
+    [[nodiscard]] std::string tag() const {
+      return m_tag;
+    }
 
-    [[nodiscard]] nlohmann::json content() const { return m_content; }
+    [[nodiscard]] nlohmann::json content() const {
+      return m_content;
+    }
 
     static std::string create_tag() {
 
@@ -125,7 +125,9 @@ namespace krapi {
         {"content", m_content}};
     }
 
-    [[nodiscard]] std::string to_string() const { return to_json().dump(); }
+    [[nodiscard]] std::string to_string() const {
+      return to_json().dump();
+    }
 
     static Box<SignalingMessage> from_json(nlohmann::json json) {
 

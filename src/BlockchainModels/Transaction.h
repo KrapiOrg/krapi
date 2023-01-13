@@ -1,9 +1,4 @@
-//
-// Created by mythi on 24/10/22.
-//
-
-#ifndef NODE_BLOCKCHAIN_TRANSACTION_H
-#define NODE_BLOCKCHAIN_TRANSACTION_H
+#pragma once
 
 #include "cryptopp/hex.h"
 #include "nlohmann/json.hpp"
@@ -17,9 +12,11 @@ namespace krapi {
     {{TransactionType::Send, "send"}}
   )
 
-  enum class TransactionStatus { Pending,
-                                 Verified,
-                                 Rejected };
+  enum class TransactionStatus {
+    Pending,
+    Verified,
+    Rejected
+  };
 
   inline std::string to_string(TransactionStatus status) {
 
@@ -118,5 +115,3 @@ namespace std {
     }
   };
 }// namespace std
-
-#endif//NODE_BLOCKCHAIN_TRANSACTION_H

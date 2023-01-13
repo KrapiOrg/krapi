@@ -1,7 +1,3 @@
-//
-// Created by mythi on 18/11/22.
-//
-
 #include "Helpers.h"
 #include "fmt/format.h"
 #include "spdlog/spdlog.h"

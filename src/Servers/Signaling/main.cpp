@@ -1,7 +1,3 @@
-//
-// Created by mythi on 09/11/22.
-//
-
 #include "SignalingServer.h"
 #include "spdlog/spdlog.h"
 

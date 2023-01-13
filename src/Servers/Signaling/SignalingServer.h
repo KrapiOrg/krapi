@@ -1,7 +1,3 @@
-//
-// Created by mythi on 17/12/22.
-//
-
 #pragma once
 
 #include "SignalingMessage.h"

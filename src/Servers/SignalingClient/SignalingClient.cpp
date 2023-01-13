@@ -1,7 +1,3 @@
-//
-// Created by mythi on 02/12/22.
-//
-
 #include "SignalingClient.h"
 #include "InternalMessage.h"
 #include "InternalNotification.h"

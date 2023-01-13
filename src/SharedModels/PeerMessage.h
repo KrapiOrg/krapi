@@ -1,7 +1,3 @@
-//
-// Created by mythi on 12/11/22.
-//
-
 #pragma once
 
 #include "Helpers.h"

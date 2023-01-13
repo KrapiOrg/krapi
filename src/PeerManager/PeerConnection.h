@@ -1,7 +1,3 @@
-//
-// Created by mythi on 19/12/22.
-//
-
 #pragma once
 
 #include <memory>

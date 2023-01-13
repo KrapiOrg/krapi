@@ -1,7 +1,3 @@
-//
-// Created by mythi on 19/11/22.
-//
-
 #pragma once
 
 #include "BlockHeader.h"
@@ -13,9 +9,12 @@ namespace krapi {
 
    public:
     explicit BlockHeadersResponseContent(std::vector<BlockHeader> headers)
-        : m_headers(std::move(headers)) {}
+        : m_headers(std::move(headers)) {
+    }
 
-    [[nodiscard]] std::vector<BlockHeader> headers() const { return m_headers; }
+    [[nodiscard]] std::vector<BlockHeader> headers() const {
+      return m_headers;
+    }
 
     static BlockHeadersResponseContent from_json(nlohmann::json json) {
 
@@ -31,7 +30,9 @@ namespace krapi {
     [[nodiscard]] nlohmann::json to_json() const {
 
       auto json = nlohmann::json::array();
-      for (const auto &block: m_headers) { json.push_back(block.to_json()); }
+      for (const auto &block: m_headers) {
+        json.push_back(block.to_json());
+      }
 
       return {{"headers", json}};
     }

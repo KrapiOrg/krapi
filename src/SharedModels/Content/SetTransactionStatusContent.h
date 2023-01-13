@@ -1,7 +1,3 @@
-//
-// Created by mythi on 18/11/22.
-//
-
 #pragma once
 
 #include "Transaction.h"
@@ -18,11 +14,16 @@ namespace krapi {
       TransactionStatus status,
       std::string hash
     )
-        : m_status(status), m_hash(std::move(hash)) {}
+        : m_status(status), m_hash(std::move(hash)) {
+    }
 
-    [[nodiscard]] TransactionStatus status() const { return m_status; }
+    [[nodiscard]] TransactionStatus status() const {
+      return m_status;
+    }
 
-    [[nodiscard]] std::string hash() const { return m_hash; }
+    [[nodiscard]] std::string hash() const {
+      return m_hash;
+    }
 
     static SetTransactionStatusContent from_json(nlohmann::json json) {
 

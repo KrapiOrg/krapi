@@ -1,7 +1,3 @@
-//
-// Created by mythi on 17/12/22.
-//
-
 #include "nlohmann/json_fwd.hpp"
 #include "spdlog/spdlog.h"
 
@@ -81,7 +77,7 @@ namespace krapi {
       );
 
     } else if (message->type() == SignalingMessageType::RTCSetup || message->type() == SignalingMessageType::RTCCandidate) {
-      
+
       auto receiver_identity = message->receiver_identity();
 
       for (const auto &socket: m_sockets) {

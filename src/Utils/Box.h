@@ -35,12 +35,16 @@ namespace krapi {
 
     template<class T>
     struct default_copy {
-      T *operator()(const T &t) const { return new T(t); }
+      T *operator()(const T &t) const {
+        return new T(t);
+      }
     };
 
     template<class T>
     struct default_delete {
-      void operator()(const T *t) const { delete t; }
+      void operator()(const T *t) const {
+        delete t;
+      }
     };
 
     template<class T>
@@ -60,14 +64,17 @@ namespace krapi {
      public:
       template<class... Ts>
       explicit direct_control_block(Ts &&...ts)
-          : u_(U(std::forward<Ts>(ts)...)) {}
+          : u_(U(std::forward<Ts>(ts)...)) {
+      }
 
       std::unique_ptr<control_block<T>> clone() const override {
 
         return std::make_unique<direct_control_block>(*this);
       }
 
-      T *ptr() override { return std::addressof(u_); }
+      T *ptr() override {
+        return std::addressof(u_);
+      }
     };
 
     template<
@@ -80,10 +87,12 @@ namespace krapi {
 
      public:
       explicit pointer_control_block(U *u, C c = C{}, D d = D{})
-          : C(std::move(c)), p_(u, std::move(d)) {}
+          : C(std::move(c)), p_(u, std::move(d)) {
+      }
 
       explicit pointer_control_block(std::unique_ptr<U, D> p, C c = C{})
-          : C(std::move(c)), p_(std::move(p)) {}
+          : C(std::move(c)), p_(std::move(p)) {
+      }
 
       std::unique_ptr<control_block<T>> clone() const override {
 
@@ -95,7 +104,9 @@ namespace krapi {
         );
       }
 
-      T *ptr() override { return p_.get(); }
+      T *ptr() override {
+        return p_.get();
+      }
     };
 
     template<class T, class U>
@@ -104,14 +115,17 @@ namespace krapi {
 
      public:
       explicit delegating_control_block(std::unique_ptr<control_block<U>> b)
-          : delegate_(std::move(b)) {}
+          : delegate_(std::move(b)) {
+      }
 
       std::unique_ptr<control_block<T>> clone() const override {
 
         return std::make_unique<delegating_control_block>(delegate_->clone());
       }
 
-      T *ptr() override { return delegate_->ptr(); }
+      T *ptr() override {
+        return delegate_->ptr();
+      }
     };
 
   }// end namespace detail
@@ -177,7 +191,9 @@ namespace krapi {
       class V = std::enable_if_t<std::is_convertible<U *, T *>::value>>
     explicit Box(U *u, C copier = C{}, D deleter = D{}) {
 
-      if (!u) { return; }
+      if (!u) {
+        return;
+      }
 
       std::unique_ptr<U, D> p(u, std::move(deleter));
 
@@ -194,7 +210,9 @@ namespace krapi {
 
     Box(const Box &p) {
 
-      if (!p) { return; }
+      if (!p) {
+        return;
+      }
       auto tmp_cb = p.cb_->clone();
       ptr_ = tmp_cb->ptr();
       cb_ = std::move(tmp_cb);
@@ -265,7 +283,9 @@ namespace krapi {
 
     Box &operator=(const Box &p) {
 
-      if (std::addressof(p) == this) { return *this; }
+      if (std::addressof(p) == this) {
+        return *this;
+      }
 
       if (!p) {
         cb_.reset();
@@ -285,7 +305,9 @@ namespace krapi {
 
     Box &operator=(Box &&p) noexcept {
 
-      if (std::addressof(p) == this) { return *this; }
+      if (std::addressof(p) == this) {
+        return *this;
+      }
 
       cb_ = std::move(p.cb_);
       ptr_ = p.ptr_;
@@ -308,7 +330,9 @@ namespace krapi {
     // Observers
     //
 
-    explicit operator bool() const { return bool(cb_); }
+    explicit operator bool() const {
+      return bool(cb_);
+    }
 
     const T *operator->() const {
 

@@ -1,6 +1,3 @@
-//
-// Created by mythi on 16/11/22.
-//
 #include "Transaction.h"
 
 namespace krapi {

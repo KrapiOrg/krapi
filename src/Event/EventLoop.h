@@ -1,7 +1,3 @@
-//
-// Created by mythi on 31/12/22.
-//
-
 #pragma once
 
 #include "EventQueue.h"

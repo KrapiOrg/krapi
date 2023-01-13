@@ -1,6 +1,3 @@
-//
-// Created by mythi on 19/12/22.
-//
 
 #include "PeerConnection.h"
 #include "PeerMessage.h"

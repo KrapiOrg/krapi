@@ -1,7 +1,3 @@
-//
-// Created by mythi on 24/11/22.
-//
-
 #include "PeerManager.h"
 #include "EventQueue.h"
 #include "InternalMessage.h"

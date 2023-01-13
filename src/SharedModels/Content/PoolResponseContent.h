@@ -1,7 +1,3 @@
-//
-// Created by mythi on 27/11/22.
-//
-
 #pragma once
 
 #include "Transaction.h"
@@ -14,7 +10,8 @@ namespace krapi {
 
    public:
     explicit PoolResponseContent(std::set<Transaction> transactions)
-        : m_transactions(std::move(transactions)) {}
+        : m_transactions(std::move(transactions)) {
+    }
 
     [[nodiscard]] std::set<Transaction> transactions() const {
 

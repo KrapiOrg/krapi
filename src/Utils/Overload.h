@@ -1,6 +1,3 @@
-//
-// Created by mythi on 13/10/22.
-//
 #pragma once
 
 template<typename... Ts>

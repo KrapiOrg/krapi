@@ -1,13 +1,14 @@
-//
-// Created by mythi on 16/11/22.
-//
-
 #pragma once
 
 #include "nlohmann/json.hpp"
 
 namespace krapi {
-  enum class PeerType { Light, Full, Observer, Unknown };
+  enum class PeerType {
+    Light,
+    Full,
+    Observer,
+    Unknown
+  };
 
   NLOHMANN_JSON_SERIALIZE_ENUM(
     PeerType,

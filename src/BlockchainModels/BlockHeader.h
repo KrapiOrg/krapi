@@ -1,10 +1,4 @@
-//
-// Created by mythi on 12/11/22.
-//
-
-#ifndef NODE_BLOCKCHAIN_BLOCKHEADER_H
-#define NODE_BLOCKCHAIN_BLOCKHEADER_H
-
+#pragma once
 #include "cryptopp/config_int.h"
 #include <string>
 
@@ -104,5 +98,3 @@ namespace krapi {
     std::array<CryptoPP::byte, 32> m_hash_bytes{};
   };
 }// namespace krapi
-
-#endif//NODE_BLOCKCHAIN_BLOCKHEADER_H

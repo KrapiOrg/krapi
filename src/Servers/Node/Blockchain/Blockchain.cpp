@@ -1,7 +1,3 @@
-//
-// Created by mythi on 12/11/22.
-//
-
 #include "Blockchain.h"
 #include "BlockHeader.h"
 #include "spdlog/spdlog.h"
