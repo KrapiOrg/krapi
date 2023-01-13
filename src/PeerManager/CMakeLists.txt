@@ -6,6 +6,7 @@ add_library(
         ${CMAKE_CURRENT_LIST_DIR}/PeerManager.h
         ${CMAKE_CURRENT_LIST_DIR}/PeerConnection.cpp
         ${CMAKE_CURRENT_LIST_DIR}/PeerConnection.h
+        ${CMAKE_CURRENT_LIST_DIR}/RetryHandler.cpp
         ${CMAKE_CURRENT_LIST_DIR}/RetryHandler.h
 )
 
