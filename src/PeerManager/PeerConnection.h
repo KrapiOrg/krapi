@@ -12,7 +12,6 @@
 #include "eventpp/utilities/scopedremover.h"
 #include "rtc/peerconnection.hpp"
 
-#include "NotNull.h"
 #include "PeerMessage.h"
 #include "PeerState.h"
 #include "PeerType.h"
@@ -23,13 +22,11 @@ namespace krapi {
 
   using RTCPeerConnection = std::shared_ptr<rtc::PeerConnection>;
   using RTCDataChannel = std::shared_ptr<rtc::DataChannel>;
-  using RTCDataChannelResult =
-    concurrencpp::result<std::shared_ptr<rtc::DataChannel>>;
 
   class PeerConnection {
 
-    NotNull<SignalingClient *> m_signaling_client;
-    NotNull<EventQueue *> m_event_queue;
+    SignalingClientPtr m_signaling_client;
+    EventQueuePtr m_event_queue;
     RTCPeerConnection m_peer_connection;
     RTCDataChannel m_datachannel;
     PeerType m_peer_type;
@@ -47,14 +44,14 @@ namespace krapi {
 
    public:
     explicit PeerConnection(
-      NotNull<EventQueue *> event_queue,
-      NotNull<SignalingClient *> signaling_client,
+      EventQueuePtr event_queue,
+      SignalingClientPtr signaling_client,
       std::string identity
     );
 
     explicit PeerConnection(
-      NotNull<EventQueue *> event_queue,
-      NotNull<SignalingClient *> signaling_client,
+      EventQueuePtr event_queue,
+      SignalingClientPtr signaling_client,
       std::string identity,
       std::string sdp,
       std::string type

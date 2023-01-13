@@ -12,7 +12,6 @@
 
 #include "Block.h"
 #include "Event.h"
-#include "NotNull.h"
 #include "Overload.h"
 #include "Transaction.h"
 #include <concurrencpp/executors/executor.h>

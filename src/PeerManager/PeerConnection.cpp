@@ -16,16 +16,18 @@ using namespace std::chrono_literals;
 namespace krapi {
 
   PeerConnection::PeerConnection(
-    NotNull<EventQueue *> event_queue,
-    NotNull<SignalingClient *> signaling_client,
+    EventQueuePtr event_queue,
+    SignalingClientPtr signaling_client,
     std::string identity
   )
-      : m_signaling_client(signaling_client), m_event_queue(event_queue),
+      : m_signaling_client(std::move(signaling_client)),
+        m_event_queue(event_queue),
         m_subscription_remover(event_queue->internal_queue()),
         m_peer_connection(
           std::make_shared<rtc::PeerConnection>(rtc::Configuration())
         ),
-        m_peer_type(PeerType::Unknown), m_peer_state(PeerState::Unknown),
+        m_peer_type(PeerType::Unknown),
+        m_peer_state(PeerState::Unknown),
         m_identity(std::move(identity)) {
 
 
@@ -49,18 +51,20 @@ namespace krapi {
   }
 
   PeerConnection::PeerConnection(
-    NotNull<EventQueue *> event_queue,
-    NotNull<SignalingClient *> signaling_client,
+    EventQueuePtr event_queue,
+    SignalingClientPtr signaling_client,
     std::string identity,
     std::string sdp,
     std::string type
   )
-      : m_signaling_client(signaling_client), m_event_queue(event_queue),
+      : m_signaling_client(signaling_client),
+        m_event_queue(event_queue),
         m_subscription_remover(event_queue->internal_queue()),
         m_peer_connection(
           std::make_shared<rtc::PeerConnection>(rtc::Configuration())
         ),
-        m_peer_type(PeerType::Unknown), m_peer_state(PeerState::Unknown),
+        m_peer_type(PeerType::Unknown),
+        m_peer_state(PeerState::Unknown),
         m_identity(std::move(identity)) {
 
     m_peer_connection->onLocalCandidate(

@@ -98,8 +98,8 @@ namespace krapi {
     auto awaitable = m_event_queue->create_awaitable(peer);
 
     auto peer_connection = PeerConnection::create(
-      make_not_null(m_event_queue.get()),
-      make_not_null(m_signaling_client.get()),
+      m_event_queue,
+      m_signaling_client,
       peer
     );
 
@@ -133,8 +133,8 @@ namespace krapi {
       m_connection_map.emplace(
         message->sender_identity(),
         PeerConnection::create(
-          make_not_null(m_event_queue.get()),
-          make_not_null(m_signaling_client.get()),
+          m_event_queue,
+          m_signaling_client,
           message->sender_identity(),
           sdp,
           type
