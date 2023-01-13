@@ -62,12 +62,42 @@ concurrencpp::null_result initialize(
   }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   auto runtime = std::make_shared<concurrencpp::runtime>();
 
   auto worker = runtime->make_worker_thread_executor();
   auto event_loop = EventLoop::create(worker);
-  auto signaling_client = SignalingClient::create(event_loop->event_queue());
+
+  if (!std::filesystem::exists("wallets"))
+    std::filesystem::create_directory("wallets");
+
+
+  auto wallet_identity = std::string{argv[1]};
+  auto wallet_path = fmt::format("wallets/{}", wallet_identity);
+  auto retry_handler_path = fmt::format("{}/retryhandler", wallet_path);
+
+  auto signaling_client = SignalingClient::create(
+    wallet_identity,
+    event_loop->event_queue()
+  );
+  auto wallet = Wallet::create(
+    wallet_path,
+    event_loop->event_queue()
+  );
+
+  auto manager = PeerManager::create(
+    worker,
+    event_loop->event_queue(),
+    RetryHandler::create(
+      runtime->thread_executor(),
+      retry_handler_path,
+      event_loop->event_queue()
+    ),
+    signaling_client,
+    PeerType::Light,
+    PeerState::Open
+  );
+
   event_loop->append_listener(
     InternalNotificationType::SignalingServerClosed,
     [=](Event) {
@@ -75,17 +105,6 @@ int main() {
       event_loop->end();
     }
   );
-  auto manager = PeerManager::create(
-    worker,
-    event_loop->event_queue(),
-    signaling_client,
-    PeerType::Light,
-    PeerState::Open
-  );
-  auto wallet = Wallet::create(
-    event_loop->event_queue()
-  );
-
   initialize(
     {},
     runtime->thread_executor(),

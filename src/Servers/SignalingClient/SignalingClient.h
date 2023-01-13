@@ -14,7 +14,7 @@ namespace krapi {
   class SignalingClient {
 
    public:
-    explicit SignalingClient(EventQueuePtr);
+    explicit SignalingClient(std::string, EventQueuePtr);
 
     [[nodiscard]] std::string identity() const noexcept;
 

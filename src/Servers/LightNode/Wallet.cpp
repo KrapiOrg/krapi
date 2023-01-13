@@ -2,6 +2,7 @@
 // Created by mythi on 18/11/22.
 //
 
+#include "Helpers.h"
 #include "fmt/format.h"
 #include "spdlog/spdlog.h"
 #include <chrono>
@@ -16,9 +17,7 @@ namespace krapi {
   Transaction
   Wallet::create_transaction(std::string my_id, std::string receiver_id) {
     CryptoPP::SHA256 sha_256;
-    auto timestamp = (uint64_t
-    ) duration_cast<microseconds>(system_clock::now().time_since_epoch())
-                       .count();
+    auto timestamp = get_krapi_timestamp();
 
     std::string tx_hash;
     StringSource s(

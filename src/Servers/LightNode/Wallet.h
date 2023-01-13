@@ -79,11 +79,13 @@ namespace krapi {
     }
 
     static std::shared_ptr<Wallet> create(
+      std::string wallet_path,
       EventQueuePtr event_queue
     ) {
 
       return std::shared_ptr<Wallet>(
         new Wallet(
+          std::move(wallet_path),
           std::move(event_queue)
         )
       );
@@ -94,15 +96,14 @@ namespace krapi {
    private:
     eventpp::ScopedRemover<EventQueueType> m_remover;
 
-    Wallet(EventQueuePtr event_queue)
+    Wallet(
+      std::string wallet_path,
+      EventQueuePtr event_queue
+    )
         : m_remover(event_queue->internal_queue()) {
-      auto wallet_name = PeerMessage::create_tag();
 
-      if(!std::filesystem::exists("wallets"))
-        std::filesystem::create_directory("wallets");
-
-      auto wallet_path = fmt::format("wallets/{}", wallet_name);
-      std::filesystem::create_directory(wallet_path);
+      if (!std::filesystem::exists(wallet_path))
+        std::filesystem::create_directory(wallet_path);
 
       if (!initialize(wallet_path)) {
         spdlog::error("Faield to open wallet database!");

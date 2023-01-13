@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include "Helpers.h"
 #include "nlohmann/json.hpp"
 #include "uuid.h"
+#include <cstdint>
 #include <unordered_set>
 #include <utility>
 
@@ -111,6 +113,7 @@ namespace krapi {
     std::string m_receiver_identity;
     std::string m_tag;
     nlohmann::json m_content;
+    uint64_t m_timestamp;
 
    public:
     explicit PeerMessage(
@@ -120,9 +123,29 @@ namespace krapi {
       std::string tag,
       nlohmann::json content = {}
     )
-        : m_type(type), m_sender_identity(std::move(sender_identity)),
+        : m_type(type),
+          m_sender_identity(std::move(sender_identity)),
           m_receiver_identity(std::move(receiver_identity)),
-          m_tag(std::move(tag)), m_content(std::move(content)) {}
+          m_tag(std::move(tag)),
+          m_content(std::move(content)),
+          m_timestamp(get_krapi_timestamp()) {
+    }
+
+    explicit PeerMessage(
+      PeerMessageType type,
+      std::string sender_identity,
+      std::string receiver_identity,
+      std::string tag,
+      uint64_t timestamp,
+      nlohmann::json content = {}
+    )
+        : m_type(type),
+          m_sender_identity(std::move(sender_identity)),
+          m_receiver_identity(std::move(receiver_identity)),
+          m_tag(std::move(tag)),
+          m_content(std::move(content)),
+          m_timestamp(timestamp) {
+    }
 
     template<typename... UU>
     static Box<PeerMessage> create(UU &&...params) {
@@ -130,7 +153,9 @@ namespace krapi {
       return make_box<PeerMessage>(std::forward<UU>(params)...);
     }
 
-    [[nodiscard]] PeerMessageType type() const { return m_type; }
+    [[nodiscard]] PeerMessageType type() const {
+      return m_type;
+    }
 
     [[nodiscard]] std::string sender_identity() const {
 
@@ -142,9 +167,13 @@ namespace krapi {
       return m_receiver_identity;
     }
 
-    [[nodiscard]] std::string tag() const { return m_tag; }
+    [[nodiscard]] std::string tag() const {
+      return m_tag;
+    }
 
-    [[nodiscard]] nlohmann::json content() const { return m_content; }
+    [[nodiscard]] nlohmann::json content() const {
+      return m_content;
+    }
 
     [[nodiscard]] nlohmann::json to_json() const {
 
@@ -153,12 +182,17 @@ namespace krapi {
         {"sender_identity", m_sender_identity},
         {"receiver_identity", m_receiver_identity},
         {"tag", m_tag},
-        {"content", m_content}};
+        {"content", m_content},
+        {"timestamp", m_timestamp}};
     }
 
     [[nodiscard]] inline std::string to_string() const {
 
       return to_json().dump();
+    }
+
+    uint64_t timestamp() const {
+      return m_timestamp;
     }
 
     static std::string create_tag() {
@@ -173,6 +207,7 @@ namespace krapi {
         json["sender_identity"].get<std::string>(),
         json["receiver_identity"].get<std::string>(),
         json["tag"].get<std::string>(),
+        json["timestamp"].get<uint64_t>(),
         json["content"].get<nlohmann::json>()
       );
     }

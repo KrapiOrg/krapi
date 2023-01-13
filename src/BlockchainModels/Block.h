@@ -60,6 +60,10 @@ namespace krapi {
       }
     }
 
+    std::string tag() const {
+      return m_header.m_hash;
+    }
+
    private:
     BlockHeader m_header;
     Transactions m_transactions;

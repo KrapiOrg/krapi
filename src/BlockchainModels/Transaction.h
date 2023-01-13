@@ -80,6 +80,10 @@ namespace krapi {
 
     void set_status(TransactionStatus) const;
 
+    std::string tag() const {
+      return m_hash;
+    }
+
    private:
     TransactionType m_type;
     mutable TransactionStatus m_status;

@@ -6,6 +6,7 @@
 #include "InternalMessage.h"
 #include "InternalNotification.h"
 #include "SignalingMessage.h"
+#include "nlohmann/json_fwd.hpp"
 #include "spdlog/spdlog.h"
 
 #include <thread>
@@ -16,10 +17,14 @@ using namespace std::chrono_literals;
 #include "uuid.h"
 
 namespace krapi {
-  SignalingClient::SignalingClient(EventQueuePtr event_queue)
+  SignalingClient::SignalingClient(
+    std::string identity,
+    EventQueuePtr event_queue
+  )
       : m_event_queue(event_queue),
-        m_subscription_remover(event_queue->internal_queue()),
-        m_ws(std::make_unique<rtc::WebSocket>()) {
+        m_ws(std::make_unique<rtc::WebSocket>()),
+        m_identity(std::move(identity)),
+        m_subscription_remover(event_queue->internal_queue()) {
   }
 
   concurrencpp::result<void> SignalingClient::initialize() {
@@ -62,15 +67,14 @@ namespace krapi {
       *m_ws->remoteAddress()
     );
 
-    auto event = co_await m_event_queue->submit<InternalMessage<SignalingMessage>>(
+    co_await m_event_queue->submit<InternalMessage<SignalingMessage>>(
       InternalMessageType::SendSignalingMessage,
-      SignalingMessageType::IdentityRequest,
-      "unknown_identity",
+      SignalingMessageType::SetIdentityRequest,
+      m_identity,
       "signaling_server",
-      SignalingMessage::create_tag()
+      SignalingMessage::create_tag(),
+      nlohmann::json(m_identity)
     );
-
-    m_identity = event.get<SignalingMessage>()->content().get<std::string>();
 
     spdlog::info("SignalingClient: identity {}", m_identity);
   }

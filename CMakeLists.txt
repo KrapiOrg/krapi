@@ -41,6 +41,7 @@ include_directories(src/BlockchainModels)
 include_directories(src/TransactionPool)
 include_directories(src/PeerManager)
 include_directories(src/Event)
+include_directories(src/RetryHandler)
 
 include(src/Utils/CMakeLists.txt)
 include(src/Servers/Signaling/CMakeLists.txt)

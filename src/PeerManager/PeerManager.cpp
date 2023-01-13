@@ -8,6 +8,7 @@
 #include "InternalNotification.h"
 #include "PeerMessage.h"
 #include "PeerState.h"
+#include "RetryHandler.h"
 #include "eventpp/utilities/scopedremover.h"
 #include "nlohmann/json_fwd.hpp"
 #include "rtc/description.hpp"
@@ -28,13 +29,17 @@ namespace krapi {
   PeerManager::PeerManager(
     std::shared_ptr<concurrencpp::worker_thread_executor> worker,
     EventQueuePtr event_queue,
+    RetryHandlerPtr retry_handler,
     SignalingClientPtr signaling_client,
     PeerType pt,
     PeerState ps
   )
-      : m_worker(std::move(worker)), m_event_queue(event_queue),
+      : m_worker(std::move(worker)),
+        m_event_queue(event_queue),
+        m_retry_handler(std::move(retry_handler)),
         m_subscription_remover(event_queue->internal_queue()),
-        m_signaling_client(std::move(signaling_client)), m_peer_state(ps),
+        m_signaling_client(std::move(signaling_client)),
+        m_peer_state(ps),
         m_peer_type(pt) {
 
     m_subscription_remover.appendListener(
@@ -144,13 +149,11 @@ namespace krapi {
 
     m_event_queue->enqueue<InternalMessage<PeerMessage>>(
       InternalMessageType::SendPeerMessage,
-      PeerMessage::create(
-        PeerMessageType::PeerStateResponse,
-        m_signaling_client->identity(),
-        message->sender_identity(),
-        message->tag(),
-        m_peer_state
-      )
+      PeerMessageType::PeerStateResponse,
+      m_signaling_client->identity(),
+      message->sender_identity(),
+      message->tag(),
+      m_peer_state
     );
   }
 
@@ -173,28 +176,25 @@ namespace krapi {
 
     auto internal_message = event.get<InternalMessage<PeerMessage>>();
     auto message = internal_message->content();
-    auto resend = [this, message]() {
+
+    auto retry = [=, this]() {
       spdlog::error(
-        "{} to {} was not sent, re-enqueing",
+        "PeerManager: Failed to send {} to {}, adding to retry handler...",
         to_string(message->type()),
         message->receiver_identity()
       );
-      m_event_queue->enqueue<InternalMessage<PeerMessage>>(
-        InternalMessageType::SendPeerMessage,
-        std::move(message)
-      );
+      m_retry_handler->retry(*internal_message);
     };
-
-
     {
       m_lock.lock(m_worker).run().wait();
       if (!m_connection_map.contains(message->receiver_identity())) {
-        resend();
+
+        retry();
         return;
       }
       if (!m_connection_map[message->receiver_identity()]->send_and_forget(message)) {
 
-        resend();
+        retry();
       }
     }
   }

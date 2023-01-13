@@ -13,8 +13,8 @@ namespace krapi {
     DEFAULT,
     AvailablePeersRequest,
     AvailablePeersResponse,
-    IdentityRequest,
-    IdentityResponse,
+    SetIdentityRequest,
+    SetIdentityResponse,
     Acknowledgement,
     PeerAvailable,
     RTCSetup,
@@ -27,8 +27,8 @@ namespace krapi {
     {{SignalingMessageType::DEFAULT, "default"},
      {SignalingMessageType::AvailablePeersRequest, "available_peers_request"},
      {SignalingMessageType::AvailablePeersResponse, "available_peers_response"},
-     {SignalingMessageType::IdentityRequest, "identity_request"},
-     {SignalingMessageType::IdentityResponse, "identity_response"},
+     {SignalingMessageType::SetIdentityRequest, "set_identity_request"},
+     {SignalingMessageType::SetIdentityResponse, "set_identity_response"},
      {SignalingMessageType::PeerAvailable, "peer_available"},
      {SignalingMessageType::RTCSetup, "rtc_setup"},
      {SignalingMessageType::RTCCandidate, "rtc_candidate"},
@@ -44,10 +44,10 @@ namespace krapi {
         return "available_peers_request";
       case SignalingMessageType::AvailablePeersResponse:
         return "available_peers_response";
-      case SignalingMessageType::IdentityRequest:
-        return "identity_request";
-      case SignalingMessageType::IdentityResponse:
-        return "identity_response";
+      case SignalingMessageType::SetIdentityRequest:
+        return "set_identity_request";
+      case SignalingMessageType::SetIdentityResponse:
+        return "set_identity_response";
       case SignalingMessageType::Acknowledgement:
         return "acknowledgement";
       case SignalingMessageType::PeerAvailable:

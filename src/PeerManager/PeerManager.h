@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "RetryHandler.h"
 #include "concurrencpp/concurrencpp.h"
 #include "eventpp/eventdispatcher.h"
 #include "nlohmann/json_fwd.hpp"
@@ -32,18 +33,22 @@ namespace krapi {
     [[nodiscard]] static inline std::shared_ptr<PeerManager> create(
       std::shared_ptr<concurrencpp::worker_thread_executor> worker,
       EventQueuePtr event_queue,
+      RetryHandlerPtr retry_handler,
       SignalingClientPtr signaling_client,
       PeerType pt,
       PeerState ps = PeerState::Closed
     ) {
 
-      return std::shared_ptr<PeerManager>(new PeerManager(
-        std::move(worker),
-        std::move(event_queue),
-        std::move(signaling_client),
-        pt,
-        ps
-      ));
+      return std::shared_ptr<PeerManager>(
+        new PeerManager(
+          std::move(worker),
+          std::move(event_queue),
+          std::move(retry_handler),
+          std::move(signaling_client),
+          pt,
+          ps
+        )
+      );
     }
 
     void set_state(PeerState state);
@@ -108,12 +113,14 @@ namespace krapi {
     explicit PeerManager(
       std::shared_ptr<concurrencpp::worker_thread_executor>,
       EventQueuePtr,
+      RetryHandlerPtr,
       SignalingClientPtr,
       PeerType,
       PeerState
     );
 
     EventQueuePtr m_event_queue;
+    RetryHandlerPtr m_retry_handler;
     SignalingClientPtr m_signaling_client;
     concurrencpp::async_lock m_lock;
     std::shared_ptr<concurrencpp::worker_thread_executor> m_worker;

@@ -7,6 +7,7 @@
 #include "Block.h"
 #include "Blockchain.h"
 #include "EventQueue.h"
+#include "Helpers.h"
 #include "InternalNotification.h"
 #include "PeerManager.h"
 #include "PeerMessage.h"
@@ -63,12 +64,9 @@ namespace krapi {
       }
       return tree.root().to_string(32, false);
     };
-    auto get_timestamp = []() -> uint64_t {
-      return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    };
 
     auto merkle_root = get_merkle_root();
-    auto timestamp = get_timestamp();
+    auto timestamp = get_krapi_timestamp();
 
     uint64_t nonce = 0;
     while (true) {
@@ -81,7 +79,7 @@ namespace krapi {
         new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
       );
 
-      if (block_hash.starts_with("00000")) {
+      if (block_hash.starts_with("00000") && block_hash < previous_hash) {
 
         co_return Block(
           BlockHeader{

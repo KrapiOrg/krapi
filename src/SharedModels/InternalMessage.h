@@ -4,12 +4,16 @@
 
 #pragma once
 
+#include "Concepts.h"
+#include "Helpers.h"
 #include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 #include "uuid.h"
 
 #include "Box.h"
 #include "PeerMessage.h"
 #include "SignalingMessage.h"
+#include <cstdint>
 #include <utility>
 
 namespace krapi {
@@ -20,6 +24,17 @@ namespace krapi {
     RequestStateOf,
     WaitForDataChannelOpen
   };
+
+  NLOHMANN_JSON_SERIALIZE_ENUM(
+    InternalMessageType,
+    {
+      {InternalMessageType::SendSignalingMessage, "send_signaling_message"},
+      {InternalMessageType::SendPeerMessage, "send_peer_message"},
+      {InternalMessageType::RequestTypeOf, "request_type_of"},
+      {InternalMessageType::RequestStateOf, "request_state_of"},
+      {InternalMessageType::WaitForDataChannelOpen, "wait_for_datachannel_open"},
+    }
+  )
 
   inline std::string to_string(InternalMessageType type) {
 
@@ -40,6 +55,7 @@ namespace krapi {
   template<typename T>
   concept InternalMessageContentConcept = requires(T) {
     std::is_same_v<T, SignalingMessage> || std::is_same_v<T, PeerMessage>;
+    ConvertableToJson<T>;
   };
 
   template<InternalMessageContentConcept T>
@@ -52,7 +68,8 @@ namespace krapi {
       ContentArgs &&...content_args
     )
         : m_type(type),
-          m_content(T::create(std::forward<ContentArgs>(content_args)...)) {
+          m_content(T::create(std::forward<ContentArgs>(content_args)...)),
+          m_timestamp(get_krapi_timestamp()) {
     }
 
     explicit InternalMessage(
@@ -60,12 +77,24 @@ namespace krapi {
       Box<T> content
     )
         : m_type(type),
-          m_content(std::move(content)) {
+          m_content(std::move(content)),
+          m_timestamp(get_krapi_timestamp()) {
+    }
+
+    explicit InternalMessage(
+      InternalMessageType type,
+      Box<T> content,
+      uint64_t timestamp
+    )
+        : m_type(type),
+          m_content(std::move(content)),
+          m_timestamp(timestamp) {
     }
 
 
     explicit InternalMessage(InternalMessageType type)
-        : m_type(type) {
+        : m_type(type),
+          m_timestamp(get_krapi_timestamp()) {
     }
 
     template<typename... Args>
@@ -98,8 +127,42 @@ namespace krapi {
       return std::visit([](auto &&m) { return m->to_string(); }, *m_content);
     }
 
+    uint64_t timestamp() const {
+      return m_timestamp;
+    }
+
+    nlohmann::json to_json() const {
+      return {
+        {"type", nlohmann::json(m_type)},
+        {"content", m_content->to_json()},
+        {"timestamp", m_timestamp}};
+    }
+
+    int retry_count() const {
+
+      return m_retry_count;
+    }
+
+    void increament_retry_count() const {
+      m_retry_count++;
+    }
+
+    void reset_retry_count() const {
+      m_retry_count = 0;
+    }
+
+    static InternalMessage<T> from_json(nlohmann::json json) {
+      return InternalMessage(
+        json["type"].get<InternalMessageType>(),
+        T::from_json(json["content"]),
+        json["timestamp"].get<uint64_t>()
+      );
+    }
+
    private:
     InternalMessageType m_type;
     Box<T> m_content;
+    uint64_t m_timestamp;
+    mutable int m_retry_count{0};
   };
 }// namespace krapi
