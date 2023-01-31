@@ -30,7 +30,11 @@ namespace krapi {
     BlockAccepted,
     GetLastBlockRequest,
     GetLastBlockResponse,
-    SyncPoolRequest
+    SyncPoolRequest,
+    TransactionsInRequest,
+    TransactionsInResponse,
+    TransactionsOutRequest,
+    TransactionsOutResponse,
   };
 
   NLOHMANN_JSON_SERIALIZE_ENUM(
@@ -53,7 +57,11 @@ namespace krapi {
      {PeerMessageType::BlockAccepted, "block_accepted"},
      {PeerMessageType::GetLastBlockRequest, "get_last_block_request"},
      {PeerMessageType::GetLastBlockResponse, "get_last_block_response"},
-     {PeerMessageType::SyncPoolRequest, "sync_pool_request"}}
+     {PeerMessageType::SyncPoolRequest, "sync_pool_request"},
+     {PeerMessageType::TransactionsInRequest, "transactions_in_request"},
+     {PeerMessageType::TransactionsInResponse, "transactions_in_response"},
+     {PeerMessageType::TransactionsOutRequest, "transactions_out_request"},
+     {PeerMessageType::TransactionsOutResponse, "transactions_out_response"}}
   )
 
   inline std::string to_string(PeerMessageType type) {
@@ -97,6 +105,14 @@ namespace krapi {
         return "get_last_block_response";
       case PeerMessageType::SyncPoolRequest:
         return "sync_pool_request";
+      case PeerMessageType::TransactionsInRequest:
+        return "transactions_in_request";
+      case PeerMessageType::TransactionsInResponse:
+        return "transactions_in_response";
+      case PeerMessageType::TransactionsOutRequest:
+        return "transactions_out_request";
+      case PeerMessageType::TransactionsOutResponse:
+        return "transactions_out_response";
       case PeerMessageType::DEFAULT:
         return "default";
     }

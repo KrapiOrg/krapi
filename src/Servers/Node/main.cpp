@@ -158,7 +158,10 @@ int main(int argc, char *argv[]) {
   auto retry_handler_path = fmt::format("{}/retryhandler", path);
 
   auto transaction_pool = TransactionPool::create(pool_path);
-  auto spent_transactions_store = SpentTransactionsStore::create(store_path);
+  auto spent_transactions_store = SpentTransactionsStore::create(
+    store_path,
+    event_loop->event_queue()
+  );
   auto blockchain = Blockchain::from_path(path);
 
   auto signaling_client = SignalingClient::create(
