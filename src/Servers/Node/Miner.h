@@ -62,11 +62,11 @@ namespace krapi {
     };
 
     auto merkle_root = get_merkle_root();
-    auto timestamp = get_krapi_timestamp();
 
     uint64_t nonce = 0;
     while (true) {
 
+      auto timestamp = get_krapi_timestamp();
       auto block_hash = std::string{};
 
       StringSource s2(
