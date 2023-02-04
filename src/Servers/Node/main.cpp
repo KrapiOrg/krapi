@@ -3,16 +3,21 @@
 #include "InternalNotification.h"
 #include "Miner.h"
 #include "PeerManager.h"
+#include "PeerMessage.h"
+#include "PeerType.h"
 #include "SignalingClient.h"
 #include "SpentTransactionsStore.h"
 #include "TransactionPoolManager.h"
 #include "fmt/core.h"
+#include "spdlog/spdlog.h"
 #include <concurrencpp/runtime/runtime.h>
+#include <cstdint>
 #include <filesystem>
+#include <string>
+#include <unordered_map>
 
 using namespace krapi;
 using namespace std::chrono_literals;
-
 
 concurrencpp::result<std::pair<std::vector<BlockHeader>, std::string>> request_headers(
   PeerManagerPtr manager,
@@ -110,8 +115,15 @@ concurrencpp::null_result initial_block_download(
 
   auto last_known_header = blockchain->last().header();
 
+  spdlog::info("Waiting for a full node to connect");
+
   auto peers =
-    co_await manager->wait_for_peers(executor, 1, {PeerType::Full}, {PeerState::Open});
+    co_await manager->wait_for_peers(
+      executor,
+      1,
+      {PeerType::Full},
+      {PeerState::Open}
+    );
 
   spdlog::info("Requesting headers from {}", fmt::join(peers, ", "));
 
@@ -158,10 +170,7 @@ int main(int argc, char *argv[]) {
   auto retry_handler_path = fmt::format("{}/retryhandler", path);
 
   auto transaction_pool = TransactionPool::create(pool_path);
-  auto spent_transactions_store = SpentTransactionsStore::create(
-    store_path,
-    event_loop->event_queue()
-  );
+  auto spent_transactions_store = SpentTransactionsStore::create(store_path);
   auto blockchain = Blockchain::from_path(path);
 
   auto signaling_client = SignalingClient::create(
@@ -211,6 +220,91 @@ int main(int argc, char *argv[]) {
       spdlog::warn("Signaling Server Closed...");
       transaction_pool->end(PoolEndReason::SignalingClosed);
       event_loop->end();
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::ControlOperateBetween,
+    [&](Event e) {
+      auto peer_message = e.get<PeerMessage>();
+      auto begin = peer_message->content()["begin"].get<uint64_t>();
+      auto end = peer_message->content()["end"].get<uint64_t>();
+      spdlog::info("Control Requested to operate Between {} and {}", begin, end);
+      std::unordered_map<std::string, int> results;
+      for (auto block: blockchain->data()) {
+        auto transactions = block.transactions();
+        for (auto transaction: transactions) {
+          if (transaction.timestamp() >= begin && transaction.timestamp() <= end) {
+            spdlog::info("TX#{}, {}", transaction.contrived_hash(), transaction.timestamp());
+            results[transaction.to()]++;
+          }
+        }
+      }
+
+      manager->broadcast_to_peers_of_type_and_forget(
+        runtime->thread_executor(),
+        {PeerType::Light},
+        PeerMessageType::ControlResult,
+        nlohmann::json(results)
+      );
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::TransactionsInRequest,
+    [=](Event e) {
+      auto peer_message = e.get<PeerMessage>();
+      auto identity = peer_message->content().get<std::string>();
+
+      auto counter = 0;
+
+      for (auto transaction: transaction_pool->data()) {
+        if (transaction.to() == identity)
+          counter++;
+      }
+      for (auto transaction: spent_transactions_store->data()) {
+        if (transaction.to() == identity)
+          counter++;
+      }
+
+      event_loop->event_queue()->enqueue<InternalMessage<PeerMessage>>(
+        InternalMessageType::SendPeerMessage,
+        PeerMessageType::TransactionsInResponse,
+        peer_message->receiver_identity(),
+        peer_message->sender_identity(),
+        peer_message->tag(),
+        nlohmann::json(counter)
+      );
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::TransactionsOutRequest,
+    [=](Event e) {
+      auto peer_message = e.get<PeerMessage>();
+      spdlog::info(
+        "SpentTransactionStore: {} transactions spent request",
+        peer_message->sender_identity()
+      );
+      auto identity = peer_message->content().get<std::string>();
+
+      auto counter = 0;
+      for (auto transaction: transaction_pool->data()) {
+        if (transaction.from() == identity)
+          counter++;
+      }
+      spdlog::info(
+        "Replying With {}",
+        counter
+      );
+      event_loop->event_queue()->enqueue<InternalMessage<PeerMessage>>(
+        InternalMessageType::SendPeerMessage,
+        PeerMessageType::TransactionsOutResponse,
+        peer_message->receiver_identity(),
+        peer_message->sender_identity(),
+        peer_message->tag(),
+        nlohmann::json(counter)
+      );
     }
   );
 

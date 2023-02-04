@@ -102,5 +102,22 @@
             "problemMatcher": [],
             "detail": "CMake build task for light node with delay"
         },
+        {
+            "type": "cmake",
+            "label": "build-control",
+            "command": "build",
+            "targets": [
+                "control_node"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake build task for control node"
+        },
     ]
 }

@@ -62,11 +62,11 @@ namespace krapi {
     };
 
     auto merkle_root = get_merkle_root();
+    auto timestamp = get_krapi_timestamp();
 
     uint64_t nonce = 0;
     while (true) {
 
-      auto timestamp = get_krapi_timestamp();
       auto block_hash = std::string{};
 
       StringSource s2(
@@ -75,7 +75,7 @@ namespace krapi {
         new HashFilter(sha_256, new HexEncoder(new StringSink(block_hash)))
       );
 
-      if (block_hash.starts_with("00000") && block_hash < previous_hash) {
+      if (block_hash.starts_with("0000") && block_hash < previous_hash) {
 
         co_return Block(
           BlockHeader{

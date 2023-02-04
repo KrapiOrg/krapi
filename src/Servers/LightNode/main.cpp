@@ -5,6 +5,7 @@
 #include "SignalingClient.h"
 #include "Transaction.h"
 #include "Wallet.h"
+#include "fmt/core.h"
 #include "fmt/format.h"
 #include "spdlog/spdlog.h"
 #include <concurrencpp/executors/thread_executor.h>
@@ -12,8 +13,10 @@
 #include <concurrencpp/results/result_fwd_declarations.h>
 #include <concurrencpp/runtime/runtime.h>
 #include <concurrencpp/timers/timer_queue.h>
+#include <cstdint>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 using namespace krapi;
 using namespace std::chrono_literals;
 
@@ -103,6 +106,41 @@ int main(int argc, char *argv[]) {
     [=](Event) {
       spdlog::warn("Signaling Server Closed...");
       event_loop->end();
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::ControlIsStartingPing,
+    [](Event e) {
+      auto peer_message = e.get<PeerMessage>();
+      
+      spdlog::info("Control is Starting!");
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::ControlStarted,
+    [](Event e) {
+      spdlog::info("Control Started!");
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::ControlStopped,
+    [](Event e) {
+      spdlog::info("Control Stopped!");
+    }
+  );
+
+  event_loop->append_listener(
+    PeerMessageType::ControlResult,
+    [](Event e) {
+      auto peer_message = e.get<PeerMessage>();
+      auto results = peer_message->content().get<std::unordered_map<std::string, uint64_t>>();
+      spdlog::info("Control Results...");
+      for (auto [key, val]: results) {
+        spdlog::info("{} scored {}", key, val);
+      }
     }
   );
   initialize(

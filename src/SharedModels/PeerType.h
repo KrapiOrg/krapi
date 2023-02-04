@@ -7,6 +7,7 @@ namespace krapi {
     Light,
     Full,
     Observer,
+    Control,
     Unknown
   };
 
@@ -15,6 +16,7 @@ namespace krapi {
     {{PeerType::Full, "full"},
      {PeerType::Light, "light"},
      {PeerType::Observer, "observer"},
+     {PeerType::Control, "control"},
      {PeerType::Unknown, "unknown"}}
   )
 
@@ -22,6 +24,7 @@ namespace krapi {
 
     if (type == PeerType::Full) return "full";
     if (type == PeerType::Light) return "light";
+    if (type == PeerType::Control) return "control";
     if (type == PeerType::Observer) return "observer";
 
     return "unknown";

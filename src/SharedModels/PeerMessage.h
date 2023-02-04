@@ -35,33 +35,51 @@ namespace krapi {
     TransactionsInResponse,
     TransactionsOutRequest,
     TransactionsOutResponse,
+    ControlIsStartingPing,
+    ControlIsEndingPing,
+    ControlStarted,
+    ControlStopped,
+    ControlOperateBetween,
+    ControlResult,
+    IsControlStartedRequest,
+    IsControlStartedResponse,
   };
 
   NLOHMANN_JSON_SERIALIZE_ENUM(
     PeerMessageType,
-    {{PeerMessageType::PeerTypeRequest, "peer_type_request"},
-     {PeerMessageType::PeerTypeResponse, "peer_type_response"},
-     {PeerMessageType::AddTransaction, "add_transaction"},
-     {PeerMessageType::RemoveTransactions, "remove_transactions"},
-     {PeerMessageType::SetTransactionStatus, "set_transaction_status"},
-     {PeerMessageType::BlockHeadersRequest, "block_headers_request"},
-     {PeerMessageType::BlockHeadersResponse, "block_headers_response"},
-     {PeerMessageType::BlockRequest, "block_request"},
-     {PeerMessageType::BlockResponse, "block_response"},
-     {PeerMessageType::BlockNotFoundResponse, "block_not_found_response"},
-     {PeerMessageType::PeerStateRequest, "peer_state_request"},
-     {PeerMessageType::PeerStateResponse, "peer_state_response"},
-     {PeerMessageType::PeerStateUpdate, "peer_state_update"},
-     {PeerMessageType::AddBlock, "add_block"},
-     {PeerMessageType::BlockRejected, "block_rejected"},
-     {PeerMessageType::BlockAccepted, "block_accepted"},
-     {PeerMessageType::GetLastBlockRequest, "get_last_block_request"},
-     {PeerMessageType::GetLastBlockResponse, "get_last_block_response"},
-     {PeerMessageType::SyncPoolRequest, "sync_pool_request"},
-     {PeerMessageType::TransactionsInRequest, "transactions_in_request"},
-     {PeerMessageType::TransactionsInResponse, "transactions_in_response"},
-     {PeerMessageType::TransactionsOutRequest, "transactions_out_request"},
-     {PeerMessageType::TransactionsOutResponse, "transactions_out_response"}}
+    {
+      {PeerMessageType::PeerTypeRequest, "peer_type_request"},
+      {PeerMessageType::PeerTypeResponse, "peer_type_response"},
+      {PeerMessageType::AddTransaction, "add_transaction"},
+      {PeerMessageType::RemoveTransactions, "remove_transactions"},
+      {PeerMessageType::SetTransactionStatus, "set_transaction_status"},
+      {PeerMessageType::BlockHeadersRequest, "block_headers_request"},
+      {PeerMessageType::BlockHeadersResponse, "block_headers_response"},
+      {PeerMessageType::BlockRequest, "block_request"},
+      {PeerMessageType::BlockResponse, "block_response"},
+      {PeerMessageType::BlockNotFoundResponse, "block_not_found_response"},
+      {PeerMessageType::PeerStateRequest, "peer_state_request"},
+      {PeerMessageType::PeerStateResponse, "peer_state_response"},
+      {PeerMessageType::PeerStateUpdate, "peer_state_update"},
+      {PeerMessageType::AddBlock, "add_block"},
+      {PeerMessageType::BlockRejected, "block_rejected"},
+      {PeerMessageType::BlockAccepted, "block_accepted"},
+      {PeerMessageType::GetLastBlockRequest, "get_last_block_request"},
+      {PeerMessageType::GetLastBlockResponse, "get_last_block_response"},
+      {PeerMessageType::SyncPoolRequest, "sync_pool_request"},
+      {PeerMessageType::TransactionsInRequest, "transactions_in_request"},
+      {PeerMessageType::TransactionsInResponse, "transactions_in_response"},
+      {PeerMessageType::TransactionsOutRequest, "transactions_out_request"},
+      {PeerMessageType::TransactionsOutResponse, "transactions_out_response"},
+      {PeerMessageType::ControlIsStartingPing, "control_is_starting_ping"},
+      {PeerMessageType::ControlIsEndingPing, "control_is_ending_ping"},
+      {PeerMessageType::ControlStarted, "control_started"},
+      {PeerMessageType::ControlStopped, "control_stopped"},
+      {PeerMessageType::ControlOperateBetween, "control_operate_between"},
+      {PeerMessageType::ControlResult, "control_result"},
+      {PeerMessageType::IsControlStartedRequest, "is_control_started_request"},
+      {PeerMessageType::IsControlStartedResponse, "is_control_started_response"},
+    }
   )
 
   inline std::string to_string(PeerMessageType type) {
@@ -113,6 +131,22 @@ namespace krapi {
         return "transactions_out_request";
       case PeerMessageType::TransactionsOutResponse:
         return "transactions_out_response";
+      case PeerMessageType::ControlIsStartingPing:
+        return "control_is_starting_ping";
+      case PeerMessageType::ControlIsEndingPing:
+        return "control_is_ending_ping";
+      case PeerMessageType::ControlStarted:
+        return "control_started";
+      case PeerMessageType::ControlStopped:
+        return "control_stopped";
+      case PeerMessageType::ControlOperateBetween:
+        return "control_operate_between";
+      case PeerMessageType::ControlResult:
+        return "control_operate_between";
+      case PeerMessageType::IsControlStartedRequest:
+        return "is_control_started_request";
+      case PeerMessageType::IsControlStartedResponse:
+        return "is_control_started_response";
       case PeerMessageType::DEFAULT:
         return "default";
     }

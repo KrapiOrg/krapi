@@ -11,14 +11,13 @@ namespace krapi {
 
   struct Validator {
 
-
     static ValidationState validate_header(BlockHeader last_block_header, Block block) {
 
       auto check_timestamp = [&]() {
         return block.header().timestamp() > last_block_header.timestamp();
       };
       auto check_proof_of_work = [&]() {
-        return block.header().hash().starts_with("00000");
+        return block.header().hash().starts_with("0000");
       };
       auto check_previous_hash = [&]() {
         return last_block_header.hash() == block.header().previous_hash();

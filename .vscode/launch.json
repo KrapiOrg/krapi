@@ -39,8 +39,17 @@
             "preLaunchTask": "build-light",
             "program": "cmake-build-debug/lightnode",
             "args": [
-                "wallet2"
+                "8xojxovlutwumw7"
             ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "launch-control",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "build-control",
+            "program": "cmake-build-debug/control_node",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
         },
