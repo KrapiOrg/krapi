@@ -41,7 +41,7 @@ namespace krapi {
       for (const auto &socket: m_sockets) {
 
         if (socket.get() != ws) {
-          spdlog::info("here2");
+
           socket->send(
             SignalingMessage(
               SignalingMessageType::PeerAvailable,

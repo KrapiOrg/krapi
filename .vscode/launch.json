@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "launch-signaling",
+            "name": "launch-signaling-debug",
             "type": "lldb",
             "request": "launch",
             "preLaunchTask": "build-signaling",
@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "launch-full",
+            "name": "launch-full-debug",
             "type": "lldb",
             "request": "launch",
             "program": "cmake-build-debug/node",
@@ -21,7 +21,7 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "launch-light1",
+            "name": "launch-light1-debug",
             "type": "lldb",
             "request": "launch",
             "preLaunchTask": "build-light",
@@ -33,7 +33,7 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "launch-light2",
+            "name": "launch-light2-debug",
             "type": "lldb",
             "request": "launch",
             "preLaunchTask": "build-light",
@@ -45,7 +45,7 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "launch-control",
+            "name": "launch-control-debug",
             "type": "lldb",
             "request": "launch",
             "preLaunchTask": "build-control",
