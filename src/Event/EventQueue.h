@@ -7,6 +7,7 @@
 #include "PromiseStore.h"
 
 #include "Block.h"
+#include "Concepts.h"
 #include "Event.h"
 #include "Overload.h"
 #include "Transaction.h"
@@ -23,9 +24,6 @@ namespace krapi {
 
   template<typename Message, typename MessageType>
   using AnyEventResult = std::pair<MessageType, Box<Message>>;
-
-  template<typename T>
-  concept has_create = requires(T) { T::create(); };
 
   class EventQueue : public std::enable_shared_from_this<EventQueue> {
 
@@ -45,7 +43,7 @@ namespace krapi {
       m_event_queue.enqueue(event_type, std::move(event));
     }
 
-    template<has_create T, typename... U>
+    template<HasCreate T, typename... U>
     void enqueue(U &&...params) {
 
       Event event = T::create(std::forward<U>(params)...);
@@ -59,7 +57,7 @@ namespace krapi {
       return m_promise_store.add(tag);
     }
 
-    template<has_create T, typename... U>
+    template<HasCreate T, typename... U>
     concurrencpp::shared_result<Event> submit(U &&...params) {
 
       Event event = T::create(std::forward<U>(params)...);

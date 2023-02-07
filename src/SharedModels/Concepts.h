@@ -19,4 +19,7 @@ namespace krapi {
     krapi::TaggableConcept<T>;
     { t.timestamp() } -> std::same_as<uint64_t>;
   };
+
+  template<typename T>
+  concept HasCreate = requires(T) { T::create(); };
 }// namespace krapi
